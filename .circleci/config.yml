@@ -1,0 +1,11 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/rust:latest
+
+    steps:
+      - checkout
+      - run:
+          name: Test
+          command: cargo test

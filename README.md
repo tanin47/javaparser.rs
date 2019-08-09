@@ -1,8 +1,11 @@
 Java parser written in Rust
 ----------------------------
 
-Our hand-written Java parser written in Rust/Nom supports Java 8 to 12. 
+[![CircleCI](https://circleci.com/gh/tanin47/javaparser.rs.svg?style=svg)](https://circleci.com/gh/tanin47/javaparser.rs)
+
+Our hand-written Java parser supports Java 8 to 12. 
 You can read about why we've decided to write a parser manually [here].
+
 
 Initially, [Lilit](https://lilit.dev)'s semantics engine was built with Scala/Java. 
 But, quickly enough, we have reached the limit in terms of memory footprint and computation time.
