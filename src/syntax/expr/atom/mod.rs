@@ -24,6 +24,7 @@ pub mod parenthesized;
 pub mod string;
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
+    let (input, _) = comment::parse(input)?;
     alt((
         number::parse,
         string::parse,
@@ -78,22 +79,21 @@ fn parse_lambda_or_parenthesized(original: Span) -> IResult<Span, Expr> {
 }
 
 fn parse_new_object_or_array(input: Span) -> IResult<Span, Expr> {
-    match type_args::parse(input) {
-        Ok((input, type_args)) => return new_object::parse_tail2(input, type_args),
-        Err(_) => (),
+    if let Ok((input, Some(type_args))) = type_args::parse(input) {
+        return new_object::parse_tail2(input, Some(type_args));
     }
 
-    let (input, _) = comment::parse(input)?;
     let (input, tpe) = tpe::parse_no_array(input)?;
+    // TODO: handle this.
+    let copied = tpe.clone();
 
-    let copied = unsafe { std::ptr::read(&tpe as *const _) };
-
-    match new_array::parse_tail(input, tpe) {
-        Ok((input, expr)) => Ok((input, expr)),
-        Err(_) => match copied {
+    if let Ok((input, expr)) = new_array::parse_tail(input, tpe) {
+        Ok((input, expr))
+    } else {
+        match copied {
             Type::Class(class) => new_object::parse_tail3(input, None, class),
             _ => Err(nom::Err::Error((input, ErrorKind::Tag))),
-        },
+        }
     }
 }
 

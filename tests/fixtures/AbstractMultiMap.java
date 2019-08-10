@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.common.collect;
+package fixtures;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

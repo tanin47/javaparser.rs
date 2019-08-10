@@ -1,5 +1,4 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{alphanumeric0, digit0, digit1};
 use nom::character::is_digit;
 use nom::combinator::{map, opt};
@@ -12,20 +11,21 @@ use syntax::tpe::type_args;
 use syntax::tree::{
     ArrayInitializer, ArrayType, ClassType, Expr, Int, NewArray, NewObject, Span, Type,
 };
-use syntax::{comment, expr, tpe};
+use syntax::{comment, expr, tag, tpe};
 
 fn parse_array_brackets<'a>(input: Span<'a>, tpe: Type<'a>) -> IResult<Span<'a>, Type<'a>> {
-    let (input, _) = comment::parse(input)?;
     let (input, _) = match tag("[")(input) as IResult<Span, Span> {
         Ok(result) => result,
         Err(_) => return Ok((input, tpe)),
     };
 
-    let (input, _) = comment::parse(input)?;
-    let (input, size_opt) = opt(digit1)(input)?;
-
-    let (input, _) = comment::parse(input)?;
-    let (input, _) = tag("]")(input)?;
+    let (input, size_opt) = if let Ok((input, _)) = tag("]")(input) {
+        (input, None)
+    } else {
+        let (input, size) = expr::parse(input)?;
+        let (input, _) = tag("]")(input)?;
+        (input, Some(Box::new(size)))
+    };
 
     let (input, inner) = parse_array_brackets(input, tpe)?;
 
@@ -70,12 +70,40 @@ mod tests {
     use super::parse;
     use syntax::tree::{
         ArrayInitializer, ArrayType, Block, ClassBody, ClassType, Expr, Int, LiteralString, Method,
-        NewArray, NewObject, PrimitiveType, ReturnStmt, Type, TypeArg,
+        Name, NewArray, NewObject, PrimitiveType, ReturnStmt, Type, TypeArg,
     };
     use test_common::{code, primitive, span};
 
     #[test]
-    fn test() {
+    fn test_array_class() {
+        assert_eq!(
+            parse(code(
+                r#"
+new Test[size]
+            "#
+                .trim()
+            )),
+            Ok((
+                span(1, 15, ""),
+                Expr::NewArray(NewArray {
+                    tpe: ArrayType {
+                        tpe: Box::new(Type::Class(ClassType {
+                            prefix_opt: None,
+                            name: span(1, 5, "Test"),
+                            type_args_opt: None
+                        })),
+                        size_opt: Some(Box::new(Expr::Name(Name {
+                            name: span(1, 10, "size")
+                        })))
+                    },
+                    initializer_opt: None
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn test_array_primitive() {
         assert_eq!(
             parse(code(
                 r#"
@@ -93,7 +121,9 @@ new int[2][]
                             })),
                             size_opt: None
                         })),
-                        size_opt: Some(span(1, 9, "2"))
+                        size_opt: Some(Box::new(Expr::Int(Int {
+                            value: span(1, 9, "2")
+                        })))
                     },
                     initializer_opt: None
                 })

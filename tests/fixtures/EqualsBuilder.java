@@ -5,7 +5,7 @@
 
 //NON-STANDARD LICENCE HEADER HERE - THAT'S OK
 //Class comes from Apache Commons Lang, added some tiny changes
-package org.mockito.internal.matchers.apachecommons;
+package fixtures;
 
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;

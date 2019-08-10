@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jooq.lambda;
+package fixtures;
 
 import static java.util.Comparator.comparing;
 import static org.jooq.lambda.Seq.seq;

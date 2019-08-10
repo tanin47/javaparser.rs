@@ -23,7 +23,7 @@
  *
  */
 
-package java.lang;
+package fixtures;
 
 /**
  * Class {@code Object} is the root of the class hierarchy.
@@ -79,7 +79,7 @@ public class Object {
    *     method, then calling the {@code hashCode} method on each of
    *     the two objects must produce the same integer result.
    * <li>It is <em>not</em> required that if two objects are unequal
-   *     according to the {@link java.lang.Object#equals(java.lang.Object)}
+   *     according to the {@link Object#equals(Object)}
    *     method, then calling the {@code hashCode} method on each of the
    *     two objects must produce distinct integer results.  However, the
    *     programmer should be aware that producing distinct integer results
@@ -94,7 +94,7 @@ public class Object {
    * Java&trade; programming language.)
    *
    * @return  a hash code value for this object.
-   * @see     java.lang.Object#equals(java.lang.Object)
+   * @see     Object#equals(Object)
    * @see     java.lang.System#identityHashCode
    */
   public native int hashCode();
@@ -265,8 +265,8 @@ public class Object {
    *
    * @throws  IllegalMonitorStateException  if the current thread is not
    *               the owner of this object's monitor.
-   * @see        java.lang.Object#notifyAll()
-   * @see        java.lang.Object#wait()
+   * @see        Object#notifyAll()
+   * @see        Object#wait()
    */
   public final native void notify();
 
@@ -289,15 +289,15 @@ public class Object {
    *
    * @throws  IllegalMonitorStateException  if the current thread is not
    *               the owner of this object's monitor.
-   * @see        java.lang.Object#notify()
-   * @see        java.lang.Object#wait()
+   * @see        Object#notify()
+   * @see        Object#wait()
    */
   public final native void notifyAll();
 
   /**
    * Causes the current thread to wait until either another thread invokes the
-   * {@link java.lang.Object#notify()} method or the
-   * {@link java.lang.Object#notifyAll()} method for this object, or a
+   * {@link Object#notify()} method or the
+   * {@link Object#notifyAll()} method for this object, or a
    * specified amount of time has elapsed.
    * <p>
    * The current thread must own this object's monitor.
@@ -376,15 +376,15 @@ public class Object {
    *             was waiting for a notification.  The <i>interrupted
    *             status</i> of the current thread is cleared when
    *             this exception is thrown.
-   * @see        java.lang.Object#notify()
-   * @see        java.lang.Object#notifyAll()
+   * @see        Object#notify()
+   * @see        Object#notifyAll()
    */
   public final native void wait(long timeout) throws InterruptedException;
 
   /**
    * Causes the current thread to wait until another thread invokes the
-   * {@link java.lang.Object#notify()} method or the
-   * {@link java.lang.Object#notifyAll()} method for this object, or
+   * {@link Object#notify()} method or the
+   * {@link Object#notifyAll()} method for this object, or
    * some other thread interrupts the current thread, or a certain
    * amount of real time has elapsed.
    * <p>
@@ -462,8 +462,8 @@ public class Object {
 
   /**
    * Causes the current thread to wait until another thread invokes the
-   * {@link java.lang.Object#notify()} method or the
-   * {@link java.lang.Object#notifyAll()} method for this object.
+   * {@link Object#notify()} method or the
+   * {@link Object#notifyAll()} method for this object.
    * In other words, this method behaves exactly as if it simply
    * performs the call {@code wait(0)}.
    * <p>
@@ -495,8 +495,8 @@ public class Object {
    *             was waiting for a notification.  The <i>interrupted
    *             status</i> of the current thread is cleared when
    *             this exception is thrown.
-   * @see        java.lang.Object#notify()
-   * @see        java.lang.Object#notifyAll()
+   * @see        Object#notify()
+   * @see        Object#notifyAll()
    */
   public final void wait() throws InterruptedException {
     wait(0);

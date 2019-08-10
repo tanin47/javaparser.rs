@@ -13,11 +13,13 @@ use syntax::tree::{
     Assigned, Assignment, BinaryOperation, Cast, Expr, FieldAccess, MethodCall,
     MethodReferencePrimary, Name, ReservedFieldAccess, Span, Type,
 };
-use syntax::{tag, tpe};
+use syntax::{comment, tag, tpe};
 
 pub mod atom;
 pub mod precedence_1;
+pub mod precedence_10;
 pub mod precedence_11;
+pub mod precedence_12;
 pub mod precedence_13;
 pub mod precedence_14;
 pub mod precedence_15;
@@ -25,11 +27,14 @@ pub mod precedence_16;
 pub mod precedence_2;
 pub mod precedence_3;
 pub mod precedence_4;
+pub mod precedence_5;
+pub mod precedence_6;
 pub mod precedence_7;
 pub mod precedence_8;
 pub mod precedence_9;
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
+    let (input, _) = comment::parse(input)?;
     if let Ok((input, tpe)) = tpe::parse(input) {
         if let Ok((input, _)) = peek(tag("::"))(input) {
             match tpe {
@@ -56,7 +61,7 @@ mod tests {
     use syntax::tree::{
         ArrayAccess, ArrayType, Assigned, Assignment, BinaryOperation, Boolean, Cast, ClassType,
         ConstructorReference, Expr, FieldAccess, Int, LiteralString, Method, MethodCall,
-        MethodReference, MethodReferencePrimary, Name, PrimitiveType, ReferenceType,
+        MethodReference, MethodReferencePrimary, Name, NewArray, PrimitiveType, ReferenceType,
         ReservedFieldAccess, ReturnStmt, Type, TypeArg,
     };
     use test_common::{code, span};

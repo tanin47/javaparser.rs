@@ -116,7 +116,7 @@ try (
                     },
                     resources: vec![
                         StandaloneVariableDeclarator {
-                            annotateds: vec![],
+                            modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(2, 3, "int")
                             }),
@@ -126,7 +126,7 @@ try (
                             }))
                         },
                         StandaloneVariableDeclarator {
-                            annotateds: vec![],
+                            modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(3, 3, "int")
                             }),

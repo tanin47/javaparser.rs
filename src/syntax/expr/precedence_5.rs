@@ -1,12 +1,12 @@
+use nom::bytes::complete::is_not;
 use nom::IResult;
-use syntax::expr::atom::{method_call, name};
-use syntax::expr::precedence_5;
+use syntax::expr::precedence_6;
+use syntax::tag_and_followed_by;
 use syntax::tree::{BinaryOperation, Expr, Span};
-use syntax::{comment, expr, tag};
 
 pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
-    if let Ok((input, operator)) = tag("&&")(input) {
-        let (input, right) = precedence_5::parse(input)?;
+    if let Ok((input, operator)) = tag_and_followed_by("|", is_not("|="))(input) {
+        let (input, right) = precedence_6::parse(input)?;
 
         let expr = Expr::BinaryOperation(BinaryOperation {
             left: Box::new(left),
@@ -21,6 +21,6 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr
 }
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
-    let (input, left) = precedence_5::parse(input)?;
+    let (input, left) = precedence_6::parse(input)?;
     parse_tail(left, input)
 }

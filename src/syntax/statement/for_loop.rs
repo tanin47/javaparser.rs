@@ -87,7 +87,7 @@ for(int a:list) a++;
                 span(1, 21, ""),
                 Statement::Foreach(Foreach {
                     declarator: StandaloneVariableDeclarator {
-                        annotateds: vec![],
+                        modifiers: vec![],
                         tpe: Type::Primitive(PrimitiveType {
                             name: span(1, 5, "int")
                         }),
@@ -124,7 +124,7 @@ for(int i=0;i<2;i++) x++;
                 span(1, 26, ""),
                 Statement::ForLoop(ForLoop {
                     inits: vec![Statement::VariableDeclarators(VariableDeclarators {
-                        annotateds: vec![],
+                        modifiers: vec![],
                         declarators: vec![VariableDeclarator {
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(1, 5, "int")

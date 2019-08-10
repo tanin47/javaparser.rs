@@ -8,6 +8,7 @@ use syntax::tree::Span;
 use syntax::tree::{Class, Comment};
 
 use nom::branch::alt;
+use nom::error::ErrorKind;
 use nom::multi::{many0, separated_list};
 use std::slice;
 
@@ -15,23 +16,24 @@ fn is_ending(c: char) -> bool {
     c == '\r' || c == '\n'
 }
 
-fn oneline_comment(input: Span) -> IResult<Span, Comment> {
-    let (input, _) = multispace0(input)?;
-    let (input, opening) = tag("//")(input)?;
-    let (input, body) = take_till(is_ending)(input)?;
+fn oneline_comment_prefix(input: Span) -> IResult<Span, Span> {
+    tag("//")(input)
+}
 
+fn oneline_comment_tail<'a>(input: Span<'a>, prefix: Span<'a>) -> IResult<Span<'a>, Comment<'a>> {
+    let (input, body) = take_till(is_ending)(input)?;
     let (input, _) = take_while(is_ending)(input)?;
 
     Ok((
         input,
         Comment {
             content: Span {
-                line: opening.line,
-                col: opening.col,
+                line: prefix.line,
+                col: prefix.col,
                 fragment: unsafe {
                     std::str::from_utf8(slice::from_raw_parts(
-                        opening.fragment.as_ptr(),
-                        opening.fragment.len() + body.fragment.len(),
+                        prefix.fragment.as_ptr(),
+                        prefix.fragment.len() + body.fragment.len(),
                     ))
                     .unwrap()
                 },
@@ -41,9 +43,11 @@ fn oneline_comment(input: Span) -> IResult<Span, Comment> {
     ))
 }
 
-fn multiline_comment(input: Span) -> IResult<Span, Comment> {
-    let (input, _) = multispace0(input)?;
-    let (input, opening) = tag("/*")(input)?;
+fn multiline_comment_prefix(input: Span) -> IResult<Span, Span> {
+    tag("/*")(input)
+}
+
+fn multiline_comment_tail<'a>(input: Span<'a>, prefix: Span<'a>) -> IResult<Span<'a>, Comment<'a>> {
     let (input, body) = take_until("*/")(input)?;
 
     let (input, ending) = tag("*/")(input)?;
@@ -52,12 +56,12 @@ fn multiline_comment(input: Span) -> IResult<Span, Comment> {
         input,
         Comment {
             content: Span {
-                line: opening.line,
-                col: opening.col,
+                line: prefix.line,
+                col: prefix.col,
                 fragment: unsafe {
                     std::str::from_utf8(slice::from_raw_parts(
-                        opening.fragment.as_ptr(),
-                        opening.fragment.len() + body.fragment.len() + ending.fragment.len(),
+                        prefix.fragment.as_ptr(),
+                        prefix.fragment.len() + body.fragment.len() + ending.fragment.len(),
                     ))
                     .unwrap()
                 },
@@ -67,8 +71,16 @@ fn multiline_comment(input: Span) -> IResult<Span, Comment> {
     ))
 }
 
-pub fn parse_comments(input: Span) -> IResult<Span, Vec<Comment>> {
-    many0(alt((oneline_comment, multiline_comment)))(input)
+fn parse_comment(input: Span) -> IResult<Span, Comment> {
+    let (input, _) = multispace0(input)?;
+
+    if let Ok((input, prefix)) = oneline_comment_prefix(input) {
+        oneline_comment_tail(input, prefix)
+    } else if let Ok((input, prefix)) = multiline_comment_prefix(input) {
+        multiline_comment_tail(input, prefix)
+    } else {
+        Err(nom::Err::Error((input, ErrorKind::Tag)))
+    }
 }
 
 pub fn parse1(input: Span) -> IResult<Span, Vec<Comment>> {
@@ -78,7 +90,7 @@ pub fn parse1(input: Span) -> IResult<Span, Vec<Comment>> {
 
 pub fn parse(input: Span) -> IResult<Span, Vec<Comment>> {
     let (input, _) = multispace0(input)?;
-    let (input, comments) = parse_comments(input)?;
+    let (input, comments) = many0(parse_comment)(input)?;
 
     let (input, _) = multispace0(input)?;
     Ok((input, comments))

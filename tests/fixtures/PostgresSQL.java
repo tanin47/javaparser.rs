@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.requery.sql.platform;
+package fixtures;
 
 import io.requery.meta.Attribute;
 import io.requery.meta.Type;

@@ -4,7 +4,7 @@ use nom::character::complete::multispace1;
 use nom::combinator::peek;
 use nom::sequence::tuple;
 use nom::{FindToken, IResult};
-use syntax::expr::precedence_11;
+use syntax::expr::precedence_10;
 use syntax::tree::{BinaryOperation, Expr, InstanceOf, Span};
 use syntax::{tag, tag_and_followed_by, tpe};
 
@@ -32,7 +32,7 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr
                 }),
             ))
         } else {
-            let (input, right) = precedence_11::parse(input)?;
+            let (input, right) = precedence_10::parse(input)?;
 
             let expr = Expr::BinaryOperation(BinaryOperation {
                 left: Box::new(left),
@@ -48,7 +48,7 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr
 }
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
-    let (input, left) = precedence_11::parse(input)?;
+    let (input, left) = precedence_10::parse(input)?;
     parse_tail(left, input)
 }
 

@@ -3,7 +3,7 @@ use nom::{Compare, IResult, InputLength, InputTake, InputTakeAtPosition};
 use nom::error::ErrorKind;
 use nom::multi::separated_nonempty_list;
 use std::slice;
-use syntax::def::annotateds;
+use syntax::def::{annotateds, modifiers};
 use syntax::expr::atom::name;
 use syntax::tree::{
     Class, Method, StandaloneVariableDeclarator, Statement, Type, VariableDeclarator,
@@ -40,14 +40,14 @@ pub fn parse_single<'a>(
 }
 
 pub fn parse_standalone(input: Span) -> IResult<Span, StandaloneVariableDeclarator> {
-    let (input, annotateds) = annotateds::parse(input)?;
+    let (input, modifiers) = modifiers::parse(input)?;
     let (input, tpe) = tpe::parse(input)?;
     let (input, declarator) = parse_single(tpe)(input)?;
 
     Ok((
         input,
         StandaloneVariableDeclarator {
-            annotateds,
+            modifiers,
             tpe: declarator.tpe,
             name: declarator.name,
             expr_opt: declarator.expr_opt,
@@ -56,7 +56,7 @@ pub fn parse_standalone(input: Span) -> IResult<Span, StandaloneVariableDeclarat
 }
 
 pub fn parse_without_semicolon(input: Span) -> IResult<Span, Statement> {
-    let (input, annotateds) = annotateds::parse(input)?;
+    let (input, modifiers) = modifiers::parse(input)?;
     let (input, tpe) = tpe::parse(input)?;
 
     let (input, declarators) = separated_nonempty_list(tag(","), parse_single(tpe))(input)?;
@@ -64,7 +64,7 @@ pub fn parse_without_semicolon(input: Span) -> IResult<Span, Statement> {
     Ok((
         input,
         Statement::VariableDeclarators(VariableDeclarators {
-            annotateds,
+            modifiers,
             declarators,
         }),
     ))
@@ -81,8 +81,8 @@ pub fn parse(input: Span) -> IResult<Span, Statement> {
 mod tests {
     use super::parse;
     use syntax::tree::{
-        Annotated, ArrayType, Expr, Int, LiteralString, MarkerAnnotated, Method, PrimitiveType,
-        ReturnStmt, Statement, Type, VariableDeclarator, VariableDeclarators,
+        Annotated, ArrayType, Expr, Int, LiteralString, MarkerAnnotated, Method, Modifier,
+        PrimitiveType, ReturnStmt, Statement, Type, VariableDeclarator, VariableDeclarators,
     };
     use test_common::{code, span};
 
@@ -98,9 +98,9 @@ mod tests {
             Ok((
                 span(1, 13, ""),
                 Statement::VariableDeclarators(VariableDeclarators {
-                    annotateds: vec![Annotated::Marker(MarkerAnnotated {
+                    modifiers: vec![Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
                         name: span(1, 2, "Anno")
-                    })],
+                    }))],
                     declarators: vec![VariableDeclarator {
                         tpe: Type::Primitive(PrimitiveType {
                             name: span(1, 7, "int"),
@@ -125,7 +125,7 @@ int[] a, b[];
             Ok((
                 span(1, 14, ""),
                 Statement::VariableDeclarators(VariableDeclarators {
-                    annotateds: vec![],
+                    modifiers: vec![],
                     declarators: vec![
                         VariableDeclarator {
                             tpe: Type::Array(ArrayType {
@@ -168,7 +168,7 @@ int a = 1;
             Ok((
                 span(1, 11, ""),
                 Statement::VariableDeclarators(VariableDeclarators {
-                    annotateds: vec![],
+                    modifiers: vec![],
                     declarators: vec![VariableDeclarator {
                         tpe: Type::Primitive(PrimitiveType {
                             name: span(1, 1, "int"),
@@ -195,7 +195,7 @@ int a = 1, b[], c;
             Ok((
                 span(1, 19, ""),
                 Statement::VariableDeclarators(VariableDeclarators {
-                    annotateds: vec![],
+                    modifiers: vec![],
                     declarators: vec![
                         VariableDeclarator {
                             tpe: Type::Primitive(PrimitiveType {

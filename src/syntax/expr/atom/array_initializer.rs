@@ -1,5 +1,4 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::is_digit;
 use nom::combinator::opt;
 use nom::error::ErrorKind;
@@ -8,15 +7,14 @@ use nom::IResult;
 use syntax::def::class_body;
 use syntax::tpe::type_args;
 use syntax::tree::{ArrayInitializer, ArrayType, Expr, Int, NewArray, NewObject, Span, Type};
-use syntax::{comment, expr, tpe};
+use syntax::{comment, expr, tag, tpe};
 
 pub fn parse_initializer(input: Span) -> IResult<Span, ArrayInitializer> {
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag("{")(input)?;
 
     let (input, items) = separated_list(tag(","), expr::parse)(input)?;
+    let (input, _) = opt(tag(","))(input)?;
 
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag("}")(input)?;
 
     Ok((input, ArrayInitializer { items }))
