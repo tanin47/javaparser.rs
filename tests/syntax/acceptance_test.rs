@@ -7,6 +7,10 @@ use std::fs;
 fn all() {
     for entry in fs::read_dir("./tests/fixtures").unwrap() {
         let entry = entry.unwrap();
+        if entry.path().is_dir() {
+            continue;
+        }
+
         println!(
             "Test: {}",
             entry.path().file_name().unwrap().to_str().unwrap()

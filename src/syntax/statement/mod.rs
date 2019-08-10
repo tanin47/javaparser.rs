@@ -31,8 +31,8 @@ pub fn parse(input: Span) -> IResult<Span, Statement> {
 #[cfg(test)]
 mod tests {
     use syntax::tree::{
-        Expr, Int, LiteralString, Method, PrimitiveType, ReturnStmt, Statement, Type,
-        VariableDeclarator, VariableDeclarators,
+        ArrayType, ClassType, Expr, Int, LiteralString, Method, Name, NewArray, PrimitiveType,
+        ReturnStmt, Statement, Type, VariableDeclarator, VariableDeclarators,
     };
     use test_common::{code, span};
 
@@ -43,13 +43,27 @@ mod tests {
         assert_eq!(
             parse(code(
                 r#"
-return;
+return new Segment[ssize];
             "#
                 .trim()
             )),
             Ok((
-                span(1, 8, ""),
-                Statement::Return(ReturnStmt { expr_opt: None })
+                span(1, 27, ""),
+                Statement::Return(ReturnStmt {
+                    expr_opt: Some(Expr::NewArray(NewArray {
+                        tpe: ArrayType {
+                            tpe: Box::new(Type::Class(ClassType {
+                                prefix_opt: None,
+                                name: span(1, 12, "Segment"),
+                                type_args_opt: None
+                            })),
+                            size_opt: Some(Box::new(Expr::Name(Name {
+                                name: span(1, 20, "ssize")
+                            })))
+                        },
+                        initializer_opt: None
+                    }))
+                })
             ))
         );
     }

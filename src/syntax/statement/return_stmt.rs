@@ -1,17 +1,14 @@
-use nom::bytes::complete::{tag, take, take_till, take_while};
 use nom::character::complete::multispace0;
 use nom::character::is_space;
 use nom::IResult;
 
 use syntax::tree::{Class, Method, Statement};
 use syntax::tree::{ReturnStmt, Span};
-use syntax::{comment, expr};
+use syntax::{comment, expr, tag};
 
 pub fn parse(input: Span) -> IResult<Span, Statement> {
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag("return")(input)?;
 
-    let (input, _) = comment::parse(input)?;
     let (input, expr_opt) = match tag(";")(input) as IResult<Span, Span> {
         Ok((input, _)) => (input, None),
         Err(_) => {

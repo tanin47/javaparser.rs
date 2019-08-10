@@ -17,7 +17,9 @@ use syntax::{tag, tpe};
 
 pub mod atom;
 pub mod precedence_1;
+pub mod precedence_10;
 pub mod precedence_11;
+pub mod precedence_12;
 pub mod precedence_13;
 pub mod precedence_14;
 pub mod precedence_15;
@@ -25,6 +27,8 @@ pub mod precedence_16;
 pub mod precedence_2;
 pub mod precedence_3;
 pub mod precedence_4;
+pub mod precedence_5;
+pub mod precedence_6;
 pub mod precedence_7;
 pub mod precedence_8;
 pub mod precedence_9;
@@ -56,7 +60,7 @@ mod tests {
     use syntax::tree::{
         ArrayAccess, ArrayType, Assigned, Assignment, BinaryOperation, Boolean, Cast, ClassType,
         ConstructorReference, Expr, FieldAccess, Int, LiteralString, Method, MethodCall,
-        MethodReference, MethodReferencePrimary, Name, PrimitiveType, ReferenceType,
+        MethodReference, MethodReferencePrimary, Name, NewArray, PrimitiveType, ReferenceType,
         ReservedFieldAccess, ReturnStmt, Type, TypeArg,
     };
     use test_common::{code, span};

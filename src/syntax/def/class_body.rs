@@ -53,6 +53,7 @@ pub fn parse_static_block(input: Span) -> IResult<Span, ClassBodyItem> {
 }
 
 pub fn parse_item(input: Span) -> IResult<Span, ClassBodyItem> {
+    let (input, _) = comment::parse(input)?;
     alt((
         parse_constructor,
         parse_method,
