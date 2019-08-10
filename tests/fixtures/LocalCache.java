@@ -1819,489 +1819,489 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return new Segment[ssize];
   }
 
-//  // Inner Classes
-//
-//  /**
-//   * Segments are specialized versions of hash tables. This subclass inherits from ReentrantLock
-//   * opportunistically, just to simplify some locking and avoid separate construction.
-//   */
-//  @SuppressWarnings("serial") // This class is never serialized.
-//  static class Segment<K, V> extends ReentrantLock {
-//
-//    /*
-//     * TODO(fry): Consider copying variables (like evictsBySize) from outer class into this class.
-//     * It will require more memory but will reduce indirection.
-//     */
-//
-//    /*
-//     * Segments maintain a table of entry lists that are ALWAYS kept in a consistent state, so can
-//     * be read without locking. Next fields of nodes are immutable (final). All list additions are
-//     * performed at the front of each bin. This makes it easy to check changes, and also fast to
-//     * traverse. When nodes would otherwise be changed, new nodes are created to replace them. This
-//     * works well for hash tables since the bin lists tend to be short. (The average length is less
-//     * than two.)
-//     *
-//     * Read operations can thus proceed without locking, but rely on selected uses of volatiles to
-//     * ensure that completed write operations performed by other threads are noticed. For most
-//     * purposes, the "count" field, tracking the number of elements, serves as that volatile
-//     * variable ensuring visibility. This is convenient because this field needs to be read in many
-//     * read operations anyway:
-//     *
-//     * - All (unsynchronized) read operations must first read the "count" field, and should not look
-//     * at table entries if it is 0.
-//     *
-//     * - All (synchronized) write operations should write to the "count" field after structurally
-//     * changing any bin. The operations must not take any action that could even momentarily cause a
-//     * concurrent read operation to see inconsistent data. This is made easier by the nature of the
-//     * read operations in Map. For example, no operation can reveal that the table has grown but the
-//     * threshold has not yet been updated, so there are no atomicity requirements for this with
-//     * respect to reads.
-//     *
-//     * As a guide, all critical volatile reads and writes to the count field are marked in code
-//     * comments.
-//     */
-//
-//    @Weak final LocalCache<K, V> map;
-//
-//    /** The number of live elements in this segment's region. */
-//    volatile int count;
-//
-//    /** The weight of the live elements in this segment's region. */
-//    @GuardedBy("this")
-//    long totalWeight;
-//
-//    /**
-//     * Number of updates that alter the size of the table. This is used during bulk-read methods to
-//     * make sure they see a consistent snapshot: If modCounts change during a traversal of segments
-//     * loading size or checking containsValue, then we might have an inconsistent view of state so
-//     * (usually) must retry.
-//     */
-//    int modCount;
-//
-//    /**
-//     * The table is expanded when its size exceeds this threshold. (The value of this field is
-//     * always {@code (int) (capacity * 0.75)}.)
-//     */
-//    int threshold;
-//
-//    /** The per-segment table. */
-//    volatile @MonotonicNonNull AtomicReferenceArray<ReferenceEntry<K, V>> table;
-//
-//    /** The maximum weight of this segment. UNSET_INT if there is no maximum. */
-//    final long maxSegmentWeight;
-//
-//    /**
-//     * The key reference queue contains entries whose keys have been garbage collected, and which
-//     * need to be cleaned up internally.
-//     */
-//    final @Nullable ReferenceQueue<K> keyReferenceQueue;
-//
-//    /**
-//     * The value reference queue contains value references whose values have been garbage collected,
-//     * and which need to be cleaned up internally.
-//     */
-//    final @Nullable ReferenceQueue<V> valueReferenceQueue;
-//
-//    /**
-//     * The recency queue is used to record which entries were accessed for updating the access
-//     * list's ordering. It is drained as a batch operation when either the DRAIN_THRESHOLD is
-//     * crossed or a write occurs on the segment.
-//     */
-//    final Queue<ReferenceEntry<K, V>> recencyQueue;
-//
-//    /**
-//     * A counter of the number of reads since the last write, used to drain queues on a small
-//     * fraction of read operations.
-//     */
-//    final AtomicInteger readCount = new AtomicInteger();
-//
-//    /**
-//     * A queue of elements currently in the map, ordered by write time. Elements are added to the
-//     * tail of the queue on write.
-//     */
-//    @GuardedBy("this")
-//    final Queue<ReferenceEntry<K, V>> writeQueue;
-//
-//    /**
-//     * A queue of elements currently in the map, ordered by access time. Elements are added to the
-//     * tail of the queue on access (note that writes count as accesses).
-//     */
-//    @GuardedBy("this")
-//    final Queue<ReferenceEntry<K, V>> accessQueue;
-//
-//    /** Accumulates cache statistics. */
-//    final StatsCounter statsCounter;
-//
-//    Segment(
-//      LocalCache<K, V> map,
-//      int initialCapacity,
-//      long maxSegmentWeight,
-//      StatsCounter statsCounter) {
-//      this.map = map;
-//      this.maxSegmentWeight = maxSegmentWeight;
-//      this.statsCounter = checkNotNull(statsCounter);
-//      initTable(newEntryArray(initialCapacity));
-//
-//      keyReferenceQueue = map.usesKeyReferences() ? new ReferenceQueue<K>() : null;
-//
-//      valueReferenceQueue = map.usesValueReferences() ? new ReferenceQueue<V>() : null;
-//
-//      recencyQueue =
-//        map.usesAccessQueue()
-//          ? new ConcurrentLinkedQueue<ReferenceEntry<K, V>>()
-//          : LocalCache.<ReferenceEntry<K, V>>discardingQueue();
-//
-//      writeQueue =
-//        map.usesWriteQueue()
-//          ? new WriteQueue<K, V>()
-//          : LocalCache.<ReferenceEntry<K, V>>discardingQueue();
-//
-//      accessQueue =
-//        map.usesAccessQueue()
-//          ? new AccessQueue<K, V>()
-//          : LocalCache.<ReferenceEntry<K, V>>discardingQueue();
-//    }
-//
-//    AtomicReferenceArray<ReferenceEntry<K, V>> newEntryArray(int size) {
-//      return new AtomicReferenceArray<>(size);
-//    }
-//
-//    void initTable(AtomicReferenceArray<ReferenceEntry<K, V>> newTable) {
-//      this.threshold = newTable.length() * 3 / 4; // 0.75
-//      if (!map.customWeigher() && this.threshold == maxSegmentWeight) {
-//        // prevent spurious expansion before eviction
-//        this.threshold++;
-//      }
-//      this.table = newTable;
-//    }
-//
-//    @GuardedBy("this")
-//    ReferenceEntry<K, V> newEntry(K key, int hash, @Nullable ReferenceEntry<K, V> next) {
-//      return map.entryFactory.newEntry(this, checkNotNull(key), hash, next);
-//    }
-//
-//    /**
-//     * Copies {@code original} into a new entry chained to {@code newNext}. Returns the new entry,
-//     * or {@code null} if {@code original} was already garbage collected.
-//     */
-//    @GuardedBy("this")
-//    ReferenceEntry<K, V> copyEntry(ReferenceEntry<K, V> original, ReferenceEntry<K, V> newNext) {
-//      if (original.getKey() == null) {
-//        // key collected
-//        return null;
-//      }
-//
-//      ValueReference<K, V> valueReference = original.getValueReference();
-//      V value = valueReference.get();
-//      if ((value == null) && valueReference.isActive()) {
-//        // value collected
-//        return null;
-//      }
-//
-//      ReferenceEntry<K, V> newEntry = map.entryFactory.copyEntry(this, original, newNext);
-//      newEntry.setValueReference(valueReference.copyFor(this.valueReferenceQueue, value, newEntry));
-//      return newEntry;
-//    }
-//
-//    /** Sets a new value of an entry. Adds newly created entries at the end of the access queue. */
-//    @GuardedBy("this")
-//    void setValue(ReferenceEntry<K, V> entry, K key, V value, long now) {
-//      ValueReference<K, V> previous = entry.getValueReference();
-//      int weight = map.weigher.weigh(key, value);
-//      checkState(weight >= 0, "Weights must be non-negative");
-//
-//      ValueReference<K, V> valueReference =
-//        map.valueStrength.referenceValue(this, entry, value, weight);
-//      entry.setValueReference(valueReference);
-//      recordWrite(entry, weight, now);
-//      previous.notifyNewValue(value);
-//    }
-//
-//    // loading
-//
-//    V get(K key, int hash, CacheLoader<? super K, V> loader) throws ExecutionException {
-//      checkNotNull(key);
-//      checkNotNull(loader);
-//      try {
-//        if (count != 0) { // read-volatile
-//          // don't call getLiveEntry, which would ignore loading values
-//          ReferenceEntry<K, V> e = getEntry(key, hash);
-//          if (e != null) {
-//            long now = map.ticker.read();
-//            V value = getLiveValue(e, now);
-//            if (value != null) {
-//              recordRead(e, now);
-//              statsCounter.recordHits(1);
-//              return scheduleRefresh(e, key, hash, value, now, loader);
-//            }
-//            ValueReference<K, V> valueReference = e.getValueReference();
-//            if (valueReference.isLoading()) {
-//              return waitForLoadingValue(e, key, valueReference);
-//            }
-//          }
-//        }
-//
-//        // at this point e is either null or expired;
-//        return lockedGetOrLoad(key, hash, loader);
-//      } catch (ExecutionException ee) {
-//        Throwable cause = ee.getCause();
-//        if (cause instanceof Error) {
-//          throw new ExecutionError((Error) cause);
-//        } else if (cause instanceof RuntimeException) {
-//          throw new UncheckedExecutionException(cause);
-//        }
-//        throw ee;
-//      } finally {
-//        postReadCleanup();
-//      }
-//    }
-//
-//    @Nullable
-//    V get(Object key, int hash) {
-//      try {
-//        if (count != 0) { // read-volatile
-//          long now = map.ticker.read();
-//          ReferenceEntry<K, V> e = getLiveEntry(key, hash, now);
-//          if (e == null) {
-//            return null;
-//          }
-//
-//          V value = e.getValueReference().get();
-//          if (value != null) {
-//            recordRead(e, now);
-//            return scheduleRefresh(e, e.getKey(), hash, value, now, map.defaultLoader);
-//          }
-//          tryDrainReferenceQueues();
-//        }
-//        return null;
-//      } finally {
-//        postReadCleanup();
-//      }
-//    }
-//
-//    V lockedGetOrLoad(K key, int hash, CacheLoader<? super K, V> loader) throws ExecutionException {
-//      ReferenceEntry<K, V> e;
-//      ValueReference<K, V> valueReference = null;
-//      LoadingValueReference<K, V> loadingValueReference = null;
-//      boolean createNewEntry = true;
-//
-//      lock();
-//      try {
-//        // re-read ticker once inside the lock
-//        long now = map.ticker.read();
-//        preWriteCleanup(now);
-//
-//        int newCount = this.count - 1;
-//        AtomicReferenceArray<ReferenceEntry<K, V>> table = this.table;
-//        int index = hash & (table.length() - 1);
-//        ReferenceEntry<K, V> first = table.get(index);
-//
-//        for (e = first; e != null; e = e.getNext()) {
-//          K entryKey = e.getKey();
-//          if (e.getHash() == hash
-//            && entryKey != null
-//            && map.keyEquivalence.equivalent(key, entryKey)) {
-//            valueReference = e.getValueReference();
-//            if (valueReference.isLoading()) {
-//              createNewEntry = false;
-//            } else {
-//              V value = valueReference.get();
-//              if (value == null) {
-//                enqueueNotification(
-//                  entryKey, hash, value, valueReference.getWeight(), RemovalCause.COLLECTED);
-//              } else if (map.isExpired(e, now)) {
-//                // This is a duplicate check, as preWriteCleanup already purged expired
-//                // entries, but let's accommodate an incorrect expiration queue.
-//                enqueueNotification(
-//                  entryKey, hash, value, valueReference.getWeight(), RemovalCause.EXPIRED);
-//              } else {
-//                recordLockedRead(e, now);
-//                statsCounter.recordHits(1);
-//                // we were concurrent with loading; don't consider refresh
-//                return value;
-//              }
-//
-//              // immediately reuse invalid entries
-//              writeQueue.remove(e);
-//              accessQueue.remove(e);
-//              this.count = newCount; // write-volatile
-//            }
-//            break;
-//          }
-//        }
-//
-//        if (createNewEntry) {
-//          loadingValueReference = new LoadingValueReference<>();
-//
-//          if (e == null) {
-//            e = newEntry(key, hash, first);
-//            e.setValueReference(loadingValueReference);
-//            table.set(index, e);
-//          } else {
-//            e.setValueReference(loadingValueReference);
-//          }
-//        }
-//      } finally {
-//        unlock();
-//        postWriteCleanup();
-//      }
-//
-//      if (createNewEntry) {
-//        try {
-//          // Synchronizes on the entry to allow failing fast when a recursive load is
-//          // detected. This may be circumvented when an entry is copied, but will fail fast most
-//          // of the time.
-//          synchronized (e) {
-//            return loadSync(key, hash, loadingValueReference, loader);
-//          }
-//        } finally {
-//          statsCounter.recordMisses(1);
-//        }
-//      } else {
-//        // The entry already exists. Wait for loading.
-//        return waitForLoadingValue(e, key, valueReference);
-//      }
-//    }
-//
-//    V waitForLoadingValue(ReferenceEntry<K, V> e, K key, ValueReference<K, V> valueReference)
-//      throws ExecutionException {
-//      if (!valueReference.isLoading()) {
-//        throw new AssertionError();
-//      }
-//
-//      checkState(!Thread.holdsLock(e), "Recursive load of: %s", key);
-//      // don't consider expiration as we're concurrent with loading
-//      try {
-//        V value = valueReference.waitForValue();
-//        if (value == null) {
-//          throw new InvalidCacheLoadException("CacheLoader returned null for key " + key + ".");
-//        }
-//        // re-read ticker now that loading has completed
-//        long now = map.ticker.read();
-//        recordRead(e, now);
-//        return value;
-//      } finally {
-//        statsCounter.recordMisses(1);
-//      }
-//    }
-//
-//    V compute(K key, int hash, BiFunction<? super K, ? super V, ? extends V> function) {
-//      ReferenceEntry<K, V> e;
-//      ValueReference<K, V> valueReference = null;
-//      LoadingValueReference<K, V> loadingValueReference = null;
-//      boolean createNewEntry = true;
-//      V newValue;
-//
-//      lock();
-//      try {
-//        // re-read ticker once inside the lock
-//        long now = map.ticker.read();
-//        preWriteCleanup(now);
-//
-//        AtomicReferenceArray<ReferenceEntry<K, V>> table = this.table;
-//        int index = hash & (table.length() - 1);
-//        ReferenceEntry<K, V> first = table.get(index);
-//
-//        for (e = first; e != null; e = e.getNext()) {
-//          K entryKey = e.getKey();
-//          if (e.getHash() == hash
-//            && entryKey != null
-//            && map.keyEquivalence.equivalent(key, entryKey)) {
-//            valueReference = e.getValueReference();
-//            if (map.isExpired(e, now)) {
-//              // This is a duplicate check, as preWriteCleanup already purged expired
-//              // entries, but let's accomodate an incorrect expiration queue.
-//              enqueueNotification(
-//                entryKey,
-//                hash,
-//                valueReference.get(),
-//                valueReference.getWeight(),
-//                RemovalCause.EXPIRED);
-//            }
-//
-//            // immediately reuse invalid entries
-//            writeQueue.remove(e);
-//            accessQueue.remove(e);
-//            createNewEntry = false;
-//            break;
-//          }
-//        }
-//
-//        // note valueReference can be an existing value or even itself another loading value if
-//        // the value for the key is already being computed.
-//        loadingValueReference = new LoadingValueReference<>(valueReference);
-//
-//        if (e == null) {
-//          createNewEntry = true;
-//          e = newEntry(key, hash, first);
-//          e.setValueReference(loadingValueReference);
-//          table.set(index, e);
-//        } else {
-//          e.setValueReference(loadingValueReference);
-//        }
-//
-//        newValue = loadingValueReference.compute(key, function);
-//        if (newValue != null) {
-//          if (valueReference != null && newValue == valueReference.get()) {
-//            loadingValueReference.set(newValue);
-//            e.setValueReference(valueReference);
-//            recordWrite(e, 0, now); // no change in weight
-//            return newValue;
-//          }
-//          try {
-//            return getAndRecordStats(
-//              key, hash, loadingValueReference, Futures.immediateFuture(newValue));
-//          } catch (ExecutionException exception) {
-//            throw new AssertionError("impossible; Futures.immediateFuture can't throw");
-//          }
-//        } else if (createNewEntry) {
-//          removeLoadingValue(key, hash, loadingValueReference);
-//          return null;
-//        } else {
-//          removeEntry(e, hash, RemovalCause.EXPLICIT);
-//          return null;
-//        }
-//      } finally {
-//        unlock();
-//        postWriteCleanup();
-//      }
-//    }
-//
-//    // at most one of loadSync/loadAsync may be called for any given LoadingValueReference
-//
-//    V loadSync(
-//      K key,
-//      int hash,
-//      LoadingValueReference<K, V> loadingValueReference,
-//      CacheLoader<? super K, V> loader)
-//      throws ExecutionException {
-//      ListenableFuture<V> loadingFuture = loadingValueReference.loadFuture(key, loader);
-//      return getAndRecordStats(key, hash, loadingValueReference, loadingFuture);
-//    }
-//
-//    ListenableFuture<V> loadAsync(
-//      final K key,
-//      final int hash,
-//      final LoadingValueReference<K, V> loadingValueReference,
-//      CacheLoader<? super K, V> loader) {
-//      final ListenableFuture<V> loadingFuture = loadingValueReference.loadFuture(key, loader);
-//      loadingFuture.addListener(
-//        new Runnable() {
-//          @Override
-//          public void run() {
-//            try {
-//              getAndRecordStats(key, hash, loadingValueReference, loadingFuture);
-//            } catch (Throwable t) {
-//              logger.log(Level.WARNING, "Exception thrown during refresh", t);
-//              loadingValueReference.setException(t);
-//            }
-//          }
-//        },
-//        directExecutor());
-//      return loadingFuture;
-//    }
-//
-//    /** Waits uninterruptibly for {@code newValue} to be loaded, and then records loading stats. */
+  // Inner Classes
+
+  /**
+   * Segments are specialized versions of hash tables. This subclass inherits from ReentrantLock
+   * opportunistically, just to simplify some locking and avoid separate construction.
+   */
+  @SuppressWarnings("serial") // This class is never serialized.
+  static class Segment<K, V> extends ReentrantLock {
+
+    /*
+     * TODO(fry): Consider copying variables (like evictsBySize) from outer class into this class.
+     * It will require more memory but will reduce indirection.
+     */
+
+    /*
+     * Segments maintain a table of entry lists that are ALWAYS kept in a consistent state, so can
+     * be read without locking. Next fields of nodes are immutable (final). All list additions are
+     * performed at the front of each bin. This makes it easy to check changes, and also fast to
+     * traverse. When nodes would otherwise be changed, new nodes are created to replace them. This
+     * works well for hash tables since the bin lists tend to be short. (The average length is less
+     * than two.)
+     *
+     * Read operations can thus proceed without locking, but rely on selected uses of volatiles to
+     * ensure that completed write operations performed by other threads are noticed. For most
+     * purposes, the "count" field, tracking the number of elements, serves as that volatile
+     * variable ensuring visibility. This is convenient because this field needs to be read in many
+     * read operations anyway:
+     *
+     * - All (unsynchronized) read operations must first read the "count" field, and should not look
+     * at table entries if it is 0.
+     *
+     * - All (synchronized) write operations should write to the "count" field after structurally
+     * changing any bin. The operations must not take any action that could even momentarily cause a
+     * concurrent read operation to see inconsistent data. This is made easier by the nature of the
+     * read operations in Map. For example, no operation can reveal that the table has grown but the
+     * threshold has not yet been updated, so there are no atomicity requirements for this with
+     * respect to reads.
+     *
+     * As a guide, all critical volatile reads and writes to the count field are marked in code
+     * comments.
+     */
+
+    @Weak final LocalCache<K, V> map;
+
+    /** The number of live elements in this segment's region. */
+    volatile int count;
+
+    /** The weight of the live elements in this segment's region. */
+    @GuardedBy("this")
+    long totalWeight;
+
+    /**
+     * Number of updates that alter the size of the table. This is used during bulk-read methods to
+     * make sure they see a consistent snapshot: If modCounts change during a traversal of segments
+     * loading size or checking containsValue, then we might have an inconsistent view of state so
+     * (usually) must retry.
+     */
+    int modCount;
+
+    /**
+     * The table is expanded when its size exceeds this threshold. (The value of this field is
+     * always {@code (int) (capacity * 0.75)}.)
+     */
+    int threshold;
+
+    /** The per-segment table. */
+    volatile @MonotonicNonNull AtomicReferenceArray<ReferenceEntry<K, V>> table;
+
+    /** The maximum weight of this segment. UNSET_INT if there is no maximum. */
+    final long maxSegmentWeight;
+
+    /**
+     * The key reference queue contains entries whose keys have been garbage collected, and which
+     * need to be cleaned up internally.
+     */
+    final @Nullable ReferenceQueue<K> keyReferenceQueue;
+
+    /**
+     * The value reference queue contains value references whose values have been garbage collected,
+     * and which need to be cleaned up internally.
+     */
+    final @Nullable ReferenceQueue<V> valueReferenceQueue;
+
+    /**
+     * The recency queue is used to record which entries were accessed for updating the access
+     * list's ordering. It is drained as a batch operation when either the DRAIN_THRESHOLD is
+     * crossed or a write occurs on the segment.
+     */
+    final Queue<ReferenceEntry<K, V>> recencyQueue;
+
+    /**
+     * A counter of the number of reads since the last write, used to drain queues on a small
+     * fraction of read operations.
+     */
+    final AtomicInteger readCount = new AtomicInteger();
+
+    /**
+     * A queue of elements currently in the map, ordered by write time. Elements are added to the
+     * tail of the queue on write.
+     */
+    @GuardedBy("this")
+    final Queue<ReferenceEntry<K, V>> writeQueue;
+
+    /**
+     * A queue of elements currently in the map, ordered by access time. Elements are added to the
+     * tail of the queue on access (note that writes count as accesses).
+     */
+    @GuardedBy("this")
+    final Queue<ReferenceEntry<K, V>> accessQueue;
+
+    /** Accumulates cache statistics. */
+    final StatsCounter statsCounter;
+
+    Segment(
+      LocalCache<K, V> map,
+      int initialCapacity,
+      long maxSegmentWeight,
+      StatsCounter statsCounter) {
+      this.map = map;
+      this.maxSegmentWeight = maxSegmentWeight;
+      this.statsCounter = checkNotNull(statsCounter);
+      initTable(newEntryArray(initialCapacity));
+
+      keyReferenceQueue = map.usesKeyReferences() ? new ReferenceQueue<K>() : null;
+
+      valueReferenceQueue = map.usesValueReferences() ? new ReferenceQueue<V>() : null;
+
+      recencyQueue =
+        map.usesAccessQueue()
+          ? new ConcurrentLinkedQueue<ReferenceEntry<K, V>>()
+          : LocalCache.<ReferenceEntry<K, V>>discardingQueue();
+
+      writeQueue =
+        map.usesWriteQueue()
+          ? new WriteQueue<K, V>()
+          : LocalCache.<ReferenceEntry<K, V>>discardingQueue();
+
+      accessQueue =
+        map.usesAccessQueue()
+          ? new AccessQueue<K, V>()
+          : LocalCache.<ReferenceEntry<K, V>>discardingQueue();
+    }
+
+    AtomicReferenceArray<ReferenceEntry<K, V>> newEntryArray(int size) {
+      return new AtomicReferenceArray<>(size);
+    }
+
+    void initTable(AtomicReferenceArray<ReferenceEntry<K, V>> newTable) {
+      this.threshold = newTable.length() * 3 / 4; // 0.75
+      if (!map.customWeigher() && this.threshold == maxSegmentWeight) {
+        // prevent spurious expansion before eviction
+        this.threshold++;
+      }
+      this.table = newTable;
+    }
+
+    @GuardedBy("this")
+    ReferenceEntry<K, V> newEntry(K key, int hash, @Nullable ReferenceEntry<K, V> next) {
+      return map.entryFactory.newEntry(this, checkNotNull(key), hash, next);
+    }
+
+    /**
+     * Copies {@code original} into a new entry chained to {@code newNext}. Returns the new entry,
+     * or {@code null} if {@code original} was already garbage collected.
+     */
+    @GuardedBy("this")
+    ReferenceEntry<K, V> copyEntry(ReferenceEntry<K, V> original, ReferenceEntry<K, V> newNext) {
+      if (original.getKey() == null) {
+        // key collected
+        return null;
+      }
+
+      ValueReference<K, V> valueReference = original.getValueReference();
+      V value = valueReference.get();
+      if ((value == null) && valueReference.isActive()) {
+        // value collected
+        return null;
+      }
+
+      ReferenceEntry<K, V> newEntry = map.entryFactory.copyEntry(this, original, newNext);
+      newEntry.setValueReference(valueReference.copyFor(this.valueReferenceQueue, value, newEntry));
+      return newEntry;
+    }
+
+    /** Sets a new value of an entry. Adds newly created entries at the end of the access queue. */
+    @GuardedBy("this")
+    void setValue(ReferenceEntry<K, V> entry, K key, V value, long now) {
+      ValueReference<K, V> previous = entry.getValueReference();
+      int weight = map.weigher.weigh(key, value);
+      checkState(weight >= 0, "Weights must be non-negative");
+
+      ValueReference<K, V> valueReference =
+        map.valueStrength.referenceValue(this, entry, value, weight);
+      entry.setValueReference(valueReference);
+      recordWrite(entry, weight, now);
+      previous.notifyNewValue(value);
+    }
+
+    // loading
+
+    V get(K key, int hash, CacheLoader<? super K, V> loader) throws ExecutionException {
+      checkNotNull(key);
+      checkNotNull(loader);
+      try {
+        if (count != 0) { // read-volatile
+          // don't call getLiveEntry, which would ignore loading values
+          ReferenceEntry<K, V> e = getEntry(key, hash);
+          if (e != null) {
+            long now = map.ticker.read();
+            V value = getLiveValue(e, now);
+            if (value != null) {
+              recordRead(e, now);
+              statsCounter.recordHits(1);
+              return scheduleRefresh(e, key, hash, value, now, loader);
+            }
+            ValueReference<K, V> valueReference = e.getValueReference();
+            if (valueReference.isLoading()) {
+              return waitForLoadingValue(e, key, valueReference);
+            }
+          }
+        }
+
+        // at this point e is either null or expired;
+        return lockedGetOrLoad(key, hash, loader);
+      } catch (ExecutionException ee) {
+        Throwable cause = ee.getCause();
+        if (cause instanceof Error) {
+          throw new ExecutionError((Error) cause);
+        } else if (cause instanceof RuntimeException) {
+          throw new UncheckedExecutionException(cause);
+        }
+        throw ee;
+      } finally {
+        postReadCleanup();
+      }
+    }
+
+    @Nullable
+    V get(Object key, int hash) {
+      try {
+        if (count != 0) { // read-volatile
+          long now = map.ticker.read();
+          ReferenceEntry<K, V> e = getLiveEntry(key, hash, now);
+          if (e == null) {
+            return null;
+          }
+
+          V value = e.getValueReference().get();
+          if (value != null) {
+            recordRead(e, now);
+            return scheduleRefresh(e, e.getKey(), hash, value, now, map.defaultLoader);
+          }
+          tryDrainReferenceQueues();
+        }
+        return null;
+      } finally {
+        postReadCleanup();
+      }
+    }
+
+    V lockedGetOrLoad(K key, int hash, CacheLoader<? super K, V> loader) throws ExecutionException {
+      ReferenceEntry<K, V> e;
+      ValueReference<K, V> valueReference = null;
+      LoadingValueReference<K, V> loadingValueReference = null;
+      boolean createNewEntry = true;
+
+      lock();
+      try {
+        // re-read ticker once inside the lock
+        long now = map.ticker.read();
+        preWriteCleanup(now);
+
+        int newCount = this.count - 1;
+        AtomicReferenceArray<ReferenceEntry<K, V>> table = this.table;
+        int index = hash & (table.length() - 1);
+        ReferenceEntry<K, V> first = table.get(index);
+
+        for (e = first; e != null; e = e.getNext()) {
+          K entryKey = e.getKey();
+          if (e.getHash() == hash
+            && entryKey != null
+            && map.keyEquivalence.equivalent(key, entryKey)) {
+            valueReference = e.getValueReference();
+            if (valueReference.isLoading()) {
+              createNewEntry = false;
+            } else {
+              V value = valueReference.get();
+              if (value == null) {
+                enqueueNotification(
+                  entryKey, hash, value, valueReference.getWeight(), RemovalCause.COLLECTED);
+              } else if (map.isExpired(e, now)) {
+                // This is a duplicate check, as preWriteCleanup already purged expired
+                // entries, but let's accommodate an incorrect expiration queue.
+                enqueueNotification(
+                  entryKey, hash, value, valueReference.getWeight(), RemovalCause.EXPIRED);
+              } else {
+                recordLockedRead(e, now);
+                statsCounter.recordHits(1);
+                // we were concurrent with loading; don't consider refresh
+                return value;
+              }
+
+              // immediately reuse invalid entries
+              writeQueue.remove(e);
+              accessQueue.remove(e);
+              this.count = newCount; // write-volatile
+            }
+            break;
+          }
+        }
+
+        if (createNewEntry) {
+          loadingValueReference = new LoadingValueReference<>();
+
+          if (e == null) {
+            e = newEntry(key, hash, first);
+            e.setValueReference(loadingValueReference);
+            table.set(index, e);
+          } else {
+            e.setValueReference(loadingValueReference);
+          }
+        }
+      } finally {
+        unlock();
+        postWriteCleanup();
+      }
+
+      if (createNewEntry) {
+        try {
+          // Synchronizes on the entry to allow failing fast when a recursive load is
+          // detected. This may be circumvented when an entry is copied, but will fail fast most
+          // of the time.
+          synchronized (e) {
+            return loadSync(key, hash, loadingValueReference, loader);
+          }
+        } finally {
+          statsCounter.recordMisses(1);
+        }
+      } else {
+        // The entry already exists. Wait for loading.
+        return waitForLoadingValue(e, key, valueReference);
+      }
+    }
+
+    V waitForLoadingValue(ReferenceEntry<K, V> e, K key, ValueReference<K, V> valueReference)
+      throws ExecutionException {
+      if (!valueReference.isLoading()) {
+        throw new AssertionError();
+      }
+
+      checkState(!Thread.holdsLock(e), "Recursive load of: %s", key);
+      // don't consider expiration as we're concurrent with loading
+      try {
+        V value = valueReference.waitForValue();
+        if (value == null) {
+          throw new InvalidCacheLoadException("CacheLoader returned null for key " + key + ".");
+        }
+        // re-read ticker now that loading has completed
+        long now = map.ticker.read();
+        recordRead(e, now);
+        return value;
+      } finally {
+        statsCounter.recordMisses(1);
+      }
+    }
+
+    V compute(K key, int hash, BiFunction<? super K, ? super V, ? extends V> function) {
+      ReferenceEntry<K, V> e;
+      ValueReference<K, V> valueReference = null;
+      LoadingValueReference<K, V> loadingValueReference = null;
+      boolean createNewEntry = true;
+      V newValue;
+
+      lock();
+      try {
+        // re-read ticker once inside the lock
+        long now = map.ticker.read();
+        preWriteCleanup(now);
+
+        AtomicReferenceArray<ReferenceEntry<K, V>> table = this.table;
+        int index = hash & (table.length() - 1);
+        ReferenceEntry<K, V> first = table.get(index);
+
+        for (e = first; e != null; e = e.getNext()) {
+          K entryKey = e.getKey();
+          if (e.getHash() == hash
+            && entryKey != null
+            && map.keyEquivalence.equivalent(key, entryKey)) {
+            valueReference = e.getValueReference();
+            if (map.isExpired(e, now)) {
+              // This is a duplicate check, as preWriteCleanup already purged expired
+              // entries, but let's accomodate an incorrect expiration queue.
+              enqueueNotification(
+                entryKey,
+                hash,
+                valueReference.get(),
+                valueReference.getWeight(),
+                RemovalCause.EXPIRED);
+            }
+
+            // immediately reuse invalid entries
+            writeQueue.remove(e);
+            accessQueue.remove(e);
+            createNewEntry = false;
+            break;
+          }
+        }
+
+        // note valueReference can be an existing value or even itself another loading value if
+        // the value for the key is already being computed.
+        loadingValueReference = new LoadingValueReference<>(valueReference);
+
+        if (e == null) {
+          createNewEntry = true;
+          e = newEntry(key, hash, first);
+          e.setValueReference(loadingValueReference);
+          table.set(index, e);
+        } else {
+          e.setValueReference(loadingValueReference);
+        }
+
+        newValue = loadingValueReference.compute(key, function);
+        if (newValue != null) {
+          if (valueReference != null && newValue == valueReference.get()) {
+            loadingValueReference.set(newValue);
+            e.setValueReference(valueReference);
+            recordWrite(e, 0, now); // no change in weight
+            return newValue;
+          }
+          try {
+            return getAndRecordStats(
+              key, hash, loadingValueReference, Futures.immediateFuture(newValue));
+          } catch (ExecutionException exception) {
+            throw new AssertionError("impossible; Futures.immediateFuture can't throw");
+          }
+        } else if (createNewEntry) {
+          removeLoadingValue(key, hash, loadingValueReference);
+          return null;
+        } else {
+          removeEntry(e, hash, RemovalCause.EXPLICIT);
+          return null;
+        }
+      } finally {
+        unlock();
+        postWriteCleanup();
+      }
+    }
+
+    // at most one of loadSync/loadAsync may be called for any given LoadingValueReference
+
+    V loadSync(
+      K key,
+      int hash,
+      LoadingValueReference<K, V> loadingValueReference,
+      CacheLoader<? super K, V> loader)
+      throws ExecutionException {
+      ListenableFuture<V> loadingFuture = loadingValueReference.loadFuture(key, loader);
+      return getAndRecordStats(key, hash, loadingValueReference, loadingFuture);
+    }
+
+    ListenableFuture<V> loadAsync(
+      final K key,
+      final int hash,
+      final LoadingValueReference<K, V> loadingValueReference,
+      CacheLoader<? super K, V> loader) {
+      final ListenableFuture<V> loadingFuture = loadingValueReference.loadFuture(key, loader);
+      loadingFuture.addListener(
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              getAndRecordStats(key, hash, loadingValueReference, loadingFuture);
+            } catch (Throwable t) {
+              logger.log(Level.WARNING, "Exception thrown during refresh", t);
+              loadingValueReference.setException(t);
+            }
+          }
+        },
+        directExecutor());
+      return loadingFuture;
+    }
+
+    /** Waits uninterruptibly for {@code newValue} to be loaded, and then records loading stats. */
 //    V getAndRecordStats(
 //      K key,
 //      int hash,
@@ -2324,7 +2324,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
 //        }
 //      }
 //    }
-//
+
 //    V scheduleRefresh(
 //      ReferenceEntry<K, V> entry,
 //      K key,
@@ -3463,7 +3463,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
 //        map.processPendingNotifications();
 //      }
 //    }
-//  }
+  }
 //
 //  static class LoadingValueReference<K, V> implements ValueReference<K, V> {
 //    volatile ValueReference<K, V> oldValue;

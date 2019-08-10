@@ -24,6 +24,7 @@ pub mod parenthesized;
 pub mod string;
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
+    let (input, _) = comment::parse(input)?;
     alt((
         number::parse,
         string::parse,

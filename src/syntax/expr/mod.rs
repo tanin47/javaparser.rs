@@ -13,7 +13,7 @@ use syntax::tree::{
     Assigned, Assignment, BinaryOperation, Cast, Expr, FieldAccess, MethodCall,
     MethodReferencePrimary, Name, ReservedFieldAccess, Span, Type,
 };
-use syntax::{tag, tpe};
+use syntax::{comment, tag, tpe};
 
 pub mod atom;
 pub mod precedence_1;
@@ -34,6 +34,7 @@ pub mod precedence_8;
 pub mod precedence_9;
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
+    let (input, _) = comment::parse(input)?;
     if let Ok((input, tpe)) = tpe::parse(input) {
         if let Ok((input, _)) = peek(tag("::"))(input) {
             match tpe {

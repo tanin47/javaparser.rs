@@ -261,6 +261,7 @@ pub enum Statement<'a> {
     Foreach(Foreach<'a>),
     IfElse(IfElse<'a>),
     Return(ReturnStmt<'a>),
+    Synchronized(Synchronized<'a>),
     Throw(Throw<'a>),
     Try(Try<'a>),
     WhileLoop(WhileLoop<'a>),
@@ -285,6 +286,12 @@ pub struct Try<'a> {
 pub struct Catch<'a> {
     pub param_name: Span<'a>,
     pub class_types: Vec<ClassType<'a>>,
+    pub block: Block<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Synchronized<'a> {
+    pub expr: Box<Expr<'a>>,
     pub block: Block<'a>,
 }
 
@@ -322,13 +329,13 @@ pub struct ReturnStmt<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarators<'a> {
-    pub annotateds: Vec<Annotated<'a>>,
+    pub modifiers: Vec<Modifier<'a>>,
     pub declarators: Vec<VariableDeclarator<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct StandaloneVariableDeclarator<'a> {
-    pub annotateds: Vec<Annotated<'a>>,
+    pub modifiers: Vec<Modifier<'a>>,
     pub tpe: Type<'a>,
     pub name: Span<'a>,
     pub expr_opt: Option<Expr<'a>>,
