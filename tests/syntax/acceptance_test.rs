@@ -2,6 +2,7 @@ use javaparser::syntax;
 use javaparser::test_common::code;
 use nom::error::ErrorKind;
 use std::fs;
+use std::time::Instant;
 
 #[test]
 fn all() {
@@ -11,13 +12,16 @@ fn all() {
             continue;
         }
 
-        println!(
+        print!(
             "Test: {}",
             entry.path().file_name().unwrap().to_str().unwrap()
         );
         let content = fs::read_to_string(entry.path()).unwrap();
 
+        let start = Instant::now();
         let result = syntax::parse(code(&content));
+        println!(" ({:?})", start.elapsed());
+
         assert!(result.is_ok(), format!("{:#?}", result));
     }
 }

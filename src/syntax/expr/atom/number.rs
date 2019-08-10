@@ -1,10 +1,10 @@
-use nom::bytes::complete::{tag as nom_tag, take_while, take_while1};
+use nom::bytes::complete::{tag as nom_tag, tag_no_case, take_while, take_while1};
 use nom::character::complete::hex_digit1;
 use nom::character::is_digit;
 use nom::IResult;
 use std::slice;
 use syntax::comment;
-use syntax::tree::{Expr, Hex, Int, Span};
+use syntax::tree::{Expr, Hex, Int, Long, Span};
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
     let (input, _) = comment::parse(input)?;
@@ -22,6 +22,24 @@ pub fn parse(input: Span) -> IResult<Span, Expr> {
                         std::str::from_utf8(slice::from_raw_parts(
                             value.fragment.as_ptr(),
                             value.fragment.len() + x.fragment.len() + tail.fragment.len(),
+                        ))
+                        .unwrap()
+                    },
+                    extra: (),
+                },
+            }),
+        ))
+    } else if let Ok((input, l)) = tag_no_case("L")(input) as IResult<Span, Span> {
+        Ok((
+            input,
+            Expr::Long(Long {
+                value: Span {
+                    line: value.line,
+                    col: value.col,
+                    fragment: unsafe {
+                        std::str::from_utf8(slice::from_raw_parts(
+                            value.fragment.as_ptr(),
+                            value.fragment.len() + l.fragment.len(),
                         ))
                         .unwrap()
                     },

@@ -361,6 +361,7 @@ pub enum Expr<'a> {
     ReservedFieldAccess(ReservedFieldAccess<'a>),
     InstanceOf(InstanceOf<'a>),
     Int(Int<'a>),
+    Long(Long<'a>),
     Hex(Hex<'a>),
     Lambda(Lambda<'a>),
     MethodCall(MethodCall<'a>),
@@ -459,6 +460,11 @@ pub struct NewObject<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Hex<'a> {
+    pub value: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Long<'a> {
     pub value: Span<'a>,
 }
 
