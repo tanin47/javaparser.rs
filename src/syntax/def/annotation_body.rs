@@ -1,61 +1,104 @@
-use nom::bytes::complete::{tag, take, take_till, take_while};
 use nom::character::complete::multispace0;
 use nom::character::is_space;
 use nom::IResult;
 
 use nom::branch::alt;
+use nom::combinator::peek;
+use nom::error::ErrorKind;
 use nom::multi::many0;
-use syntax::comment;
 use syntax::def::{
     annotation, annotation_param, class, constructor, enum_def, field_declarators, interface,
-    method,
+    method, modifiers,
 };
+use syntax::expr::atom::name;
 use syntax::statement::block;
-use syntax::tree::{AnnotationBody, AnnotationBodyItem, Class, ClassBody};
+use syntax::tree::{AnnotationBody, AnnotationBodyItem, Class, ClassBody, Modifier, Type};
 use syntax::tree::{ClassBodyItem, Method, Span};
+use syntax::{comment, tag, tpe};
 
-pub fn parse_class(input: Span) -> IResult<Span, AnnotationBodyItem> {
-    let (input, class) = class::parse(input)?;
+fn parse_class<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, AnnotationBodyItem<'a>> {
+    let (input, class) = class::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Class(class)))
 }
 
-pub fn parse_interface(input: Span) -> IResult<Span, AnnotationBodyItem> {
-    let (input, interface) = interface::parse(input)?;
+fn parse_interface<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, AnnotationBodyItem<'a>> {
+    let (input, interface) = interface::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Interface(interface)))
 }
 
-pub fn parse_annotation(input: Span) -> IResult<Span, AnnotationBodyItem> {
-    let (input, annotation) = annotation::parse(input)?;
+fn parse_annotation<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, AnnotationBodyItem<'a>> {
+    let (input, annotation) = annotation::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Annotation(annotation)))
 }
 
-pub fn parse_enum(input: Span) -> IResult<Span, AnnotationBodyItem> {
-    let (input, enum_def) = enum_def::parse(input)?;
+fn parse_enum<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, AnnotationBodyItem<'a>> {
+    let (input, enum_def) = enum_def::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Enum(enum_def)))
 }
 
-pub fn parse_field_declarators(input: Span) -> IResult<Span, AnnotationBodyItem> {
-    let (input, field_declarators) = field_declarators::parse(input)?;
+fn parse_field_declarators<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    tpe: Type<'a>,
+) -> IResult<Span<'a>, AnnotationBodyItem<'a>> {
+    let (input, field_declarators) = field_declarators::parse(input, modifiers, tpe)?;
     Ok((
         input,
         AnnotationBodyItem::FieldDeclarators(field_declarators),
     ))
 }
 
-pub fn parse_param(input: Span) -> IResult<Span, AnnotationBodyItem> {
-    let (input, param) = annotation_param::parse(input)?;
+fn parse_param<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    tpe: Type<'a>,
+    name: Span<'a>,
+) -> IResult<Span<'a>, AnnotationBodyItem<'a>> {
+    let (input, param) = annotation_param::parse(input, modifiers, tpe, name)?;
     Ok((input, AnnotationBodyItem::Param(param)))
 }
 
+fn parse_param_or_field_declarators<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, AnnotationBodyItem<'a>> {
+    let (input_before_name, tpe) = tpe::parse(input)?;
+    let (input, name) = name::identifier(input_before_name)?;
+
+    if let Ok((input, _)) = peek(tag("("))(input) {
+        parse_param(input, modifiers, tpe, name)
+    } else {
+        parse_field_declarators(input_before_name, modifiers, tpe)
+    }
+}
+
 pub fn parse_item(input: Span) -> IResult<Span, AnnotationBodyItem> {
-    alt((
-        parse_param,
-        parse_class,
-        parse_interface,
-        parse_enum,
-        parse_annotation,
-        parse_field_declarators,
-    ))(input)
+    let (input, _) = comment::parse(input)?;
+    let (input, modifiers) = modifiers::parse(input)?;
+
+    if let Ok((input, _)) = enum_def::parse_prefix(input) {
+        parse_enum(input, modifiers)
+    } else if let Ok((input, _)) = class::parse_prefix(input) {
+        parse_class(input, modifiers)
+    } else if let Ok((input, _)) = interface::parse_prefix(input) {
+        parse_interface(input, modifiers)
+    } else if let Ok((input, _)) = annotation::parse_prefix(input) {
+        parse_annotation(input, modifiers)
+    } else {
+        parse_param_or_field_declarators(input, modifiers)
+    }
 }
 
 pub fn parse_items(input: Span) -> IResult<Span, Vec<AnnotationBodyItem>> {
@@ -63,12 +106,8 @@ pub fn parse_items(input: Span) -> IResult<Span, Vec<AnnotationBodyItem>> {
 }
 
 pub fn parse(input: Span) -> IResult<Span, AnnotationBody> {
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag("{")(input)?;
-
     let (input, items) = parse_items(input)?;
-
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag("}")(input)?;
 
     Ok((input, AnnotationBody { items }))
@@ -113,7 +152,6 @@ mod tests {
                 AnnotationBody {
                     items: vec![
                         AnnotationBodyItem::Param(AnnotationParam {
-                            annotateds: vec![],
                             modifiers: vec![],
                             tpe: primitive(2, 3, "int"),
                             name: span(2, 7, "method"),

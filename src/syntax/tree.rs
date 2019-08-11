@@ -125,8 +125,7 @@ pub enum AnnotationBodyItem<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct AnnotationParam<'a> {
-    pub annotateds: Vec<Annotated<'a>>,
-    pub modifiers: Vec<Span<'a>>,
+    pub modifiers: Vec<Modifier<'a>>,
     pub tpe: Type<'a>,
     pub name: Span<'a>,
     pub default_opt: Option<Expr<'a>>,
@@ -234,8 +233,7 @@ pub struct Param<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Constructor<'a> {
-    pub annotateds: Vec<Annotated<'a>>,
-    pub modifiers: Vec<Span<'a>>,
+    pub modifiers: Vec<Modifier<'a>>,
     pub type_params: Vec<TypeParam<'a>>,
     pub name: Span<'a>,
     pub params: Vec<Param<'a>>,

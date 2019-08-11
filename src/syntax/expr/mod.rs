@@ -35,6 +35,7 @@ pub mod precedence_9;
 
 pub fn parse(input: Span) -> IResult<Span, Expr> {
     let (input, _) = comment::parse(input)?;
+
     if let Ok((input, tpe)) = tpe::parse(input) {
         if let Ok((input, _)) = peek(tag("::"))(input) {
             match tpe {

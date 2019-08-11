@@ -8,7 +8,7 @@ use nom::multi::{many0, separated_list, separated_nonempty_list};
 use syntax::def::{annotateds, modifiers, param, type_params};
 use syntax::expr::atom::name;
 use syntax::statement::block;
-use syntax::tree::{Class, Method};
+use syntax::tree::{Class, Method, Modifier, Type, TypeParam};
 use syntax::tree::{ClassType, Span};
 use syntax::{comment, tag, tpe};
 
@@ -21,13 +21,13 @@ fn parse_throws(input: Span) -> IResult<Span, Vec<ClassType>> {
     separated_nonempty_list(tag(","), tpe::class::parse_no_array)(input)
 }
 
-pub fn parse(input: Span) -> IResult<Span, Method> {
-    let (input, modifiers) = modifiers::parse(input)?;
-    let (input, type_params) = type_params::parse(input)?;
-    let (input, return_type) = tpe::parse(input)?;
-
-    let (input, name) = name::identifier(input)?;
-
+pub fn parse<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    type_params: Vec<TypeParam<'a>>,
+    return_type: Type<'a>,
+    name: Span<'a>,
+) -> IResult<Span<'a>, Method<'a>> {
     let (input, _) = tag("(")(input)?;
     let (input, params) = separated_list(tag(","), param::parse)(input)?;
     let (input, _) = tag(")")(input)?;
@@ -55,17 +55,17 @@ pub fn parse(input: Span) -> IResult<Span, Method> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use syntax::def::class_body;
     use syntax::tree::{
-        Annotated, Block, ClassType, Expr, Int, Keyword, MarkerAnnotated, Method, Modifier, Param,
-        PrimitiveType, ReturnStmt, Statement, Type, TypeArg, TypeParam,
+        Annotated, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated, Method,
+        Modifier, Param, PrimitiveType, ReturnStmt, Statement, Type, TypeArg, TypeParam,
     };
     use test_common::{code, primitive, span};
 
     #[test]
     fn test_abstract() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 @Anno abstract void method() throws Exception, AnotherException;
             "#
@@ -73,7 +73,7 @@ mod tests {
             )),
             Ok((
                 span(1, 65, ""),
-                Method {
+                ClassBodyItem::Method(Method {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
                             name: span(1, 2, "Anno")
@@ -99,7 +99,7 @@ mod tests {
                         }
                     ],
                     block_opt: None,
-                }
+                })
             ))
         );
     }
@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn test_method() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 private void method() {
     return 1;
@@ -117,7 +117,7 @@ private void method() {
             )),
             Ok((
                 span(3, 2, ""),
-                Method {
+                ClassBodyItem::Method(Method {
                     modifiers: vec![Modifier::Keyword(Keyword {
                         name: span(1, 1, "private")
                     })],
@@ -133,7 +133,7 @@ private void method() {
                             }))
                         })]
                     }),
-                }
+                })
             ))
         );
     }
@@ -141,7 +141,7 @@ private void method() {
     #[test]
     fn test_method_with_params() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 <A> void method(Test t, A a) {
     return 1;
@@ -151,7 +151,7 @@ private void method() {
             )),
             Ok((
                 span(3, 2, ""),
-                Method {
+                ClassBodyItem::Method(Method {
                     modifiers: vec![],
                     return_type: primitive(1, 5, "void"),
                     name: span(1, 10, "method"),
@@ -189,7 +189,7 @@ private void method() {
                             }))
                         })]
                     }),
-                }
+                })
             ))
         );
     }
@@ -197,7 +197,7 @@ private void method() {
     #[test]
     fn test_method_with_type_params() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 <A, B extends A> void method(Test<A> t, B b) {
     return 1;
@@ -207,7 +207,7 @@ private void method() {
             )),
             Ok((
                 span(3, 2, ""),
-                Method {
+                ClassBodyItem::Method(Method {
                     modifiers: vec![],
                     return_type: primitive(1, 18, "void"),
                     name: span(1, 23, "method"),
@@ -259,7 +259,7 @@ private void method() {
                             }))
                         })]
                     }),
-                }
+                })
             ))
         );
     }

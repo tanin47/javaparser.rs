@@ -3,10 +3,11 @@ use nom::character::is_space;
 use nom::IResult;
 
 use nom::branch::alt;
-use nom::combinator::{map, peek};
+use nom::bytes::complete::is_not;
+use nom::combinator::{map, opt, peek};
 use nom::error::ErrorKind;
-use nom::multi::{many0, separated_list, separated_listc};
-use nom::sequence::preceded;
+use nom::multi::{many0, separated_list, separated_listc, separated_nonempty_list};
+use nom::sequence::{preceded, tuple};
 use syntax::def::{param, type_params};
 use syntax::expr::atom::name;
 use syntax::statement::block;
@@ -14,11 +15,10 @@ use syntax::tree::{
     Annotated, AnnotatedParam, MarkerAnnotated, NormalAnnotated, SingleAnnotated, Span,
 };
 use syntax::tree::{Class, Method};
-use syntax::{comment, expr, tag, tpe};
+use syntax::{comment, expr, tag, tag_and_followed_by, tpe};
 
 fn identifier(original: Span) -> IResult<Span, Span> {
-    let (input, _) = comment::parse(original)?;
-    let (input, name) = name::identifier(input)?;
+    let (input, name) = name::identifier(original)?;
 
     if name.fragment == "interface" {
         Err(nom::Err::Error((original, ErrorKind::Tag)))
@@ -28,57 +28,38 @@ fn identifier(original: Span) -> IResult<Span, Span> {
 }
 
 fn parse_param(input: Span) -> IResult<Span, AnnotatedParam> {
-    let (input, _) = comment::parse(input)?;
     let (input, name) = name::identifier(input)?;
-
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag("=")(input)?;
-
-    let (input, _) = comment::parse(input)?;
     let (input, expr) = expr::parse(input)?;
 
     Ok((input, AnnotatedParam { name, expr }))
 }
 
-fn parse_normal(input: Span) -> IResult<Span, Annotated> {
-    let (input, _) = comment::parse(input)?;
-    let (input, _) = tag("@")(input)?;
-
-    let (input, name) = identifier(input)?;
-
-    let (input, _) = comment::parse(input)?;
-    let (input, _) = tag("(")(input)?;
-
-    let (input, params) = separated_list(tag(","), parse_param)(input)?;
-
-    let (input, _) = comment::parse(input)?;
-    let (input, _) = tag(")")(input)?;
-
-    Ok((input, Annotated::Normal(NormalAnnotated { name, params })))
-}
-
-fn parse_marker(input: Span) -> IResult<Span, Annotated> {
-    let (input, _) = comment::parse(input)?;
-    let (input, _) = tag("@")(input)?;
-
-    let (input, name) = identifier(input)?;
-
-    Ok((input, Annotated::Marker(MarkerAnnotated { name })))
-}
-
-fn parse_single(input: Span) -> IResult<Span, Annotated> {
-    let (input, _) = tag("@")(input)?;
-
-    let (input, name) = identifier(input)?;
-    let (input, _) = tag("(")(input)?;
-    let (input, expr) = expr::parse(input)?;
-    let (input, _) = tag(")")(input)?;
-
-    Ok((input, Annotated::Single(SingleAnnotated { name, expr })))
-}
-
 pub fn parse_annotated(input: Span) -> IResult<Span, Annotated> {
-    alt((parse_normal, parse_single, parse_marker))(input)
+    let (input, _) = tag("@")(input)?;
+    let (input, name) = identifier(input)?;
+
+    if let Ok((input, _)) = tag("(")(input) {
+        if let Ok((input, _)) = tag(")")(input) {
+            Ok((
+                input,
+                Annotated::Normal(NormalAnnotated {
+                    name,
+                    params: vec![],
+                }),
+            ))
+        } else if let Ok((input, params)) = separated_nonempty_list(tag(","), parse_param)(input) {
+            let (input, _) = tag(")")(input)?;
+            Ok((input, Annotated::Normal(NormalAnnotated { name, params })))
+        } else {
+            let (input, expr) = expr::parse(input)?;
+            let (input, _) = tag(")")(input)?;
+            Ok((input, Annotated::Single(SingleAnnotated { name, expr })))
+        }
+    } else {
+        let (input, _) = opt(tuple((tag("("), tag(")"))))(input)?;
+        Ok((input, Annotated::Marker(MarkerAnnotated { name })))
+    }
 }
 
 pub fn parse(input: Span) -> IResult<Span, Vec<Annotated>> {

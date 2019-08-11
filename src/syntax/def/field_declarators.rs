@@ -10,15 +10,17 @@ use std::slice;
 use syntax::def::{annotateds, modifiers};
 use syntax::statement::variable_declarators;
 use syntax::tree::{
-    Class, FieldDeclarators, Method, Statement, Type, VariableDeclarator, VariableDeclarators,
+    Class, FieldDeclarators, Method, Modifier, Statement, Type, VariableDeclarator,
+    VariableDeclarators,
 };
 use syntax::tree::{ReturnStmt, Span};
 use syntax::{comment, expr, tpe};
 
-pub fn parse(input: Span) -> IResult<Span, FieldDeclarators> {
-    let (input, modifiers) = modifiers::parse(input)?;
-    let (input, tpe) = tpe::parse(input)?;
-
+pub fn parse<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    tpe: Type<'a>,
+) -> IResult<Span<'a>, FieldDeclarators<'a>> {
     let (input, declarators) =
         separated_nonempty_list(tag(","), variable_declarators::parse_single(tpe))(input)?;
 
@@ -35,17 +37,17 @@ pub fn parse(input: Span) -> IResult<Span, FieldDeclarators> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use syntax::def::class_body;
     use syntax::tree::{
-        Annotated, ArrayType, Expr, FieldDeclarators, Int, Keyword, MarkerAnnotated, Modifier,
-        PrimitiveType, Type, VariableDeclarator,
+        Annotated, ArrayType, ClassBodyItem, Expr, FieldDeclarators, Int, Keyword, MarkerAnnotated,
+        Modifier, PrimitiveType, Type, VariableDeclarator,
     };
     use test_common::{code, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 @Anno private int a;
             "#
@@ -53,7 +55,7 @@ mod tests {
             )),
             Ok((
                 span(1, 21, ""),
-                FieldDeclarators {
+                ClassBodyItem::FieldDeclarators(FieldDeclarators {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
                             name: span(1, 2, "Anno")
@@ -69,7 +71,7 @@ mod tests {
                         name: span(1, 19, "a"),
                         expr_opt: None
                     }]
-                }
+                })
             ))
         );
     }
@@ -77,7 +79,7 @@ mod tests {
     #[test]
     fn test_weird_array() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 static int[] a, b[];
             "#
@@ -85,7 +87,7 @@ static int[] a, b[];
             )),
             Ok((
                 span(1, 21, ""),
-                FieldDeclarators {
+                ClassBodyItem::FieldDeclarators(FieldDeclarators {
                     modifiers: vec![Modifier::Keyword(Keyword {
                         name: span(1, 1, "static")
                     })],
@@ -114,7 +116,7 @@ static int[] a, b[];
                             expr_opt: None
                         },
                     ]
-                }
+                })
             ))
         );
     }
@@ -122,7 +124,7 @@ static int[] a, b[];
     #[test]
     fn test_expr() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 int a = 1;
             "#
@@ -130,7 +132,7 @@ int a = 1;
             )),
             Ok((
                 span(1, 11, ""),
-                FieldDeclarators {
+                ClassBodyItem::FieldDeclarators(FieldDeclarators {
                     modifiers: vec![],
                     declarators: vec![VariableDeclarator {
                         tpe: Type::Primitive(PrimitiveType {
@@ -141,7 +143,7 @@ int a = 1;
                             value: span(1, 9, "1")
                         }))
                     }]
-                }
+                })
             ))
         );
     }
@@ -149,7 +151,7 @@ int a = 1;
     #[test]
     fn test_multiple() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 int a = 1, b[], c;
             "#
@@ -157,7 +159,7 @@ int a = 1, b[], c;
             )),
             Ok((
                 span(1, 19, ""),
-                FieldDeclarators {
+                ClassBodyItem::FieldDeclarators(FieldDeclarators {
                     modifiers: vec![],
                     declarators: vec![
                         VariableDeclarator {
@@ -187,7 +189,7 @@ int a = 1, b[], c;
                             expr_opt: None
                         }
                     ]
-                }
+                })
             ))
         );
     }

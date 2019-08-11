@@ -5,7 +5,6 @@ pub fn span(line: usize, col: usize, fragment: &str) -> Span {
         line,
         col,
         fragment,
-        extra: (),
     }
 }
 
@@ -14,7 +13,6 @@ pub fn code(fragment: &str) -> Span {
         line: 1,
         col: 1,
         fragment,
-        extra: (),
     }
 }
 

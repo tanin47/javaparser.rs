@@ -22,6 +22,7 @@ fn parse_single(input: Span) -> IResult<Span, Modifier> {
 }
 
 fn keyword(input: Span) -> IResult<Span, Span> {
+    let (input, _) = comment::parse(input)?;
     let (input, keyword) = alt((
         tag("abstract"),
         tag("default"),

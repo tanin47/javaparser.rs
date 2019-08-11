@@ -1,69 +1,128 @@
 use nom::IResult;
 
+use either::Either;
 use nom::branch::alt;
+use nom::combinator::peek;
+use nom::error::ErrorKind;
 use nom::multi::many0;
-use syntax::def::{annotation, class, constructor, enum_def, field_declarators, interface, method};
+use syntax::def::{
+    annotation, class, constructor, enum_def, field_declarators, interface, method, modifiers,
+    type_params,
+};
+use syntax::expr::atom::name;
 use syntax::statement::block;
-use syntax::tree::{Class, ClassBody};
+use syntax::tpe::{primitive, type_args};
+use syntax::tree::{
+    Class, ClassBody, Keyword, Modifier, Name, PrimitiveType, Type, TypeArg, TypeParam,
+};
 use syntax::tree::{ClassBodyItem, Method, Span};
-use syntax::{comment, tag};
+use syntax::{comment, tag, tpe};
 
-pub fn parse_class(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, class) = class::parse(input)?;
+fn parse_class<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input, class) = class::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Class(class)))
 }
 
-pub fn parse_interface(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, interface) = interface::parse(input)?;
+fn parse_interface<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input, interface) = interface::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Interface(interface)))
 }
 
-pub fn parse_annotation(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, annotation) = annotation::parse(input)?;
+fn parse_annotation<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input, annotation) = annotation::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Annotation(annotation)))
 }
 
-pub fn parse_enum(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, enum_def) = enum_def::parse(input)?;
+fn parse_enum<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input, enum_def) = enum_def::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Enum(enum_def)))
 }
 
-pub fn parse_method(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, method) = method::parse(input)?;
+fn parse_method<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    type_params: Vec<TypeParam<'a>>,
+    tpe: Type<'a>,
+    name: Span<'a>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input, method) = method::parse(input, modifiers, type_params, tpe, name)?;
     Ok((input, ClassBodyItem::Method(method)))
 }
 
-pub fn parse_constructor(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, constructor) = constructor::parse(input)?;
+fn parse_constructor<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    type_params: Vec<TypeParam<'a>>,
+    name: Span<'a>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input, constructor) = constructor::parse(input, modifiers, type_params, name)?;
     Ok((input, ClassBodyItem::Constructor(constructor)))
 }
 
-pub fn parse_field_declarators(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, field_declarators) = field_declarators::parse(input)?;
+fn parse_field_declarators<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    tpe: Type<'a>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input, field_declarators) = field_declarators::parse(input, modifiers, tpe)?;
     Ok((input, ClassBodyItem::FieldDeclarators(field_declarators)))
 }
 
-pub fn parse_static_block(input: Span) -> IResult<Span, ClassBodyItem> {
-    let (input, _) = comment::parse(input)?;
-    let (input, _) = tag("static")(input)?;
-
-    let (input, _) = comment::parse1(input)?;
+fn parse_static_block(input: Span) -> IResult<Span, ClassBodyItem> {
     let (input, block) = block::parse_block(input)?;
     Ok((input, ClassBodyItem::StaticInitializer(block)))
 }
 
+fn parse_method_constructor_or_field<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> IResult<Span<'a>, ClassBodyItem<'a>> {
+    let (input_before_type, type_params) = type_params::parse(input)?;
+    let (input, identifier) = name::identifier(input_before_type)?;
+
+    if let Ok((input, _)) = peek(tag("("))(input) {
+        parse_constructor(input, modifiers, type_params, identifier)
+    } else {
+        let (input_before_name, tpe) = tpe::parse(input_before_type)?;
+        let (input, name) = name::identifier(input_before_name)?;
+
+        if let Ok((input, _)) = peek(tag("("))(input) {
+            parse_method(input, modifiers, type_params, tpe, name)
+        } else {
+            parse_field_declarators(input_before_name, modifiers, tpe)
+        }
+    }
+}
+
 pub fn parse_item(input: Span) -> IResult<Span, ClassBodyItem> {
     let (input, _) = comment::parse(input)?;
-    alt((
-        parse_constructor,
-        parse_method,
-        parse_class,
-        parse_interface,
-        parse_annotation,
-        parse_enum,
-        parse_field_declarators,
-        parse_static_block,
-    ))(input)
+    let (input, modifiers) = modifiers::parse(input)?;
+
+    if let Ok((input, _)) = enum_def::parse_prefix(input) {
+        parse_enum(input, modifiers)
+    } else if let Ok((input, _)) = class::parse_prefix(input) {
+        parse_class(input, modifiers)
+    } else if let Ok((input, _)) = interface::parse_prefix(input) {
+        parse_interface(input, modifiers)
+    } else if let Ok((input, _)) = annotation::parse_prefix(input) {
+        parse_annotation(input, modifiers)
+    } else if let Ok((input, _)) = peek(tag("{"))(input) {
+        parse_static_block(input)
+    } else {
+        parse_method_constructor_or_field(input, modifiers)
+    }
 }
 
 pub fn parse_items(input: Span) -> IResult<Span, Vec<ClassBodyItem>> {
@@ -146,9 +205,8 @@ mod tests {
                         }),
                         ClassBodyItem::StaticInitializer(Block { stmts: vec![] }),
                         ClassBodyItem::Constructor(Constructor {
-                            annotateds: vec![],
-                            name: span(6, 3, "Constructor"),
                             modifiers: vec![],
+                            name: span(6, 3, "Constructor"),
                             type_params: vec![],
                             params: vec![],
                             block: Block { stmts: vec![] },

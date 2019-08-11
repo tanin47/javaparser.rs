@@ -1,4 +1,3 @@
-use nom::bytes::complete::{tag, take, take_till, take_while};
 use nom::character::complete::multispace0;
 use nom::character::is_space;
 use nom::IResult;
@@ -8,32 +7,18 @@ use nom::multi::{many0, separated_list};
 use syntax::def::{annotateds, param, type_params};
 use syntax::expr::atom::name;
 use syntax::statement::block;
-use syntax::tree::{Class, Method};
+use syntax::tree::{Class, Method, Modifier, TypeParam};
 use syntax::tree::{Constructor, Span};
-use syntax::{comment, tpe};
+use syntax::{comment, tag, tpe};
 
-fn modifier(input: Span) -> IResult<Span, Span> {
-    alt((tag("private"), tag("protected"), tag("public")))(input)
-}
-
-fn modifiers(input: Span) -> IResult<Span, Vec<Span>> {
-    let (input, _) = comment::parse(input)?;
-    separated_list(comment::parse, modifier)(input)
-}
-
-pub fn parse(input: Span) -> IResult<Span, Constructor> {
-    let (input, annotateds) = annotateds::parse(input)?;
-    let (input, modifiers) = modifiers(input)?;
-    let (input, type_params) = type_params::parse(input)?;
-
-    let (input, name) = name::identifier(input)?;
-
-    let (input, _) = comment::parse(input)?;
+pub fn parse<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    type_params: Vec<TypeParam<'a>>,
+    name: Span<'a>,
+) -> IResult<Span<'a>, Constructor<'a>> {
     let (input, _) = tag("(")(input)?;
-
     let (input, params) = separated_list(tag(","), param::parse)(input)?;
-
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag(")")(input)?;
 
     let (input, block) = block::parse_block(input)?;
@@ -41,7 +26,6 @@ pub fn parse(input: Span) -> IResult<Span, Constructor> {
     Ok((
         input,
         Constructor {
-            annotateds,
             modifiers,
             type_params,
             name,
@@ -53,17 +37,18 @@ pub fn parse(input: Span) -> IResult<Span, Constructor> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use syntax::def::class_body;
     use syntax::tree::{
-        Annotated, Block, ClassType, Constructor, Expr, Int, MarkerAnnotated, Method, Param,
-        PrimitiveType, ReturnStmt, Statement, Type, TypeArg, TypeParam,
+        Annotated, Block, ClassBodyItem, ClassType, Constructor, Expr, Int, Keyword,
+        MarkerAnnotated, Method, Modifier, Param, PrimitiveType, ReturnStmt, Statement, Type,
+        TypeArg, TypeParam,
     };
     use test_common::{code, primitive, span};
 
     #[test]
     fn test_constructor() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 @Anno private constructor() {}
             "#
@@ -71,16 +56,20 @@ mod tests {
             )),
             Ok((
                 span(1, 31, ""),
-                Constructor {
-                    annotateds: vec![Annotated::Marker(MarkerAnnotated {
-                        name: span(1, 2, "Anno")
-                    })],
+                ClassBodyItem::Constructor(Constructor {
+                    modifiers: vec![
+                        Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
+                            name: span(1, 2, "Anno")
+                        })),
+                        Modifier::Keyword(Keyword {
+                            name: span(1, 7, "private")
+                        })
+                    ],
                     name: span(1, 15, "constructor"),
-                    modifiers: vec![span(1, 7, "private")],
                     type_params: vec![],
                     params: vec![],
                     block: Block { stmts: vec![] },
-                }
+                })
             ))
         );
     }
@@ -88,7 +77,7 @@ mod tests {
     #[test]
     fn test_constructor_with_params() {
         assert_eq!(
-            parse(code(
+            class_body::parse_item(code(
                 r#"
 <A> con(Test t, A a) {}
             "#
@@ -96,10 +85,9 @@ mod tests {
             )),
             Ok((
                 span(1, 24, ""),
-                Constructor {
-                    annotateds: vec![],
-                    name: span(1, 5, "con"),
+                ClassBodyItem::Constructor(Constructor {
                     modifiers: vec![],
+                    name: span(1, 5, "con"),
                     type_params: vec![TypeParam {
                         name: span(1, 2, "A"),
                         extends: vec![],
@@ -127,7 +115,7 @@ mod tests {
                         }
                     ],
                     block: Block { stmts: vec![] },
-                }
+                })
             ))
         );
     }

@@ -1,7 +1,7 @@
 use nom::bytes::complete::{is_a, is_not, tag, take, take_till, take_until, take_while};
 use nom::character::complete::{line_ending, multispace0, multispace1, newline};
 use nom::character::is_space;
-use nom::IResult;
+use nom::{IResult, InputTake};
 
 use nom::sequence::preceded;
 use syntax::tree::Span;
@@ -31,13 +31,11 @@ fn oneline_comment_tail<'a>(input: Span<'a>, prefix: Span<'a>) -> IResult<Span<'
                 line: prefix.line,
                 col: prefix.col,
                 fragment: unsafe {
-                    std::str::from_utf8(slice::from_raw_parts(
+                    std::str::from_utf8_unchecked(slice::from_raw_parts(
                         prefix.fragment.as_ptr(),
                         prefix.fragment.len() + body.fragment.len(),
                     ))
-                    .unwrap()
                 },
-                extra: (),
             },
         },
     ))
@@ -49,7 +47,6 @@ fn multiline_comment_prefix(input: Span) -> IResult<Span, Span> {
 
 fn multiline_comment_tail<'a>(input: Span<'a>, prefix: Span<'a>) -> IResult<Span<'a>, Comment<'a>> {
     let (input, body) = take_until("*/")(input)?;
-
     let (input, ending) = tag("*/")(input)?;
 
     Ok((
@@ -59,13 +56,11 @@ fn multiline_comment_tail<'a>(input: Span<'a>, prefix: Span<'a>) -> IResult<Span
                 line: prefix.line,
                 col: prefix.col,
                 fragment: unsafe {
-                    std::str::from_utf8(slice::from_raw_parts(
+                    std::str::from_utf8_unchecked(slice::from_raw_parts(
                         prefix.fragment.as_ptr(),
                         prefix.fragment.len() + body.fragment.len() + ending.fragment.len(),
                     ))
-                    .unwrap()
                 },
-                extra: (),
             },
         },
     ))
@@ -90,6 +85,7 @@ pub fn parse1(input: Span) -> IResult<Span, Vec<Comment>> {
 
 pub fn parse(input: Span) -> IResult<Span, Vec<Comment>> {
     let (input, _) = multispace0(input)?;
+
     let (input, comments) = many0(parse_comment)(input)?;
 
     let (input, _) = multispace0(input)?;

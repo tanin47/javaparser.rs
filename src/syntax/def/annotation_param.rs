@@ -1,4 +1,3 @@
-use nom::bytes::complete::{tag, take, take_till, take_while};
 use nom::character::complete::multispace0;
 use nom::character::is_space;
 use nom::IResult;
@@ -10,23 +9,14 @@ use syntax::def::{annotateds, param, type_params};
 use syntax::expr::atom::name;
 use syntax::statement::block;
 use syntax::tpe::array;
-use syntax::tree::{AnnotationParam, Expr, Span};
+use syntax::tree::{AnnotationParam, Expr, Modifier, Span, Type};
 use syntax::tree::{Class, Method};
-use syntax::{comment, expr, tpe};
-
-fn modifier(input: Span) -> IResult<Span, Span> {
-    alt((tag("abstract"), tag("public")))(input)
-}
-
-fn modifiers(input: Span) -> IResult<Span, Vec<Span>> {
-    let (input, _) = comment::parse(input)?;
-    separated_list(comment::parse, modifier)(input)
-}
+use syntax::{comment, expr, tag, tpe, word};
 
 fn parse_default(input: Span) -> IResult<Span, Option<Expr>> {
     let (input, _) = comment::parse(input)?;
 
-    match tag("default")(input) as IResult<Span, Span> {
+    match word("default")(input) as IResult<Span, Span> {
         Ok((input, _)) => {
             let (input, _) = comment::parse(input)?;
             let (input, default) = expr::parse(input)?;
@@ -36,30 +26,23 @@ fn parse_default(input: Span) -> IResult<Span, Option<Expr>> {
     }
 }
 
-pub fn parse(input: Span) -> IResult<Span, AnnotationParam> {
-    let (input, annotateds) = annotateds::parse(input)?;
-    let (input, modifiers) = modifiers(input)?;
-    let (input, original_tpe) = tpe::parse(input)?;
-
-    let (input, _) = comment::parse(input)?;
-    let (input, name) = name::identifier(input)?;
-
-    let (input, _) = comment::parse(input)?;
+pub fn parse<'a>(
+    input: Span<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    tpe: Type<'a>,
+    name: Span<'a>,
+) -> IResult<Span<'a>, AnnotationParam<'a>> {
     let (input, _) = tag("(")(input)?;
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag(")")(input)?;
 
-    let (input, tpe) = array::parse_tail(input, original_tpe)?;
-
+    let (input, tpe) = array::parse_tail(input, tpe)?;
     let (input, default_opt) = parse_default(input)?;
 
-    let (input, _) = comment::parse(input)?;
     let (input, _) = tag(";")(input)?;
 
     Ok((
         input,
         AnnotationParam {
-            annotateds,
             modifiers,
             tpe,
             name,
@@ -70,17 +53,18 @@ pub fn parse(input: Span) -> IResult<Span, AnnotationParam> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use syntax::def::annotation_body;
     use syntax::tree::{
-        Annotated, AnnotationParam, ArrayType, Block, ClassType, Expr, Int, MarkerAnnotated,
-        Method, Param, PrimitiveType, ReturnStmt, Statement, Type, TypeArg, TypeParam,
+        Annotated, AnnotationBodyItem, AnnotationParam, ArrayType, Block, ClassType, Expr, Int,
+        Keyword, MarkerAnnotated, Method, Modifier, Param, PrimitiveType, ReturnStmt, Statement,
+        Type, TypeArg, TypeParam,
     };
     use test_common::{code, primitive, span};
 
     #[test]
     fn test_full() {
         assert_eq!(
-            parse(code(
+            annotation_body::parse_item(code(
                 r#"
 @Anno public abstract int field()[] default 1;
             "#
@@ -88,11 +72,18 @@ mod tests {
             )),
             Ok((
                 span(1, 47, ""),
-                AnnotationParam {
-                    annotateds: vec![Annotated::Marker(MarkerAnnotated {
-                        name: span(1, 2, "Anno")
-                    })],
-                    modifiers: vec![span(1, 7, "public"), span(1, 14, "abstract")],
+                AnnotationBodyItem::Param(AnnotationParam {
+                    modifiers: vec![
+                        Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
+                            name: span(1, 2, "Anno")
+                        })),
+                        Modifier::Keyword(Keyword {
+                            name: span(1, 7, "public")
+                        }),
+                        Modifier::Keyword(Keyword {
+                            name: span(1, 14, "abstract")
+                        })
+                    ],
                     name: span(1, 27, "field"),
                     tpe: Type::Array(ArrayType {
                         tpe: Box::new(primitive(1, 23, "int")),
@@ -101,7 +92,7 @@ mod tests {
                     default_opt: Some(Expr::Int(Int {
                         value: span(1, 45, "1")
                     }))
-                }
+                })
             ))
         );
     }
@@ -109,7 +100,7 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(
-            parse(code(
+            annotation_body::parse_item(code(
                 r#"
 int field();
             "#
@@ -117,13 +108,12 @@ int field();
             )),
             Ok((
                 span(1, 13, ""),
-                AnnotationParam {
-                    annotateds: vec![],
+                AnnotationBodyItem::Param(AnnotationParam {
                     modifiers: vec![],
                     name: span(1, 5, "field"),
                     tpe: primitive(1, 1, "int"),
                     default_opt: None
-                }
+                })
             ))
         );
     }

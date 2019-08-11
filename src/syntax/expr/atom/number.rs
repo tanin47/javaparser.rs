@@ -19,13 +19,11 @@ pub fn parse(input: Span) -> IResult<Span, Expr> {
                     line: value.line,
                     col: value.col,
                     fragment: unsafe {
-                        std::str::from_utf8(slice::from_raw_parts(
+                        std::str::from_utf8_unchecked(slice::from_raw_parts(
                             value.fragment.as_ptr(),
                             value.fragment.len() + x.fragment.len() + tail.fragment.len(),
                         ))
-                        .unwrap()
                     },
-                    extra: (),
                 },
             }),
         ))
@@ -37,13 +35,11 @@ pub fn parse(input: Span) -> IResult<Span, Expr> {
                     line: value.line,
                     col: value.col,
                     fragment: unsafe {
-                        std::str::from_utf8(slice::from_raw_parts(
+                        std::str::from_utf8_unchecked(slice::from_raw_parts(
                             value.fragment.as_ptr(),
                             value.fragment.len() + l.fragment.len(),
                         ))
-                        .unwrap()
                     },
-                    extra: (),
                 },
             }),
         ))
