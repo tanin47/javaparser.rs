@@ -1,6 +1,5 @@
-use javaparser::syntax;
+use javaparser::parse;
 use javaparser::test_common::code;
-use nom::error::ErrorKind;
 use std::fs;
 use std::time::Instant;
 
@@ -13,15 +12,23 @@ fn all() {
         }
 
         print!(
-            "Test: {}",
+            "Parse: {}",
             entry.path().file_name().unwrap().to_str().unwrap()
         );
         let content = fs::read_to_string(entry.path()).unwrap();
 
         let start = Instant::now();
-        let result = syntax::parse(code(&content));
+        let tokens = code(&content);
+        let result = parse::apply(&tokens);
         println!(" ({:?})", start.elapsed());
-
-        assert!(result.is_ok(), format!("{:#?}", result));
+        assert!(result.is_ok(), {
+            let remainder = result.err().unwrap();
+            format!(
+                "Parsed {} failed at line {} and column {}",
+                entry.path().file_name().unwrap().to_str().unwrap(),
+                remainder[0].span().line,
+                remainder[0].span().col,
+            )
+        });
     }
 }

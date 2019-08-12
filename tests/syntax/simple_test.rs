@@ -1,13 +1,11 @@
-use nom::error::ErrorKind;
-
-use javaparser::syntax;
+use javaparser::parse;
 use javaparser::test_common::{code, span};
 
 #[test]
 fn parse_minimal() {
-    let result = syntax::parse(code(
+    let tokens = code(
         r#"
-/* This file
+ /* This file
  */
 package dev.lilit;
 
@@ -16,24 +14,25 @@ import test.sub;
 // Class Test is for something
 class Test {
     void method(Test t) {
-      Fn t = (int a) -> { run(); }; 
+      Fn t = (int a) -> { run(); };
       int a = 3;
       method(1, (x) -> 2);
       return;
     }
 }
-        "#
-        .trim(),
-    ));
+        "#,
+    );
+
+    let result = parse::apply(&tokens);
 
     assert!(result.is_ok(), format!("{:#?}", result));
 }
 
 #[test]
 fn parse_minimal2() {
-    let result = syntax::parse(code(
+    let tokens = code(
         r#"
-/* This file
+ /* This file
  */
 package dev.lilit;
 
@@ -45,9 +44,9 @@ class Test {
       method(1);
     }
 }
-        "#
-        .trim(),
-    ));
+        "#,
+    );
+    let result = parse::apply(&tokens);
 
     assert!(result.is_ok(), format!("{:#?}", result));
 }

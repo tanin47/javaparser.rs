@@ -23,6 +23,7 @@ Develop
 1. `cargo run` in order to run `src/main.rs`
 2. `cargo test` in order to run all tests.
 3. `cargo test -- --nocapture` in order to run all tests with STDOUT
+4. Profile: `cargo profiler callgrind`
 
 We have acceptance test in `./tests/syntax/acceptance_test.rs`, which tests the parser against real-world Java files in 
 `./test/fixtures/*.java`.
