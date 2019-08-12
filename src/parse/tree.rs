@@ -1,7 +1,4 @@
-use nom_locate::LocatedSpan;
-use tokenize::span::Span as OurSpan;
-
-pub type Span<'a> = LocatedSpan<&'a str>;
+use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Comment<'a> {
@@ -26,14 +23,14 @@ pub enum CompilationUnitItem<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Import<'a> {
     pub is_static: bool,
-    pub components: Vec<OurSpan<'a>>,
+    pub components: Vec<Span<'a>>,
     pub is_wildcard: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Package<'a> {
     pub annotateds: Vec<Annotated<'a>>,
-    pub components: Vec<OurSpan<'a>>,
+    pub components: Vec<Span<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

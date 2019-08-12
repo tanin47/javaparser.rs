@@ -1,6 +1,6 @@
 use tokenize::Span;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Token<'a> {
     Symbol(Span<'a>),
     Word(Span<'a>),

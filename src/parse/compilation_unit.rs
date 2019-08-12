@@ -1,18 +1,10 @@
-use nom::branch::alt;
-use nom::character::complete::multispace0;
-use nom::combinator::opt;
-use nom::multi::many1;
-use nom::IResult;
+use parse::combinator::{many1, opt};
+use parse::def::{class, imports, interface, modifiers, package};
+use parse::tree::{CompilationUnit, CompilationUnitItem};
+use parse::{ParseResult, Tokens};
 
-use nom::error::ErrorKind;
-use syntax::def::{annotation, enum_def, modifiers, package};
-use syntax::def::{class, interface};
-use syntax::tree::Span;
-use syntax::tree::{CompilationUnit, CompilationUnitItem};
-use syntax::{comment, imports, tag};
-
-fn parse_item(input: Span) -> IResult<Span, CompilationUnitItem> {
-    let (input, modifiers) = modifiers::parse(input)?;
+pub fn parse_item(original: Tokens) -> ParseResult<CompilationUnitItem> {
+    let (input, modifiers) = modifiers::parse(original)?;
 
     if let Ok((input, _)) = class::parse_prefix(input) {
         let (input, class) = class::parse_tail(input, modifiers)?;
@@ -20,24 +12,23 @@ fn parse_item(input: Span) -> IResult<Span, CompilationUnitItem> {
     } else if let Ok((input, _)) = interface::parse_prefix(input) {
         let (input, interface) = interface::parse_tail(input, modifiers)?;
         Ok((input, CompilationUnitItem::Interface(interface)))
-    } else if let Ok((input, _)) = enum_def::parse_prefix(input) {
-        let (input, enum_def) = enum_def::parse_tail(input, modifiers)?;
-        Ok((input, CompilationUnitItem::Enum(enum_def)))
-    } else if let Ok((input, _)) = annotation::parse_prefix(input) {
-        let (input, annotation) = annotation::parse_tail(input, modifiers)?;
-        Ok((input, CompilationUnitItem::Annotation(annotation)))
+    //    } else if let Ok((input, _)) = enum_def::parse_prefix(input) {
+    //        let (input, enum_def) = enum_def::parse_tail(input, modifiers)?;
+    //        Ok((input, CompilationUnitItem::Enum(enum_def)))
+    //    } else if let Ok((input, _)) = annotation::parse_prefix(input) {
+    //        let (input, annotation) = annotation::parse_tail(input, modifiers)?;
+    //        Ok((input, CompilationUnitItem::Annotation(annotation)))
     } else {
-        Err(nom::Err::Error((input, ErrorKind::Tag)))
+        Err(input)
     }
 }
 
-pub fn parse(input: Span) -> IResult<Span, CompilationUnit> {
+pub fn parse(input: Tokens) -> ParseResult<CompilationUnit> {
     let (input, package_opt) = opt(package::parse)(input)?;
 
     let (input, imports) = imports::parse(input)?;
 
     let (input, items) = many1(parse_item)(input)?;
-    let (input, _) = comment::parse(input)?;
 
     Ok((
         input,

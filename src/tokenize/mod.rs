@@ -210,16 +210,9 @@ fn multiline_comment(input: Span) -> Result<(Span, Token), Span> {
 #[cfg(test)]
 mod tests {
     use super::apply;
+    use test_common::span;
     use tokenize::token::Token;
     use tokenize::Span;
-
-    fn span(line: usize, col: usize, fragment: &str) -> Span {
-        Span {
-            line,
-            col,
-            fragment,
-        }
-    }
 
     #[test]
     fn test_oneline_comment() {

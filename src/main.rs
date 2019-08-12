@@ -1,8 +1,6 @@
 extern crate javaparser;
-extern crate nom;
 
-use javaparser::syntax;
-use javaparser::syntax::tree::Span;
+use javaparser::tokenize::span::Span;
 use std::time::Instant;
 use std::{fs, thread, time};
 
@@ -44,29 +42,29 @@ use std::{fs, thread, time};
 //}
 
 fn main() {
-    let content = fs::read_to_string("./tests/fixtures/LocalCache.java").unwrap();
-
-    let mut results = vec![];
-    for i in 0..100 {
-        let start = Instant::now();
-        let result = syntax::parse(Span {
-            line: 1,
-            col: 1,
-            fragment: &content,
-        });
-
-        let elapsed = start.elapsed().as_nanos();
-
-        println!(
-            "{}. Parsing took {:?} (succeed: {})",
-            i,
-            elapsed,
-            result.is_ok()
-        );
-        results.push(result)
-    }
-
-    println!("size: {}", results.len());
-
-    thread::sleep(time::Duration::from_millis(1000000))
+    //    let content = fs::read_to_string("./tests/fixtures/LocalCache.java").unwrap();
+    //
+    //    let mut results = vec![];
+    //    for i in 0..100 {
+    //        let start = Instant::now();
+    //        let result = syntax::parse(Span {
+    //            line: 1,
+    //            col: 1,
+    //            fragment: &content,
+    //        });
+    //
+    //        let elapsed = start.elapsed().as_nanos();
+    //
+    //        println!(
+    //            "{}. Parsing took {:?} (succeed: {})",
+    //            i,
+    //            elapsed,
+    //            result.is_ok()
+    //        );
+    //        results.push(result)
+    //    }
+    //
+    //    println!("size: {}", results.len());
+    //
+    //    thread::sleep(time::Duration::from_millis(1000000))
 }

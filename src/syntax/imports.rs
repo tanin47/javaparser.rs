@@ -35,7 +35,7 @@ fn import(input: Span) -> IResult<Span, Import> {
         input,
         Import {
             is_static: static_opt.is_some(),
-            components,
+            components: vec![],
             is_wildcard: wildcard_opt.is_some(),
         },
     ))
