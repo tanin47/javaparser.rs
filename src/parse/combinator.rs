@@ -4,32 +4,8 @@ use tokenize::span::CharAt;
 use tokenize::span::Span;
 use tokenize::token::Token;
 
-pub fn skip_comment(input: Tokens) -> Tokens {
-    if input.is_empty() {
-        return input;
-    }
-
-    match &input[0] {
-        Token::Comment(_) => (),
-        _ => return input,
-    };
-
-    let mut count = 0;
-
-    for i in input {
-        if let Token::Comment(comment) = i {
-            count += 1;
-        } else {
-            break;
-        }
-    }
-
-    input.split_at(count).1
-}
-
 pub fn any_symbol<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
-        let input = skip_comment(input);
         if input.is_empty() {
             return Err(input);
         }
@@ -45,7 +21,6 @@ pub fn any_symbol<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span
 
 pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
-        let input = skip_comment(input);
         if input.is_empty() {
             return Err(input);
         }
@@ -61,7 +36,6 @@ pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
 
 pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
-        let input = skip_comment(input);
         if input.len() < 2 {
             return Err(input);
         }
@@ -98,7 +72,6 @@ pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, S
 
 pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
-        let input = skip_comment(input);
         if input.len() < 3 {
             return Err(input);
         }
@@ -143,7 +116,6 @@ pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseRes
 
 pub fn word<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
-        let input = skip_comment(input);
         if input.is_empty() {
             return Err(input);
         }
@@ -159,7 +131,6 @@ pub fn word<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> 
 }
 
 pub fn identifier(input: Tokens) -> ParseResult<Span> {
-    let input = skip_comment(input);
     if input.is_empty() {
         return Err(input);
     }

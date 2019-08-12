@@ -14,4 +14,6 @@ pub type Tokens<'a> = &'a [Token<'a>];
 
 pub type ParseResult<'a, T> = Result<(Tokens<'a>, T), Tokens<'a>>;
 
-pub use self::compilation_unit::parse as apply;
+pub fn apply(input: Tokens) -> ParseResult<CompilationUnit> {
+    compilation_unit::parse(input)
+}

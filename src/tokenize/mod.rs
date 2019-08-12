@@ -21,6 +21,7 @@ pub fn apply(content: &str) -> Result<Vec<Token>, Span> {
         input = next_input;
 
         match token_opt {
+            Some(Token::Comment(_)) => (),
             Some(token) => tokens.push(token),
             None => (),
         };
@@ -216,10 +217,7 @@ mod tests {
 
     #[test]
     fn test_oneline_comment() {
-        assert_eq!(
-            apply("// test"),
-            Ok(vec![Token::Comment(span(1, 1, "// test"))])
-        )
+        assert_eq!(apply("// test"), Ok(vec![]))
     }
 
     #[test]
@@ -233,7 +231,7 @@ mod tests {
 "#
                 .trim()
             ),
-            Ok(vec![Token::Comment(span(1, 1, "/* test\n *\n */"))])
+            Ok(vec![])
         )
     }
 
@@ -362,7 +360,6 @@ void method() {
                 Token::Symbol(span(1, 12, "(")),
                 Token::Symbol(span(1, 13, ")")),
                 Token::Symbol(span(1, 15, "{")),
-                Token::Comment(span(2, 5, "// test")),
                 Token::Word(span(3, 5, "a")),
                 Token::Symbol(span(3, 6, "+")),
                 Token::Symbol(span(3, 7, "+")),
