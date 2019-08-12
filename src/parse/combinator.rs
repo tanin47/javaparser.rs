@@ -1,5 +1,6 @@
 use parse::{ParseResult, Tokens};
 use std::slice;
+use tokenize::span::CharAt;
 use tokenize::span::Span;
 use tokenize::token::Token;
 
@@ -26,7 +27,7 @@ pub fn skip_comment(input: Tokens) -> Tokens {
     input.split_at(count).1
 }
 
-pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+pub fn any_symbol<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
         let input = skip_comment(input);
         if input.is_empty() {
@@ -34,8 +35,24 @@ pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
         }
 
         if let Token::Symbol(span) = &input[0] {
-            if span.fragment.len() == 1 && span.fragment == s {
+            if span.fragment.len() == 1 && s.contains(span.fragment) {
                 return Ok((&input[1..], *span));
+            }
+        }
+        Err(input)
+    }
+}
+
+pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+    move |input: Tokens<'a>| {
+        let input = skip_comment(input);
+        if input.is_empty() {
+            return Err(input);
+        }
+
+        if let Token::Symbol(span) = input[0] {
+            if span.fragment.len() == 1 && span.fragment.char_at(0) == c {
+                return Ok((&input[1..], span));
             }
         }
         Err(input)
@@ -59,7 +76,7 @@ pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, S
                     && first.col + 1 == second.col
                 {
                     return Ok((
-                        &input[1..],
+                        &input[2..],
                         Span {
                             line: first.line,
                             col: first.col,
@@ -71,6 +88,51 @@ pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, S
                             },
                         },
                     ));
+                }
+            }
+        }
+
+        Err(input)
+    }
+}
+
+pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+    move |input: Tokens<'a>| {
+        let input = skip_comment(input);
+        if input.len() < 3 {
+            return Err(input);
+        }
+
+        if let Token::Symbol(first) = input[0] {
+            if let Token::Symbol(second) = input[1] {
+                if let Token::Symbol(third) = input[2] {
+                    if first.fragment.len() == 1
+                        && second.fragment.len() == 1
+                        && third.fragment.len() == 1
+                        && first.fragment.char_at(0) == a
+                        && second.fragment.char_at(0) == b
+                        && third.fragment.char_at(0) == b
+                        && first.line == second.line
+                        && first.line == third.line
+                        && first.col + 1 == second.col
+                        && first.col + 2 == third.col
+                    {
+                        return Ok((
+                            &input[3..],
+                            Span {
+                                line: first.line,
+                                col: first.col,
+                                fragment: unsafe {
+                                    std::str::from_utf8_unchecked(slice::from_raw_parts(
+                                        first.fragment.as_ptr(),
+                                        first.fragment.len()
+                                            + second.fragment.len()
+                                            + third.fragment.len(),
+                                    ))
+                                },
+                            },
+                        ));
+                    }
                 }
             }
         }
@@ -119,31 +181,29 @@ where
     }
 }
 
-pub fn is_not<'a, F, T>(f: F) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Token>
+pub fn is_not<'a, F, T>(f: F) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span>
 where
     F: Fn(Tokens<'a>) -> ParseResult<'a, T>,
 {
     move |input: Tokens<'a>| match f(input) {
         Ok((_, result)) => Err(input),
-        Err(_) => Ok((input.split_at(1).1, input[0])),
+        Err(_) => Ok((input.split_at(1).1, input[0].span())),
     }
 }
 
-pub fn get_and_followed_by<'a, I, T, F, S>(
+pub fn get_and_followed_by<'a, I, F>(
     item: I,
     followed: F,
-) -> impl Fn(Tokens<'a>) -> ParseResult<'a, T>
+) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>
 where
-    I: Fn(Tokens<'a>) -> ParseResult<'a, T>,
-    F: Fn(Tokens<'a>) -> ParseResult<'a, S>,
+    I: Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>,
+    F: Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>,
 {
     move |original: Tokens<'a>| {
         let (input, result) = item(original)?;
 
         if let Ok((_, followed)) = followed(input) {
-            if result.line == followed.line && result.col + 1 == followed.col {
-                return Ok((input, result));
-            }
+            return Ok((input, result));
         }
 
         Err(original)

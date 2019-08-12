@@ -1,24 +1,26 @@
-use nom::branch::alt;
-use nom::bytes::complete::is_not;
-use nom::character::complete::multispace1;
-use nom::combinator::peek;
-use nom::sequence::tuple;
-use nom::{FindToken, IResult};
-use syntax::expr::precedence_10;
-use syntax::tree::{BinaryOperation, Expr, InstanceOf, Span};
-use syntax::{tag, tag_and_followed_by, tpe};
+use parse::combinator::{get_and_followed_by, is_not, symbol, symbol2, word};
+use parse::expr::precedence_10;
+use parse::tree::{BinaryOperation, Expr, InstanceOf};
+use parse::{tpe, ParseResult, Tokens};
+use tokenize::span::Span;
 
 fn op(input: Tokens) -> ParseResult<Span> {
-    alt((
-        tag("<="),
-        tag(">="),
-        tag_and_followed_by("<", is_not("<")),
-        tag_and_followed_by(">", is_not(">")),
-        tag_and_followed_by("instanceof", multispace1),
-    ))(input)
+    if let Ok(ok) = symbol2('<', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('>', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = get_and_followed_by(symbol('<'), is_not(symbol('<')))(input) {
+        Ok(ok)
+    } else if let Ok(ok) = get_and_followed_by(symbol('>'), is_not(symbol('>')))(input) {
+        Ok(ok)
+    } else if let Ok(ok) = word("instanceof")(input) {
+        Ok(ok)
+    } else {
+        Err(input)
+    }
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
+pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
     if let Ok((input, operator)) = op(input) {
         if operator.fragment == "instanceof" {
             let (input, tpe) = tpe::parse(input)?;
@@ -54,25 +56,22 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use syntax::tree::{
-        ArrayAccess, Assigned, Assignment, BinaryOperation, ClassType, Expr, FieldAccess,
-        InstanceOf, Int, LiteralString, Method, MethodCall, Name, ReturnStmt, Type, TypeArg,
-    };
     use test_common::{code, span};
 
     use super::parse;
+    use parse::tree::{ClassType, Expr, InstanceOf, Name, Type};
+    use parse::Tokens;
 
     #[test]
     fn test_instanceof() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 a instanceof Class
             "#
-                .trim()
             )),
             Ok((
-                span(1, 19, ""),
+                &[] as Tokens,
                 Expr::InstanceOf(InstanceOf {
                     expr: Box::new(Expr::Name(Name {
                         name: span(1, 1, "a")

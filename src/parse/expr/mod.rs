@@ -22,7 +22,7 @@ pub mod precedence_9;
 
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     if let Ok((input, tpe)) = tpe::parse(input) {
-        if let Ok((input, _)) = symbol2(':', ':')(input) {
+        if let Ok(_) = symbol2(':', ':')(input) {
             match tpe {
                 Type::Array(arr) => {
                     return precedence_15::parse_tail(MethodReferencePrimary::Array(arr), input)

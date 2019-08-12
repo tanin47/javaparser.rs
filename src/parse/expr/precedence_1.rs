@@ -1,23 +1,38 @@
+use parse::combinator::{get_and_followed_by, is_not, symbol, symbol2, symbol3};
+use parse::expr::{precedence_1, precedence_2};
+use parse::tree::{Assigned, Assignment, Expr};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
 fn op(input: Tokens) -> ParseResult<Span> {
-    alt((
-        tag_and_followed_by("=", is_not("=")),
-        tag("+="),
-        tag("-="),
-        tag("*="),
-        tag("/="),
-        tag("%="),
-        tag("|="),
-        tag("&="),
-        tag("^="),
-        tag("<<="),
-        tag(">>="),
-    ))(input)
+    if let Ok(ok) = get_and_followed_by(symbol('='), is_not(symbol('=')))(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('+', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('-', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('*', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('/', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('%', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('|', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('&', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('^', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol3('<', '<', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol3('>', '>', '=')(input) {
+        Ok(ok)
+    } else {
+        Err(input)
+    }
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
+pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
     let (input, operator) = match op(input) {
         Ok(ok) => ok,
         _ => return precedence_2::parse_tail(left, input),
@@ -27,7 +42,7 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr
         Expr::FieldAccess(field) => Assigned::Field(field),
         Expr::ArrayAccess(arr) => Assigned::ArrayAccess(arr),
         Expr::Name(name) => Assigned::Name(name),
-        _ => return Err(nom::Err::Error((input, ErrorKind::Tag))),
+        _ => return Err(input),
     };
     let (input, expr) = precedence_1::parse(input)?;
 
@@ -48,25 +63,24 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use syntax::tree::{
-        ArrayAccess, Assigned, Assignment, BinaryOperation, ClassType, Expr, FieldAccess, Int,
-        LiteralString, Method, MethodCall, Name, ReturnStmt, TypeArg,
-    };
     use test_common::{code, span};
 
     use super::parse;
+    use parse::tree::{
+        ArrayAccess, Assigned, Assignment, BinaryOperation, Expr, FieldAccess, Int, Name,
+    };
+    use parse::Tokens;
 
     #[test]
     fn test_and_assignment() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 a &= b
             "#
-                .trim()
             )),
             Ok((
-                span(1, 7, ""),
+                &[] as Tokens,
                 Expr::Assignment(Assignment {
                     assigned: Box::new(Assigned::Name(Name {
                         name: span(1, 1, "a")
@@ -83,14 +97,13 @@ a &= b
     #[test]
     fn test_assignment() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 a = b.a += c.d[0][1] *= 1 == 2
             "#
-                .trim()
             )),
             Ok((
-                span(1, 31, ""),
+                &[] as Tokens,
                 Expr::Assignment(Assignment {
                     assigned: Box::new(Assigned::Name(Name {
                         name: span(1, 1, "a")

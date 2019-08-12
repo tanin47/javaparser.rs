@@ -1,4 +1,5 @@
 use either::Either;
+use parse::combinator::{identifier, symbol, symbol2};
 use parse::tpe::type_args;
 use parse::tree::{Boolean, Expr, MethodCall, Name, Null, Type};
 use parse::{tpe, ParseResult, Tokens};
@@ -36,22 +37,24 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 fn parse_lambda_or_parenthesized(original: Tokens) -> ParseResult<Expr> {
     let (input, _) = symbol('(')(original)?;
 
-    if let Ok((input, _)) = tuple((symbol(')'), tag("->")))(input) {
-        return lambda::parse(original);
+    if let Ok((input, _)) = symbol(')')(input) {
+        if let Ok((input, _)) = symbol2('-', '>')(input) {
+            return lambda::parse(original);
+        }
     }
 
-    let (input, identifier) = match name::identifier(input) {
+    let (input, ident) = match identifier(input) {
         Ok(ok) => ok,
         Err(_) => return parenthesized::parse(original),
     };
 
-    if tpe::primitive::valid(identifier.fragment) {
+    if tpe::primitive::valid(ident.fragment) {
         return lambda::parse(original);
     }
 
     // a single unknown type param name
     if let Ok((input, _)) = symbol(')')(input) {
-        if let Ok(_) = tag("->")(input) {
+        if let Ok(_) = symbol2('-', '>')(input) {
             return lambda::parse(original);
         }
     }
@@ -90,7 +93,7 @@ fn parse_new_object_or_array(input: Tokens) -> ParseResult<Expr> {
     } else {
         match copied {
             Type::Class(class) => new_object::parse_tail3(input, None, class),
-            _ => Err(nom::Err::Error((input, ErrorKind::Tag))),
+            _ => Err(input),
         }
     }
 }
@@ -113,10 +116,10 @@ pub fn parse_prefix_identifier(original: Tokens) -> ParseResult<Expr> {
                 }),
             )),
             "new" => parse_new_object_or_array(input),
-            _ => Err(nom::Err::Error((input, ErrorKind::Tag))),
+            _ => Err(input),
         },
         Either::Right(name) => {
-            if let Ok(_) = tag("->")(input) {
+            if let Ok(_) = symbol2('-', '>')(input) {
                 lambda::parse(original)
             } else if let Ok((input, args)) = method_call::parse_args(input) {
                 Ok((
@@ -132,47 +135,5 @@ pub fn parse_prefix_identifier(original: Tokens) -> ParseResult<Expr> {
                 array_access::parse_tail(input, Expr::Name(name))
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use test_common::{code, span};
-
-    use super::parse;
-    use parse::tree::{Expr, Int, LiteralString};
-
-    #[test]
-    fn test_string() {
-        assert_eq!(
-            parse(&code(
-                r#"
-"abc"
-            "#
-            )),
-            Ok((
-                span(1, 6, ""),
-                Expr::String(LiteralString {
-                    value: span(1, 2, "abc")
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_int() {
-        assert_eq!(
-            parse(&code(
-                r#"
-123
-            "#
-            )),
-            Ok((
-                span(1, 4, ""),
-                Expr::Int(Int {
-                    value: span(1, 1, "123")
-                })
-            ))
-        );
     }
 }

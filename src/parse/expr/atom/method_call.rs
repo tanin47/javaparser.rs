@@ -1,4 +1,4 @@
-use parse::combinator::{separated_list, symbol};
+use parse::combinator::{identifier, separated_list, symbol};
 use parse::tpe::type_args;
 use parse::tree::{Expr, MethodCall, TypeArg};
 use parse::{expr, ParseResult, Tokens};
@@ -17,7 +17,7 @@ pub fn parse_tail<'a>(
     prefix_opt: Option<Box<Expr<'a>>>,
     name: Span<'a>,
     type_args_opt: Option<Vec<TypeArg<'a>>>,
-) -> IResult<Span<'a>, MethodCall<'a>> {
+) -> ParseResult<'a, MethodCall<'a>> {
     let (input, args) = parse_args(input)?;
 
     Ok((
@@ -32,16 +32,14 @@ pub fn parse_tail<'a>(
 }
 
 pub fn parse(is_next: bool) -> impl Fn(Tokens) -> ParseResult<MethodCall> {
-    move |input: Span| {
+    move |input: Tokens| {
         let (input, type_args_opt) = if is_next {
-            let (input, _) = comment::parse(input)?;
             type_args::parse(input)?
         } else {
             (input, None)
         };
 
-        let (input, _) = comment::parse(input)?;
-        let (input, name) = name::identifier(input)?;
+        let (input, name) = identifier(input)?;
 
         parse_tail(input, None, name, type_args_opt)
     }
@@ -50,10 +48,8 @@ pub fn parse(is_next: bool) -> impl Fn(Tokens) -> ParseResult<MethodCall> {
 #[cfg(test)]
 mod tests {
     use super::parse;
+    use parse::tree::{Expr, Int, Lambda, LiteralString, MethodCall, Param, Type};
     use parse::Tokens;
-    use syntax::tree::{
-        Expr, Int, Lambda, LiteralString, Method, MethodCall, Name, Param, ReturnStmt, Type,
-    };
     use test_common::{code, span};
 
     #[test]
@@ -67,6 +63,7 @@ method()
             Ok((
                 &[] as Tokens,
                 MethodCall {
+                    prefix_opt: None,
                     name: span(1, 1, "method"),
                     type_args_opt: None,
                     args: vec![],
@@ -86,6 +83,7 @@ method(1, "a")
             Ok((
                 &[] as Tokens,
                 MethodCall {
+                    prefix_opt: None,
                     name: span(1, 1, "method"),
                     type_args_opt: None,
                     args: vec![
@@ -93,7 +91,7 @@ method(1, "a")
                             value: span(1, 8, "1")
                         }),
                         Expr::String(LiteralString {
-                            value: span(1, 12, "a")
+                            value: span(1, 11, "\"a\"")
                         }),
                     ],
                 }
@@ -112,6 +110,7 @@ method(1, (x) -> 2)
             Ok((
                 &[] as Tokens,
                 MethodCall {
+                    prefix_opt: None,
                     name: span(1, 1, "method"),
                     type_args_opt: None,
                     args: vec![
@@ -120,8 +119,9 @@ method(1, (x) -> 2)
                         }),
                         Expr::Lambda(Lambda {
                             params: vec![Param {
-                                annotateds: vec![],
+                                modifiers: vec![],
                                 tpe: Type::UnknownType,
+                                is_varargs: false,
                                 name: span(1, 12, "x")
                             }],
                             expr_opt: Some(Box::new(Expr::Int(Int {

@@ -1,4 +1,4 @@
-use parse::combinator::{opt, symbol};
+use parse::combinator::{opt, symbol, word};
 use parse::expr::atom::array_initializer;
 use parse::tree::{ArrayType, Expr, NewArray, Type};
 use parse::{expr, tpe, ParseResult, Tokens};
@@ -31,9 +31,8 @@ fn parse_array_brackets<'a>(input: Tokens<'a>, tpe: Type<'a>) -> ParseResult<'a,
 pub fn parse_tail<'a>(input: Tokens<'a>, tpe: Type<'a>) -> ParseResult<'a, Expr<'a>> {
     let (input, tpe) = match parse_array_brackets(input, tpe) {
         Ok((input, Type::Array(array))) => (input, array),
-        other => return Err(nom::Err::Error((input, ErrorKind::Tag))),
+        other => return Err(input),
     };
-    let (input, _) = comment::parse(input)?;
     let (input, initializer_opt) = opt(array_initializer::parse_initializer)(input)?;
 
     Ok((
@@ -45,19 +44,9 @@ pub fn parse_tail<'a>(input: Tokens<'a>, tpe: Type<'a>) -> ParseResult<'a, Expr<
     ))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
-    let (input, _) = comment::parse(input)?;
-    let (input, t) = tag("new")(input)?;
-
-    let (input, _) = comment::parse(input)?;
-    let (input, tpe) = tpe::parse_no_array(input)?;
-
-    parse_tail(input, tpe)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use parse::expr::atom;
     use parse::tree::{
         ArrayInitializer, ArrayType, ClassType, Expr, Int, Name, NewArray, PrimitiveType, Type,
     };
@@ -67,7 +56,7 @@ mod tests {
     #[test]
     fn test_array_class() {
         assert_eq!(
-            parse(&code(
+            atom::parse(&code(
                 r#"
 new Test[size]
             "#
@@ -94,13 +83,13 @@ new Test[size]
     #[test]
     fn test_array_primitive() {
         assert_eq!(
-            parse(&code(
+            atom::parse(&code(
                 r#"
 new int[2][]
             "#
             )),
             Ok((
-                span(1, 13, ""),
+                &[] as Tokens,
                 Expr::NewArray(NewArray {
                     tpe: ArrayType {
                         tpe: Box::new(Type::Array(ArrayType {
@@ -122,13 +111,13 @@ new int[2][]
     #[test]
     fn test_initializer() {
         assert_eq!(
-            parse(&code(
+            atom::parse(&code(
                 r#"
 new int[] { 1, {2}}
             "#
             )),
             Ok((
-                span(1, 20, ""),
+                &[] as Tokens,
                 Expr::NewArray(NewArray {
                     tpe: ArrayType {
                         tpe: Box::new(Type::Primitive(PrimitiveType {

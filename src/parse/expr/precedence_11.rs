@@ -1,21 +1,20 @@
-use nom::branch::alt;
-use nom::bytes::complete::is_not;
-use nom::combinator::peek;
-use nom::sequence::tuple;
-use nom::IResult;
-use syntax::expr::atom::{method_call, name};
-use syntax::expr::precedence_12;
-use syntax::tree::{BinaryOperation, Expr, Span};
-use syntax::{comment, expr, tag, tag_and_followed_by};
+use parse::combinator::{any_symbol, get_and_followed_by, is_not, symbol};
+use parse::expr::precedence_12;
+use parse::tree::{BinaryOperation, Expr};
+use parse::{ParseResult, Tokens};
+use tokenize::span::Span;
 
 fn op(input: Tokens) -> ParseResult<Span> {
-    alt((
-        tag_and_followed_by("+", is_not("+=")),
-        tag_and_followed_by("-", is_not("-=")),
-    ))(input)
+    if let Ok(ok) = get_and_followed_by(symbol('+'), is_not(any_symbol("+=")))(input) {
+        Ok(ok)
+    } else if let Ok(ok) = get_and_followed_by(symbol('-'), is_not(any_symbol("-=")))(input) {
+        Ok(ok)
+    } else {
+        Err(input)
+    }
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
+pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
     if let Ok((input, operator)) = op(input) {
         let (input, right) = precedence_12::parse(input)?;
 

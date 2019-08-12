@@ -1,18 +1,14 @@
-use nom::branch::alt;
-use nom::combinator::opt;
-use nom::error::ErrorKind;
-use nom::{FindSubstring, IResult};
-use syntax::expr::atom::{method_call, name};
-use syntax::expr::{atom, precedence_2, precedence_3};
-use syntax::tree::{BinaryOperation, Expr, Span, Ternary};
-use syntax::{comment, expr, tag};
+use parse::combinator::symbol;
+use parse::expr::precedence_3;
+use parse::tree::{Expr, Ternary};
+use parse::{expr, ParseResult, Tokens};
 
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     let (input, cond) = precedence_3::parse(input)?;
     parse_tail(cond, input)
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
+pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
     let (input, _) = match symbol('?')(input) {
         Ok(ok) => ok,
         Err(_) => return precedence_3::parse_tail(left, input),
@@ -34,25 +30,22 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr
 
 #[cfg(test)]
 mod tests {
-    use syntax::tree::{
-        BinaryOperation, ClassType, Expr, Int, LiteralString, Method, MethodCall, Name, ReturnStmt,
-        Ternary, TypeArg,
-    };
     use test_common::{code, span};
 
     use super::parse;
+    use parse::tree::{Expr, Int, Name, Ternary};
+    use parse::Tokens;
 
     #[test]
     fn test_multi() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 a ? 1 ? 2 : 3 : 4
             "#
-                .trim()
             )),
             Ok((
-                span(1, 18, ""),
+                &[] as Tokens,
                 Expr::Ternary(Ternary {
                     cond: Box::new(Expr::Name(Name {
                         name: span(1, 1, "a")

@@ -1,4 +1,4 @@
-use parse::combinator::{opt, separated_list, symbol};
+use parse::combinator::{identifier, opt, separated_list, symbol, word};
 use parse::def::class_body;
 use parse::tpe::type_args;
 use parse::tree::{ClassType, Expr, NewObject, TypeArg};
@@ -41,20 +41,9 @@ pub fn parse_tail3<'a>(
     ))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
-    let (input, _) = comment::parse(input)?;
-    let (input, name) = name::identifier(input)?;
-
-    if name.fragment == "new" {
-        parse_tail1(input)
-    } else {
-        Err(nom::Err::Error((input, ErrorKind::Tag)))
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use parse::expr::atom;
     use parse::tree::{ClassBody, ClassType, Expr, Int, LiteralString, NewObject, TypeArg};
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -62,7 +51,7 @@ mod tests {
     #[test]
     fn test_type_args() {
         assert_eq!(
-            parse(&code(
+            atom::parse(&code(
                 r#"
 new <String>Test<Integer>()
             "#
@@ -95,7 +84,7 @@ new <String>Test<Integer>()
     #[test]
     fn test_bare() {
         assert_eq!(
-            parse(&code(
+            atom::parse(&code(
                 r#"
 new Test()
             "#
@@ -119,7 +108,7 @@ new Test()
     #[test]
     fn test_with_args() {
         assert_eq!(
-            parse(&code(
+            atom::parse(&code(
                 r#"
 new Test(1, "a")
             "#
@@ -138,7 +127,7 @@ new Test(1, "a")
                             value: span(1, 10, "1")
                         }),
                         Expr::String(LiteralString {
-                            value: span(1, 14, "a")
+                            value: span(1, 13, "\"a\"")
                         })
                     ],
                     body_opt: None
@@ -150,7 +139,7 @@ new Test(1, "a")
     #[test]
     fn test_anonymous() {
         assert_eq!(
-            parse(&code(
+            atom::parse(&code(
                 r#"
 new Test() {
 }

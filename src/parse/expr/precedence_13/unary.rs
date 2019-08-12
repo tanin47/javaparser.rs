@@ -39,6 +39,7 @@ mod tests {
 
     use super::parse;
     use parse::tree::{Expr, Name, UnaryOperation};
+    use parse::Tokens;
 
     #[test]
     fn test_multi() {
@@ -49,7 +50,7 @@ mod tests {
             "#
             )),
             Ok((
-                span(1, 4, ""),
+                &[] as Tokens,
                 Expr::UnaryOperation(UnaryOperation {
                     expr: Box::new(Expr::UnaryOperation(UnaryOperation {
                         expr: Box::new(Expr::Name(Name {

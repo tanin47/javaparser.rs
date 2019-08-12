@@ -24,6 +24,7 @@ mod tests {
 
     use super::parse;
     use parse::tree::{Cast, ClassType, Expr, Name, Type};
+    use parse::Tokens;
 
     #[test]
     fn test_multi() {
@@ -34,7 +35,7 @@ mod tests {
             "#
             )),
             Ok((
-                span(1, 16, ""),
+                &[] as Tokens,
                 Expr::Cast(Cast {
                     expr: Box::new(Expr::Cast(Cast {
                         expr: Box::new(Expr::Name(Name {

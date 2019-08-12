@@ -4,7 +4,7 @@ use tokenize::token::Token;
 
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     if let Token::String(value) = input[0] {
-        Ok((input, Expr::String(LiteralString { value })))
+        Ok((&input[1..], Expr::String(LiteralString { value })))
     } else {
         Err(input)
     }
@@ -28,7 +28,7 @@ mod tests {
             Ok((
                 &[] as Tokens,
                 Expr::String(LiteralString {
-                    value: span(1, 2, "abc")
+                    value: span(1, 1, "\"abc\"")
                 })
             ))
         );

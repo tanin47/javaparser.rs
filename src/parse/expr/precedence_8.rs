@@ -1,14 +1,20 @@
-use nom::branch::alt;
-use nom::IResult;
-use syntax::expr::precedence_9;
-use syntax::tag;
-use syntax::tree::{BinaryOperation, Expr, Span};
+use parse::combinator::symbol2;
+use parse::expr::precedence_9;
+use parse::tree::{BinaryOperation, Expr};
+use parse::{ParseResult, Tokens};
+use tokenize::span::Span;
 
 fn op(input: Tokens) -> ParseResult<Span> {
-    alt((tag("=="), tag("!=")))(input)
+    if let Ok(ok) = symbol2('=', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol2('!', '=')(input) {
+        Ok(ok)
+    } else {
+        Err(input)
+    }
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
+pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
     if let Ok((input, operator)) = op(input) {
         let (input, right) = precedence_9::parse(input)?;
 

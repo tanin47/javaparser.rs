@@ -29,6 +29,7 @@ pub fn parse_tail<'a>(input: Tokens<'a>, expr: Expr<'a>) -> ParseResult<'a, Expr
 mod tests {
     use parse::expr::atom;
     use parse::tree::{ArrayAccess, Expr, Int, Name};
+    use parse::Tokens;
     use test_common::{code, span};
 
     #[test]
@@ -40,7 +41,7 @@ abc[1][2]
             "#
             )),
             Ok((
-                span(1, 10, ""),
+                &[] as Tokens,
                 Expr::ArrayAccess(ArrayAccess {
                     expr: Box::new(Expr::ArrayAccess(ArrayAccess {
                         expr: Box::new(Expr::Name(Name {

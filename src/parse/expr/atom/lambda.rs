@@ -1,5 +1,5 @@
 use either::Either;
-use parse::combinator::{identifier, separated_list, symbol};
+use parse::combinator::{identifier, separated_list, symbol, symbol2};
 use parse::def::param;
 use parse::expr::atom::name;
 use parse::statement::block::parse_block;
@@ -8,10 +8,10 @@ use parse::{expr, ParseResult, Tokens};
 
 fn parse_block_or_single_expr(input: Tokens) -> ParseResult<Either<Block, Expr>> {
     match parse_block(input) {
-        Ok((input, block)) => Ok((input, (Some(block), None))),
+        Ok((input, block)) => Ok((input, Either::Left(block))),
         Err(_) => {
             let (input, expr) = expr::parse(input)?;
-            Ok((input, (None, Some(expr))))
+            Ok((input, Either::Right(expr)))
         }
     }
 }
@@ -55,19 +55,21 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
         return Err(input);
     };
 
-    let (input, _) = tag("->")(input)?;
+    let (input, _) = symbol2('-', '>')(input)?;
 
     let (input, block_or_expr) = parse_block_or_single_expr(input)?;
+
+    let (block_opt, expr_opt) = match block_or_expr {
+        Either::Left(block) => (Some(block), None),
+        Either::Right(expr) => (None, Some(Box::new(expr))),
+    };
 
     Ok((
         input,
         Expr::Lambda(Lambda {
             params,
-            expr_opt: match block_or_expr {
-                Either::Right(expr) => Some(Box::new(expr)),
-                _ => None,
-            },
-            block_opt: block_or_expr.left(),
+            expr_opt,
+            block_opt,
         }),
     ))
 }
@@ -162,7 +164,7 @@ x -> 2
             "#
             )),
             Ok((
-                span(1, 7, ""),
+                &[] as Tokens,
                 Expr::Lambda(Lambda {
                     params: vec![Param {
                         modifiers: vec![],
@@ -188,7 +190,7 @@ x -> 2
             "#
             )),
             Ok((
-                span(1, 20, ""),
+                &[] as Tokens,
                 Expr::Lambda(Lambda {
                     params: vec![],
                     expr_opt: None,

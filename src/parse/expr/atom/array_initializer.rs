@@ -30,7 +30,7 @@ mod tests {
         assert_eq!(
             parse(&code("{}")),
             Ok((
-                span(1, 3, ""),
+                &[] as Tokens,
                 Expr::ArrayInitializer(ArrayInitializer { items: vec![] })
             ))
         );

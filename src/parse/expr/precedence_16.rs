@@ -1,15 +1,10 @@
 use either::Either;
-use nom::branch::alt;
-use nom::bytes::complete::is_not;
-use nom::combinator::peek;
-use nom::error::ErrorKind;
-use nom::sequence::tuple;
-use nom::IResult;
-use syntax::expr::atom;
-use syntax::expr::atom::{array_access, method_call, name};
-use syntax::expr::precedence_15::convert_to_type;
-use syntax::tree::{Expr, FieldAccess, MethodCall, Name, ReservedFieldAccess, Span, Type};
-use syntax::{comment, tag, tpe};
+use parse::combinator::symbol;
+use parse::expr::atom;
+use parse::expr::atom::{array_access, method_call, name};
+use parse::expr::precedence_15::convert_to_type;
+use parse::tree::{Expr, FieldAccess, MethodCall, ReservedFieldAccess, Type};
+use parse::{tpe, ParseResult, Tokens};
 
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     // This doesn't work. Need to rethink it.
@@ -20,19 +15,24 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
     } else if let Ok((input, tpe)) = tpe::parse(input) {
         parse_reserved_field_access(tpe, input)
     } else {
-        Err(nom::Err::Error((input, ErrorKind::Tag)))
+        Err(input)
     }
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
-    let (input, left) = if let Ok(_) = tuple((symbol('['), symbol(']')))(input) {
-        println!("{:#?}", left);
+fn array_type_tail(input: Tokens) -> ParseResult<()> {
+    let (input, _) = symbol('[')(input)?;
+    let (input, _) = symbol(']')(input)?;
+
+    Ok((input, ()))
+}
+
+pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+    let (input, left) = if let Ok(_) = array_type_tail(input) {
         if let Ok(class_type) = convert_to_type(left) {
-            println!("{:#?}", class_type);
             let (input, tpe) = tpe::array::parse_tail(input, Type::Class(class_type))?;
             return parse_reserved_field_access(tpe, input);
         } else {
-            return Err(nom::Err::Error((input, ErrorKind::Tag)));
+            return Err(input);
         }
     } else {
         array_access::parse_tail(input, left)?
@@ -45,13 +45,13 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr
     }
 }
 
-fn parse_reserved_field_access<'a>(tpe: Type<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
+fn parse_reserved_field_access<'a>(tpe: Type<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
     let (input, _) = symbol('.')(input)?;
     let (input, keyword_or_name) = name::parse(input)?;
 
     let keyword = match keyword_or_name {
         Either::Left(keyword) => keyword,
-        Either::Right(_) => return Err(nom::Err::Error((input, ErrorKind::Tag))),
+        Either::Right(_) => return Err(input),
     };
 
     Ok((
@@ -63,8 +63,8 @@ fn parse_reserved_field_access<'a>(tpe: Type<'a>, input: Span<'a>) -> IResult<Sp
     ))
 }
 
-fn parse_dot<'a>(parent: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
-    let (input, expr) = if let Ok((input, _)) = peek(symbol('<'))(input) {
+fn parse_dot<'a>(parent: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+    let (input, expr) = if let Ok(_) = symbol('<')(input) {
         let (input, method_call) = method_call::parse(true)(input)?;
 
         (
@@ -90,11 +90,11 @@ fn parse_dot<'a>(parent: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a
                         }),
                     )
                 } else {
-                    return Err(nom::Err::Error((input, ErrorKind::Tag)));
+                    return Err(input);
                 }
             }
             Either::Right(name) => {
-                if let Ok((input, _)) = peek(symbol('('))(input) {
+                if let Ok(_) = symbol('(')(input) {
                     let (input, method_call) =
                         method_call::parse_tail(input, Some(Box::new(parent)), name.name, None)?;
                     (input, Expr::MethodCall(method_call))
@@ -116,27 +116,24 @@ fn parse_dot<'a>(parent: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a
 
 #[cfg(test)]
 mod tests {
-    use syntax::tree::{
-        ArrayAccess, ArrayType, Assigned, Assignment, BinaryOperation, Boolean, Cast, ClassType,
-        ConstructorReference, Expr, FieldAccess, Int, LiteralString, Method, MethodCall,
-        MethodReference, MethodReferencePrimary, Name, PrimitiveType, ReferenceType,
-        ReservedFieldAccess, ReturnStmt, Type, TypeArg,
-    };
     use test_common::{code, span};
 
     use super::parse;
+    use parse::tree::{
+        ArrayType, ClassType, Expr, MethodCall, PrimitiveType, ReservedFieldAccess, Type,
+    };
+    use parse::Tokens;
 
     #[test]
     fn test_class_with_parent() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 Parent.Test.class.hashCode()
             "#
-                .trim()
             )),
             Ok((
-                span(1, 29, ""),
+                &[] as Tokens,
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::ReservedFieldAccess(ReservedFieldAccess {
                         tpe: Type::Class(ClassType {
@@ -161,14 +158,13 @@ Parent.Test.class.hashCode()
     #[test]
     fn test_class() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 Test.class.hashCode()
             "#
-                .trim()
             )),
             Ok((
-                span(1, 22, ""),
+                &[] as Tokens,
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::ReservedFieldAccess(ReservedFieldAccess {
                         tpe: Type::Class(ClassType {
@@ -189,14 +185,13 @@ Test.class.hashCode()
     #[test]
     fn test_primitive_array_class() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 byte[].class
             "#
-                .trim()
             )),
             Ok((
-                span(1, 13, ""),
+                &[] as Tokens,
                 Expr::ReservedFieldAccess(ReservedFieldAccess {
                     tpe: Type::Array(ArrayType {
                         tpe: Box::new(Type::Primitive(PrimitiveType {
@@ -213,14 +208,13 @@ byte[].class
     #[test]
     fn test_array_class_with_parent() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 Parent.Test[].class
             "#
-                .trim()
             )),
             Ok((
-                span(1, 20, ""),
+                &[] as Tokens,
                 Expr::ReservedFieldAccess(ReservedFieldAccess {
                     tpe: Type::Array(ArrayType {
                         tpe: Box::new(Type::Class(ClassType {
@@ -243,14 +237,13 @@ Parent.Test[].class
     #[test]
     fn test_array_class() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 Test[].class
             "#
-                .trim()
             )),
             Ok((
-                span(1, 13, ""),
+                &[] as Tokens,
                 Expr::ReservedFieldAccess(ReservedFieldAccess {
                     tpe: Type::Array(ArrayType {
                         tpe: Box::new(Type::Class(ClassType {

@@ -1,16 +1,15 @@
-use nom::IResult;
-use syntax::expr::atom::{method_call, name};
-use syntax::expr::{precedence_3, precedence_4};
-use syntax::tag;
-use syntax::tree::{BinaryOperation, Expr, Span};
+use parse::combinator::symbol2;
+use parse::expr::{precedence_3, precedence_4};
+use parse::tree::{BinaryOperation, Expr};
+use parse::{ParseResult, Tokens};
 
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     let (input, left) = precedence_4::parse(input)?;
     precedence_3::parse_tail(left, input)
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr<'a>> {
-    if let Ok((input, operator)) = tag("||")(input) {
+pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+    if let Ok((input, operator)) = symbol2('|', '|')(input) {
         let (input, right) = precedence_4::parse(input)?;
 
         let expr = Expr::BinaryOperation(BinaryOperation {
@@ -27,25 +26,22 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Span<'a>) -> IResult<Span<'a>, Expr
 
 #[cfg(test)]
 mod tests {
-    use syntax::tree::{
-        BinaryOperation, Boolean, ClassType, Expr, FieldAccess, Int, LiteralString, Method,
-        MethodCall, Name, ReturnStmt, Ternary, TypeArg,
-    };
     use test_common::{code, span};
 
     use super::parse;
+    use parse::tree::{BinaryOperation, Boolean, Expr, FieldAccess, Name};
+    use parse::Tokens;
 
     #[test]
     fn test_precedence() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 true || false && t.a || false
             "#
-                .trim()
             )),
             Ok((
-                span(1, 30, ""),
+                &[] as Tokens,
                 Expr::BinaryOperation(BinaryOperation {
                     left: Box::new(Expr::BinaryOperation(BinaryOperation {
                         left: Box::new(Expr::Boolean(Boolean {

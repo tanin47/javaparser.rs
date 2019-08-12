@@ -1,15 +1,13 @@
 use either::Either;
-use nom::combinator::peek;
-use nom::error::ErrorKind;
-use nom::IResult;
-use syntax::expr::atom::name;
-use syntax::expr::precedence_16;
-use syntax::tag;
-use syntax::tpe::{array, type_args};
-use syntax::tree::{
+use parse::combinator::symbol2;
+use parse::expr::atom::name;
+use parse::expr::precedence_16;
+use parse::tpe::type_args;
+use parse::tree::{
     ClassType, ConstructorReference, Expr, FieldAccess, MethodReference, MethodReferencePrimary,
-    Name, PrimitiveType, ReferenceType, Span, Type,
+    ReferenceType,
 };
+use parse::{ParseResult, Tokens};
 
 fn convert_field_to_class(field: FieldAccess) -> Result<ClassType, ()> {
     let prefix = match *field.expr {
@@ -49,9 +47,9 @@ pub fn convert_to_type(expr: Expr) -> Result<ClassType, ()> {
 
 pub fn parse_tail<'a>(
     primary: MethodReferencePrimary<'a>,
-    input: Span<'a>,
-) -> IResult<Span<'a>, Expr<'a>> {
-    let (input, _) = tag("::")(input)?;
+    input: Tokens<'a>,
+) -> ParseResult<'a, Expr<'a>> {
+    let (input, _) = symbol2(':', ':')(input)?;
 
     let (input, type_args_opt) = type_args::parse(input)?;
     let (input, keyword_or_name) = name::parse(input)?;
@@ -66,7 +64,7 @@ pub fn parse_tail<'a>(
                         if let Ok(class) = convert_to_type(*expr) {
                             ReferenceType::Class(class)
                         } else {
-                            return Err(nom::Err::Error((input, ErrorKind::Tag)));
+                            return Err(input);
                         }
                     }
                 };
@@ -79,7 +77,7 @@ pub fn parse_tail<'a>(
                     }),
                 ))
             } else {
-                Err(nom::Err::Error((input, ErrorKind::Tag)))
+                Err(input)
             }
         }
         Either::Right(name) => Ok((
@@ -96,7 +94,7 @@ pub fn parse_tail<'a>(
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     let (input, expr) = precedence_16::parse(input)?;
 
-    if let Ok((input, _)) = peek(tag("::"))(input) {
+    if let Ok(_) = symbol2(':', ':')(input) {
         let (input, method_ref) = parse_tail(MethodReferencePrimary::Expr(Box::new(expr)), input)?;
         Ok((input, method_ref))
     } else {
@@ -107,26 +105,26 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 #[cfg(test)]
 mod tests {
     use super::parse;
-    use syntax::tree::{
+    use parse::tree::{
         ArrayAccess, ClassType, Expr, FieldAccess, LiteralString, MethodReference,
         MethodReferencePrimary, Name, TypeArg,
     };
+    use parse::Tokens;
     use test_common::{code, span};
 
     #[test]
     fn test_method_ref() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 "abc"::length
             "#
-                .trim()
             )),
             Ok((
-                span(1, 14, ""),
+                &[] as Tokens,
                 Expr::MethodReference(MethodReference {
                     primary: MethodReferencePrimary::Expr(Box::new(Expr::String(LiteralString {
-                        value: span(1, 2, "abc")
+                        value: span(1, 1, "\"abc\"")
                     }))),
                     type_args_opt: None,
                     name: span(1, 8, "length")
@@ -138,14 +136,13 @@ mod tests {
     #[test]
     fn test_method_ref_2() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 foo[x]::<A>bar
             "#
-                .trim()
             )),
             Ok((
-                span(1, 15, ""),
+                &[] as Tokens,
                 Expr::MethodReference(MethodReference {
                     primary: MethodReferencePrimary::Expr(Box::new(Expr::ArrayAccess(
                         ArrayAccess {
@@ -171,14 +168,13 @@ foo[x]::<A>bar
     #[test]
     fn test_method_ref_3() {
         assert_eq!(
-            parse(code(
+            parse(&code(
                 r#"
 foo.bar::zzz
             "#
-                .trim()
             )),
             Ok((
-                span(1, 13, ""),
+                &[] as Tokens,
                 Expr::MethodReference(MethodReference {
                     primary: MethodReferencePrimary::Expr(Box::new(Expr::FieldAccess(
                         FieldAccess {
