@@ -198,6 +198,7 @@ mod tests {
                             name: span(6, 3, "Constructor"),
                             type_params: vec![],
                             params: vec![],
+                            throws: vec![],
                             block: Block { stmts: vec![] },
                         }),
                         ClassBodyItem::Interface(Interface {

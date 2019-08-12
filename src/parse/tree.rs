@@ -235,6 +235,7 @@ pub struct Constructor<'a> {
     pub type_params: Vec<TypeParam<'a>>,
     pub name: Span<'a>,
     pub params: Vec<Param<'a>>,
+    pub throws: Vec<ClassType<'a>>,
     pub block: Block<'a>,
 }
 
@@ -252,16 +253,36 @@ pub struct Method<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement<'a> {
     Block(Block<'a>),
+    Break(Break<'a>),
+    Empty,
     Expr(Expr<'a>),
     ForLoop(ForLoop<'a>),
     Foreach(Foreach<'a>),
     IfElse(IfElse<'a>),
     Return(ReturnStmt<'a>),
+    Switch(Switch<'a>),
     Synchronized(Synchronized<'a>),
     Throw(Throw<'a>),
     Try(Try<'a>),
     WhileLoop(WhileLoop<'a>),
     VariableDeclarators(VariableDeclarators<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Break<'a> {
+    pub span: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Switch<'a> {
+    pub expr: Box<Expr<'a>>,
+    pub cases: Vec<Case<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Case<'a> {
+    pub label_opt: Option<Box<Expr<'a>>>,
+    pub stmts: Vec<Statement<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

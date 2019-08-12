@@ -3,4 +3,4 @@
 
 extern crate javaparser;
 
-pub mod syntax;
+pub mod parse;

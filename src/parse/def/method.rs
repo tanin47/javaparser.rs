@@ -1,11 +1,11 @@
-use parse::combinator::{separated_list, separated_nonempty_list, symbol, word};
+use parse::combinator::{opt, separated_list, separated_nonempty_list, symbol, word};
 use parse::def::param;
 use parse::statement::block;
 use parse::tree::{ClassType, Method, Modifier, Type, TypeParam};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
+pub fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
     if let Ok((input, _)) = word("throws")(input) {
         separated_nonempty_list(symbol(','), tpe::class::parse_no_array)(input)
     } else {
@@ -30,6 +30,7 @@ pub fn parse<'a>(
         (input, None)
     } else {
         let (input, block) = block::parse_block(input)?;
+        let (input, _) = opt(symbol(';'))(input)?;
         (input, Some(block))
     };
 

@@ -27,6 +27,7 @@ pub fn parse_tail<'a>(
     };
 
     let (input, _) = symbol('}')(input)?;
+    let (input, _) = opt(symbol(';'))(input)?;
 
     Ok((
         input,

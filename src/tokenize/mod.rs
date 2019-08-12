@@ -75,7 +75,15 @@ fn string(input: Span) -> Result<(Span, Token), Span> {
     }
 
     let (s, after) = take_while(
-        |index, s| !(index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '"'),
+        |index, s| {
+            let end_cond =
+                index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '"';
+            let end_cond_2 = index >= 3
+                && s.char_at(index - 3) == '\\'
+                && s.char_at(index - 2) == '\\'
+                && s.char_at(index - 1) == '"';
+            !(end_cond || end_cond_2)
+        },
         input,
     );
 
@@ -89,7 +97,16 @@ fn literal_char(input: Span) -> Result<(Span, Token), Span> {
     }
 
     let (literal_char, after) = take_while(
-        |index, s| !(index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '\''),
+        |index, s| {
+            let end_cond =
+                index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '\'';
+            let end_cond_2 = index >= 3
+                && s.char_at(index - 3) == '\\'
+                && s.char_at(index - 2) == '\\'
+                && s.char_at(index - 1) == '\'';
+
+            !(end_cond || end_cond_2)
+        },
         input,
     );
 
@@ -236,15 +253,95 @@ mod tests {
     }
 
     #[test]
+    fn test_unicode() {
+        assert_eq!(
+            apply(
+                r#"
+"打包选项"
+"#
+                .trim()
+            ),
+            Ok(vec![Token::String(span(1, 1, "\"打包选项\""))])
+        )
+    }
+
+    #[test]
+    fn test_empty_string() {
+        assert_eq!(
+            apply(
+                r#"
+"" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\"")),
+                Token::Symbol(span(1, 4, "+"))
+            ])
+        )
+    }
+
+    #[test]
     fn test_string() {
         assert_eq!(
             apply(
                 r#"
-"ab\"c"
+"ab\"c" +
 "#
                 .trim()
             ),
-            Ok(vec![Token::String(span(1, 1, "\"ab\\\"c\""))])
+            Ok(vec![
+                Token::String(span(1, 1, "\"ab\\\"c\"")),
+                Token::Symbol(span(1, 9, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_escaped_backslash_string() {
+        assert_eq!(
+            apply(
+                r#"
+"\"" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\\\"\"")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_escaped_backslash_string_2() {
+        assert_eq!(
+            apply(
+                r#"
+"\\" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\\\\\"")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_empty_char() {
+        assert_eq!(
+            apply(
+                r#"
+'' +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Char(span(1, 1, "''")),
+                Token::Symbol(span(1, 4, "+"))
+            ])
         )
     }
 
@@ -253,11 +350,14 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-'a'
+'a' +
 "#
                 .trim()
             ),
-            Ok(vec![Token::Char(span(1, 1, "'a'"))])
+            Ok(vec![
+                Token::Char(span(1, 1, "'a'")),
+                Token::Symbol(span(1, 5, "+"))
+            ])
         )
     }
 
@@ -266,11 +366,30 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-'\''
+'\'' +
 "#
                 .trim()
             ),
-            Ok(vec![Token::Char(span(1, 1, "'\\''"))])
+            Ok(vec![
+                Token::Char(span(1, 1, "'\\''")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_escaped_backslash_char() {
+        assert_eq!(
+            apply(
+                r#"
+'\\' +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Char(span(1, 1, "'\\\\'")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
         )
     }
 

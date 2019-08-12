@@ -1,4 +1,4 @@
-use parse::combinator::{many1, opt};
+use parse::combinator::{many0, opt};
 use parse::def::{annotation, class, enum_def, imports, interface, modifiers, package};
 use parse::tree::{CompilationUnit, CompilationUnitItem};
 use parse::{ParseResult, Tokens};
@@ -28,7 +28,7 @@ pub fn parse(input: Tokens) -> ParseResult<CompilationUnit> {
 
     let (input, imports) = imports::parse(input)?;
 
-    let (input, items) = many1(parse_item)(input)?;
+    let (input, items) = many0(parse_item)(input)?;
 
     Ok((
         input,
@@ -201,7 +201,20 @@ class Test {}
     }
 
     #[test]
-    fn parse_missing_class() {
-        assert_eq!(parse(&code("package dev.lilit;")), Err(&[] as Tokens))
+    fn parse_package_info() {
+        assert_eq!(
+            parse(&code("package dev.lilit;")),
+            Ok((
+                &[] as Tokens,
+                CompilationUnit {
+                    package_opt: Some(Package {
+                        annotateds: vec![],
+                        components: vec![span(1, 9, "dev"), span(1, 13, "lilit")]
+                    }),
+                    imports: vec![],
+                    items: vec![]
+                }
+            ))
+        )
     }
 }

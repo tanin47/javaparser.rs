@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, separated_nonempty_list, symbol, word};
+use parse::combinator::{identifier, opt, separated_nonempty_list, symbol, word};
 use parse::def::{class_body, type_params};
 use parse::tpe::class;
 use parse::tree::{ClassType, Interface, Modifier};
@@ -24,6 +24,7 @@ pub fn parse_tail<'a>(
     let (input, extends) = parse_extends(input)?;
 
     let (input, body) = class_body::parse(input)?;
+    let (input, _) = opt(symbol(';'))(input)?;
 
     Ok((
         input,

@@ -1,11 +1,14 @@
+use parse::combinator::symbol;
 use parse::tree::Statement;
 use parse::{ParseResult, Tokens};
 
 pub mod block;
+pub mod break_stmt;
 pub mod expr;
 pub mod for_loop;
 pub mod if_else;
 pub mod return_stmt;
+pub mod switch;
 pub mod synchronized;
 pub mod throw;
 pub mod try;
@@ -13,7 +16,11 @@ pub mod variable_declarators;
 pub mod while_loop;
 
 pub fn parse(input: Tokens) -> ParseResult<Statement> {
-    if let Ok(ok) = return_stmt::parse(input) {
+    if let Ok((input, _)) = symbol(';')(input) {
+        Ok((input, Statement::Empty))
+    } else if let Ok(ok) = break_stmt::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = return_stmt::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = throw::parse(input) {
         Ok(ok)
@@ -22,6 +29,8 @@ pub fn parse(input: Tokens) -> ParseResult<Statement> {
     } else if let Ok(ok) = for_loop::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = while_loop::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = switch::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = synchronized::parse(input) {
         Ok(ok)
@@ -48,6 +57,18 @@ mod tests {
         VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
+
+    #[test]
+    fn test_empty() {
+        assert_eq!(
+            parse(&code(
+                r#"
+;
+            "#
+            )),
+            Ok((&[] as Tokens, Statement::Empty))
+        );
+    }
 
     #[test]
     fn test_return() {
