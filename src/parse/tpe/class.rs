@@ -31,7 +31,7 @@ pub fn parse_tail<'a>(
         type_args_opt,
     };
 
-    if let Ok((input, _)) = get_and_followed_by(symbol("."), is_not(symbol(".")))(input) {
+    if let Ok((input, _)) = get_and_followed_by(symbol('.'), is_not(symbol('.')))(input) {
         parse_no_array_with_prefix(input, Some(tpe))
     } else {
         Ok((input, tpe))

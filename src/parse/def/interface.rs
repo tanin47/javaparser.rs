@@ -7,7 +7,7 @@ use tokenize::span::Span;
 
 fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
     if let Ok((input, _)) = word("extends")(input) {
-        let (input, classes) = separated_nonempty_list(symbol(","), class::parse_no_array)(input)?;
+        let (input, classes) = separated_nonempty_list(symbol(','), class::parse_no_array)(input)?;
         Ok((input, classes))
     } else {
         Ok((input, vec![]))

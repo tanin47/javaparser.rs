@@ -5,8 +5,8 @@ use tokenize::span::Span;
 use tokenize::token::Token;
 
 fn parse_wildcard(input: Tokens) -> ParseResult<Span> {
-    let (input, _) = symbol(".")(input)?;
-    let (input, wildcard) = symbol("*")(input)?;
+    let (input, _) = symbol('.')(input)?;
+    let (input, wildcard) = symbol('*')(input)?;
 
     Ok((input, wildcard))
 }
@@ -16,10 +16,10 @@ fn import(input: Tokens) -> ParseResult<Import> {
 
     let (input, static_opt) = opt(word("static"))(input)?;
 
-    let (input, components) = separated_nonempty_list(symbol("."), identifier)(input)?;
+    let (input, components) = separated_nonempty_list(symbol('.'), identifier)(input)?;
     let (input, wildcard_opt) = opt(parse_wildcard)(input)?;
 
-    let (input, _) = symbol(";")(input)?;
+    let (input, _) = symbol(';')(input)?;
 
     Ok((
         input,

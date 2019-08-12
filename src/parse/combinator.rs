@@ -1,4 +1,5 @@
 use parse::{ParseResult, Tokens};
+use std::slice;
 use tokenize::span::Span;
 use tokenize::token::Token;
 
@@ -25,7 +26,7 @@ pub fn skip_comment(input: Tokens) -> Tokens {
     input.split_at(count).1
 }
 
-pub fn symbol<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
         let input = skip_comment(input);
         if input.is_empty() {
@@ -33,10 +34,47 @@ pub fn symbol<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>
         }
 
         if let Token::Symbol(span) = &input[0] {
-            if span.fragment == s {
+            if span.fragment.len() == 1 && span.fragment == s {
                 return Ok((&input[1..], *span));
             }
         }
+        Err(input)
+    }
+}
+
+pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+    move |input: Tokens<'a>| {
+        let input = skip_comment(input);
+        if input.len() < 2 {
+            return Err(input);
+        }
+
+        if let Token::Symbol(first) = &input[0] {
+            if let Token::Symbol(second) = &input[1] {
+                if first.fragment.len() == 1
+                    && second.fragment.len() == 1
+                    && first.fragment.char_at(0) == a
+                    && second.fragment.char_at(0) == b
+                    && first.line == second.line
+                    && first.col + 1 == second.col
+                {
+                    return Ok((
+                        &input[1..],
+                        Span {
+                            line: first.line,
+                            col: first.col,
+                            fragment: unsafe {
+                                std::str::from_utf8_unchecked(slice::from_raw_parts(
+                                    first.fragment.as_ptr(),
+                                    first.fragment.len() + second.fragment.len(),
+                                ))
+                            },
+                        },
+                    ));
+                }
+            }
+        }
+
         Err(input)
     }
 }
@@ -102,11 +140,13 @@ where
     move |original: Tokens<'a>| {
         let (input, result) = item(original)?;
 
-        if let Ok(_) = followed(input) {
-            Ok((input, result))
-        } else {
-            Err(original)
+        if let Ok((_, followed)) = followed(input) {
+            if result.line == followed.line && result.col + 1 == followed.col {
+                return Ok((input, result));
+            }
         }
+
+        Err(original)
     }
 }
 

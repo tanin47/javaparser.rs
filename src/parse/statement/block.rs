@@ -12,9 +12,9 @@ pub fn parse_block_or_single_statement(input: Tokens) -> ParseResult<Block> {
 }
 
 pub fn parse_block(input: Tokens) -> ParseResult<Block> {
-    let (input, _) = symbol("{")(input)?;
+    let (input, _) = symbol('{')(input)?;
     let (input, stmts) = many0(statement::parse)(input)?;
-    let (input, _) = symbol("}")(input)?;
+    let (input, _) = symbol('}')(input)?;
 
     Ok((input, Block { stmts }))
 }

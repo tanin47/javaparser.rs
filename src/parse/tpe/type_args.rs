@@ -6,7 +6,7 @@ use parse::{ParseResult, Tokens};
 pub fn parse_wildcard_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
     let (input, _) = word("extends")(input)?;
 
-    separated_nonempty_list(symbol("&"), class::parse_no_array)(input)
+    separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
 }
 
 pub fn parse_wildcard_super(input: Tokens) -> ParseResult<ClassType> {
@@ -16,7 +16,7 @@ pub fn parse_wildcard_super(input: Tokens) -> ParseResult<ClassType> {
 }
 
 pub fn parse_wildcard(input: Tokens) -> ParseResult<TypeArg> {
-    let (input, name) = symbol("?")(input)?;
+    let (input, name) = symbol('?')(input)?;
 
     let (input, extends, super_opt) = match parse_wildcard_extends(input) {
         Ok((input, extends)) => (input, extends, None),
@@ -60,12 +60,12 @@ pub fn parse_wildcard_or_non_wildcard(input: Tokens) -> ParseResult<TypeArg> {
 }
 
 pub fn parse(input: Tokens) -> ParseResult<Option<Vec<TypeArg>>> {
-    let (input, type_args_opt) = match symbol("<")(input) {
+    let (input, type_args_opt) = match symbol('<')(input) {
         Ok((input, _)) => {
             let (input, type_args) =
-                separated_list(symbol(","), parse_wildcard_or_non_wildcard)(input)?;
+                separated_list(symbol(','), parse_wildcard_or_non_wildcard)(input)?;
 
-            let (input, _) = symbol(">")(input)?;
+            let (input, _) = symbol('>')(input)?;
             (input, Some(type_args))
         }
         Err(_) => (input, None),

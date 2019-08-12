@@ -8,9 +8,9 @@ pub fn parse(input: Tokens) -> ParseResult<Package> {
 
     let (input, _) = word("package")(input)?;
 
-    let (input, components) = separated_nonempty_list(symbol("."), identifier)(input)?;
+    let (input, components) = separated_nonempty_list(symbol('.'), identifier)(input)?;
 
-    let (input, _) = symbol(";")(input)?;
+    let (input, _) = symbol(';')(input)?;
 
     Ok((
         input,

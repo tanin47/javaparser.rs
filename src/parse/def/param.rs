@@ -5,9 +5,9 @@ use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
 pub fn parse_varargs(input: Tokens) -> ParseResult<()> {
-    let (input, _) = symbol(".")(input)?;
-    let (input, _) = symbol(".")(input)?;
-    let (input, _) = symbol(".")(input)?;
+    let (input, _) = symbol('.')(input)?;
+    let (input, _) = symbol('.')(input)?;
+    let (input, _) = symbol('.')(input)?;
     Ok((input, ()))
 }
 

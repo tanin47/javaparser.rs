@@ -5,7 +5,7 @@ use parse::{ParseResult, Tokens};
 
 pub fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
     if let Ok((input, _)) = word("extends")(input) {
-        separated_nonempty_list(symbol("&"), class::parse_no_array)(input)
+        separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
     } else {
         Ok((input, vec![]))
     }
@@ -19,9 +19,9 @@ pub fn parse_type_param(input: Tokens) -> ParseResult<TypeParam> {
 }
 
 pub fn parse(input: Tokens) -> ParseResult<Vec<TypeParam>> {
-    if let Ok((input, _)) = symbol("<")(input) {
-        let (input, type_params) = separated_list(symbol(","), parse_type_param)(input)?;
-        let (input, _) = symbol(">")(input)?;
+    if let Ok((input, _)) = symbol('<')(input) {
+        let (input, type_params) = separated_list(symbol(','), parse_type_param)(input)?;
+        let (input, _) = symbol('>')(input)?;
         Ok((input, type_params))
     } else {
         Ok((input, vec![]))

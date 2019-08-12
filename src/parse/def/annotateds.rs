@@ -15,18 +15,18 @@ fn name(original: Tokens) -> ParseResult<Span> {
 
 fn parse_param(input: Tokens) -> ParseResult<AnnotatedParam> {
     let (input, name) = name(input)?;
-    let (input, _) = symbol("=")(input)?;
+    let (input, _) = symbol('=')(input)?;
     let (input, expr) = expr::parse(input)?;
 
     Ok((input, AnnotatedParam { name, expr }))
 }
 
 pub fn parse_annotated(input: Tokens) -> ParseResult<Annotated> {
-    let (input, _) = symbol("@")(input)?;
+    let (input, _) = symbol('@')(input)?;
     let (input, name) = name(input)?;
 
-    if let Ok((input, _)) = symbol("(")(input) {
-        if let Ok((input, _)) = symbol(")")(input) {
+    if let Ok((input, _)) = symbol('(')(input) {
+        if let Ok((input, _)) = symbol(')')(input) {
             Ok((
                 input,
                 Annotated::Normal(NormalAnnotated {
@@ -34,13 +34,13 @@ pub fn parse_annotated(input: Tokens) -> ParseResult<Annotated> {
                     params: vec![],
                 }),
             ))
-        } else if let Ok((input, params)) = separated_nonempty_list(symbol(","), parse_param)(input)
+        } else if let Ok((input, params)) = separated_nonempty_list(symbol(','), parse_param)(input)
         {
-            let (input, _) = symbol(")")(input)?;
+            let (input, _) = symbol(')')(input)?;
             Ok((input, Annotated::Normal(NormalAnnotated { name, params })))
         } else {
             let (input, expr) = expr::parse(input)?;
-            let (input, _) = symbol(")")(input)?;
+            let (input, _) = symbol(')')(input)?;
             Ok((input, Annotated::Single(SingleAnnotated { name, expr })))
         }
     } else {

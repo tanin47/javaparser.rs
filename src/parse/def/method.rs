@@ -7,7 +7,7 @@ use tokenize::span::Span;
 
 fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
     if let Ok((input, _)) = word("throws")(input) {
-        separated_nonempty_list(symbol(","), tpe::class::parse_no_array)(input)
+        separated_nonempty_list(symbol(','), tpe::class::parse_no_array)(input)
     } else {
         Ok((input, vec![]))
     }
@@ -20,13 +20,13 @@ pub fn parse<'a>(
     return_type: Type<'a>,
     name: Span<'a>,
 ) -> ParseResult<'a, Method<'a>> {
-    let (input, _) = symbol("(")(input)?;
-    let (input, params) = separated_list(symbol(","), param::parse)(input)?;
-    let (input, _) = symbol(")")(input)?;
+    let (input, _) = symbol('(')(input)?;
+    let (input, params) = separated_list(symbol(','), param::parse)(input)?;
+    let (input, _) = symbol(')')(input)?;
 
     let (input, throws) = parse_throws(input)?;
 
-    let (input, block_opt) = if let Ok((input, _)) = symbol(";")(input) {
+    let (input, block_opt) = if let Ok((input, _)) = symbol(';')(input) {
         (input, None)
     } else {
         let (input, block) = block::parse_block(input)?;

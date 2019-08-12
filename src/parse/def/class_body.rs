@@ -78,14 +78,14 @@ fn parse_method_constructor_or_field<'a>(
     let (input_before_type, type_params) = type_params::parse(input)?;
     let (input, ident) = identifier(input_before_type)?;
 
-    if let Ok(_) = symbol("(")(input) {
+    if let Ok(_) = symbol('(')(input) {
         Err(input)
     //        parse_constructor(input, modifiers, type_params, ident)
     } else {
         let (input_before_name, tpe) = tpe::parse(input_before_type)?;
         let (input, name) = identifier(input_before_name)?;
 
-        if let Ok(_) = symbol("(")(input) {
+        if let Ok(_) = symbol('(')(input) {
             parse_method(input, modifiers, type_params, tpe, name)
         } else {
             Err(input)
@@ -117,9 +117,9 @@ pub fn parse_items(input: Tokens) -> ParseResult<Vec<ClassBodyItem>> {
 }
 
 pub fn parse(input: Tokens) -> ParseResult<ClassBody> {
-    let (input, _) = symbol("{")(input)?;
+    let (input, _) = symbol('{')(input)?;
     let (input, items) = parse_items(input)?;
-    let (input, _) = symbol("}")(input)?;
+    let (input, _) = symbol('}')(input)?;
 
     Ok((input, ClassBody { items }))
 }
