@@ -29,9 +29,9 @@ pub fn parse_tail<'a>(
 ) -> ParseResult<'a, Class<'a>> {
     let (input, name) = identifier(input)?;
     let (input, type_params) = type_params::parse(input)?;
-
     let (input, extend_opt) = parse_extend(input)?;
     let (input, implements) = parse_implements(input)?;
+    println!("{:#?}", &input[0]);
 
     let (input, body) = class_body::parse(input)?;
 

@@ -2,28 +2,37 @@ use parse::tree::Statement;
 use parse::{ParseResult, Tokens};
 
 pub mod block;
-//pub mod expr;
-//pub mod for_loop;
-//pub mod if_else;
-//pub mod return_stmt;
-//pub mod synchronized;
-//pub mod throw;
-//pub mod try;
-//pub mod variable_declarators;
-//pub mod while_loop;
+pub mod expr;
+pub mod for_loop;
+pub mod if_else;
+pub mod return_stmt;
+pub mod synchronized;
+pub mod throw;
+pub mod try;
+pub mod variable_declarators;
+pub mod while_loop;
 
 pub fn parse(input: Tokens) -> ParseResult<Statement> {
-    //        return_stmt::parse,
-    //        throw::parse,
-    //        try::parse,
-    //        for_loop::parse,
-    //        while_loop::parse,
-    //        synchronized::parse,
-    //        if_else::parse,
-    if let Ok(ok) = block::parse(input) {
+    if let Ok(ok) = return_stmt::parse(input) {
         Ok(ok)
-    //        variable_declarators::parse,
-    //        expr::parse,
+    } else if let Ok(ok) = throw::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = try::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = for_loop::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = while_loop::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = synchronized::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = if_else::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = block::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = variable_declarators::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = expr::parse(input) {
+        Ok(ok)
     } else {
         Err(input)
     }

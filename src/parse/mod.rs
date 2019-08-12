@@ -1,3 +1,5 @@
+use parse::tree::CompilationUnit;
+use tokenize;
 use tokenize::token::Token;
 
 pub mod combinator;
@@ -11,3 +13,5 @@ pub mod tree;
 pub type Tokens<'a> = &'a [Token<'a>];
 
 pub type ParseResult<'a, T> = Result<(Tokens<'a>, T), Tokens<'a>>;
+
+pub use self::compilation_unit::parse as apply;
