@@ -20,7 +20,7 @@ fn all() {
         let start = Instant::now();
         let tokens = code(&content);
         let result = parse::apply(&tokens);
-
+        println!(" ({:?})", start.elapsed());
         assert!(result.is_ok(), {
             let remainder = result.err().unwrap();
             format!(
@@ -30,6 +30,5 @@ fn all() {
                 remainder[0].span().col,
             )
         });
-        println!(" ({:?})", start.elapsed());
     }
 }

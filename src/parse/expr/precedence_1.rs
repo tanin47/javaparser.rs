@@ -76,7 +76,7 @@ mod tests {
         assert_eq!(
             parse(&code(
                 r#"
-a &= b
+a <<= b
             "#
             )),
             Ok((
@@ -85,9 +85,9 @@ a &= b
                     assigned: Box::new(Assigned::Name(Name {
                         name: span(1, 1, "a")
                     })),
-                    operator: span(1, 3, "&="),
+                    operator: span(1, 3, "<<="),
                     expr: Box::new(Expr::Name(Name {
-                        name: span(1, 6, "b")
+                        name: span(1, 7, "b")
                     }))
                 })
             ))

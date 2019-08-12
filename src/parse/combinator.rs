@@ -111,7 +111,7 @@ pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseRes
                         && third.fragment.len() == 1
                         && first.fragment.char_at(0) == a
                         && second.fragment.char_at(0) == b
-                        && third.fragment.char_at(0) == b
+                        && third.fragment.char_at(0) == c
                         && first.line == second.line
                         && first.line == third.line
                         && first.col + 1 == second.col
