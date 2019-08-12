@@ -1,5 +1,5 @@
-use parse::combinator::{many0, symbol};
-use parse::def::{class, interface, modifiers, type_params};
+use parse::combinator::{identifier, many0, symbol};
+use parse::def::{class, interface, method, modifiers, type_params};
 use parse::tree::{ClassBody, ClassBodyItem, Modifier, Type, TypeParam};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
@@ -35,18 +35,18 @@ fn parse_interface<'a>(
 //    let (input, enum_def) = enum_def::parse_tail(input, modifiers)?;
 //    Ok((input, ClassBodyItem::Enum(enum_def)))
 //}
-//
-//fn parse_method<'a>(
-//    input: Tokens<'a>,
-//    modifiers: Vec<Modifier<'a>>,
-//    type_params: Vec<TypeParam<'a>>,
-//    tpe: Type<'a>,
-//    name: Span<'a>,
-//) -> ParseResult<ClassBodyItem<'a>> {
-//    let (input, method) = method::parse(input, modifiers, type_params, tpe, name)?;
-//    Ok((input, ClassBodyItem::Method(method)))
-//}
-//
+
+fn parse_method<'a>(
+    input: Tokens<'a>,
+    modifiers: Vec<Modifier<'a>>,
+    type_params: Vec<TypeParam<'a>>,
+    tpe: Type<'a>,
+    name: Span<'a>,
+) -> ParseResult<'a, ClassBodyItem<'a>> {
+    let (input, method) = method::parse(input, modifiers, type_params, tpe, name)?;
+    Ok((input, ClassBodyItem::Method(method)))
+}
+
 //fn parse_constructor<'a>(
 //    input: Tokens<'a>,
 //    modifiers: Vec<Modifier<'a>>,
@@ -71,26 +71,28 @@ fn parse_interface<'a>(
 //    Ok((input, ClassBodyItem::StaticInitializer(block)))
 //}
 //
-//fn parse_method_constructor_or_field<'a>(
-//    input: Tokens<'a>,
-//    modifiers: Vec<Modifier<'a>>,
-//) -> ParseResult<ClassBodyItem<'a>> {
-//    let (input_before_type, type_params) = type_params::parse(input)?;
-//    let (input, identifier) = name::identifier(input_before_type)?;
-//
-//    if let Ok((input, _)) = peek(tag("("))(input) {
-//        parse_constructor(input, modifiers, type_params, identifier)
-//    } else {
-//        let (input_before_name, tpe) = tpe::parse(input_before_type)?;
-//        let (input, name) = name::identifier(input_before_name)?;
-//
-//        if let Ok((input, _)) = peek(tag("("))(input) {
-//            parse_method(input, modifiers, type_params, tpe, name)
-//        } else {
-//            parse_field_declarators(input_before_name, modifiers, tpe)
-//        }
-//    }
-//}
+fn parse_method_constructor_or_field<'a>(
+    input: Tokens<'a>,
+    modifiers: Vec<Modifier<'a>>,
+) -> ParseResult<'a, ClassBodyItem<'a>> {
+    let (input_before_type, type_params) = type_params::parse(input)?;
+    let (input, ident) = identifier(input_before_type)?;
+
+    if let Ok(_) = symbol("(")(input) {
+        Err(input)
+    //        parse_constructor(input, modifiers, type_params, ident)
+    } else {
+        let (input_before_name, tpe) = tpe::parse(input_before_type)?;
+        let (input, name) = identifier(input_before_name)?;
+
+        if let Ok(_) = symbol("(")(input) {
+            parse_method(input, modifiers, type_params, tpe, name)
+        } else {
+            Err(input)
+            //            parse_field_declarators(input_before_name, modifiers, tpe)
+        }
+    }
+}
 
 pub fn parse_item(input: Tokens) -> ParseResult<ClassBodyItem> {
     let (input, modifiers) = modifiers::parse(input)?;
@@ -106,8 +108,7 @@ pub fn parse_item(input: Tokens) -> ParseResult<ClassBodyItem> {
     //    } else if let Ok((input, _)) = peek(tag("{"))(input) {
     //        parse_static_block(input)
     } else {
-        //        parse_method_constructor_or_field(input, modifiers)
-        Err(input)
+        parse_method_constructor_or_field(input, modifiers)
     }
 }
 

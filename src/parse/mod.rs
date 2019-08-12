@@ -4,6 +4,7 @@ pub mod combinator;
 pub mod compilation_unit;
 pub mod def;
 pub mod expr;
+pub mod statement;
 pub mod tpe;
 pub mod tree;
 

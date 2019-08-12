@@ -3,6 +3,8 @@ pub mod class;
 pub mod class_body;
 pub mod imports;
 pub mod interface;
+pub mod method;
 pub mod modifiers;
 pub mod package;
+pub mod param;
 pub mod type_params;
