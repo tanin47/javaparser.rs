@@ -2,6 +2,17 @@ use tokenize::span::CharAt;
 use tokenize::span::Span;
 
 pub fn take(size: usize, input: Span) -> (Span, Span) {
+    if size > input.fragment.len() {
+        return (
+            Span {
+                line: input.line,
+                col: input.col,
+                fragment: "",
+            },
+            input,
+        );
+    }
+
     let mut line = input.line;
     let mut col = input.col;
 

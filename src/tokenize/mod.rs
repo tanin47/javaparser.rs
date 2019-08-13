@@ -1,4 +1,5 @@
 use std::ops::Index;
+use std::slice;
 use tokenize::combinator::{take, take_while};
 use tokenize::span::CharAt;
 use tokenize::span::Span;
@@ -47,7 +48,7 @@ fn tokenize(input: Span) -> Result<(Span, Option<Token>), Span> {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = hex(input) {
         Ok((input, Some(token)))
-    } else if let Ok((input, token)) = int_or_long(input) {
+    } else if let Ok((input, token)) = int_or_long_or_double_or_float(input) {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = word(input) {
         Ok((input, Some(token)))
@@ -165,7 +166,7 @@ fn symbol(input: Span) -> Result<(Span, Token), Span> {
     Ok((input, Token::Symbol(symbol)))
 }
 
-fn int_or_long(original: Span) -> Result<(Span, Token), Span> {
+fn number(original: Span) -> Result<(Span, Span), Span> {
     let (number, input) = take_while(
         |index, s| {
             let c = s.char_at(index);
@@ -174,12 +175,122 @@ fn int_or_long(original: Span) -> Result<(Span, Token), Span> {
         original,
     );
 
+    Ok((number, input))
+}
+
+fn float_or_double_end<'a>(
+    number: Span<'a>,
+    original: Span<'a>,
+    include_dot_or_e: bool,
+) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
     if number.fragment.is_empty() {
         return Err(original);
     }
 
-    let last_char = input.fragment.char_at(0);
-    if last_char == 'l' || last_char == 'L' {
+    let (symbol, input) = take(1, original);
+
+    let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
+    if last_char == 'D' {
+        Ok((
+            input,
+            Token::Double(Span {
+                line: number.line,
+                col: number.col,
+                fragment: unsafe {
+                    std::str::from_utf8_unchecked(slice::from_raw_parts(
+                        number.fragment.as_ptr(),
+                        number.fragment.len() + symbol.fragment.len(),
+                    ))
+                },
+            }),
+        ))
+    } else if last_char == 'F' {
+        Ok((
+            input,
+            Token::Float(Span {
+                line: number.line,
+                col: number.col,
+                fragment: unsafe {
+                    std::str::from_utf8_unchecked(slice::from_raw_parts(
+                        number.fragment.as_ptr(),
+                        number.fragment.len() + symbol.fragment.len(),
+                    ))
+                },
+            }),
+        ))
+    } else if include_dot_or_e {
+        Ok((original, Token::Double(number)))
+    } else {
+        Err(original)
+    }
+}
+
+fn float_or_double_tail<'a>(
+    first_number: Span<'a>,
+    original: Span<'a>,
+) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    if let Ok((input, token)) = float_or_double_end(first_number, original, false) {
+        return Ok((input, token));
+    }
+
+    let (symbol, input) = take(1, original);
+
+    let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
+    if last_char == '.' || last_char == 'E' {
+        let (maybe_minus, input) = if last_char == 'E' && input.fragment.char_at(0) == '-' {
+            take(1, input)
+        } else {
+            (
+                Span {
+                    line: input.line,
+                    col: input.col,
+                    fragment: "",
+                },
+                input,
+            )
+        };
+
+        let (second_number, input) = number(input)?;
+
+        if first_number.fragment.is_empty() && second_number.fragment.is_empty() {
+            return Err(original);
+        }
+
+        float_or_double_end(
+            Span {
+                line: first_number.line,
+                col: first_number.col,
+                fragment: unsafe {
+                    std::str::from_utf8_unchecked(slice::from_raw_parts(
+                        first_number.fragment.as_ptr(),
+                        first_number.fragment.len()
+                            + symbol.fragment.len()
+                            + maybe_minus.fragment.len()
+                            + second_number.fragment.len(),
+                    ))
+                },
+            },
+            input,
+            true,
+        )
+    } else {
+        Err(input)
+    }
+}
+
+fn int_or_long_or_double_or_float(original: Span) -> Result<(Span, Token), Span> {
+    let (number, input) = number(original)?;
+
+    if let Ok(ok) = float_or_double_tail(number, input) {
+        return Ok(ok);
+    }
+
+    if number.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let last_char = input.fragment.char_at(0).to_ascii_uppercase();
+    if last_char == 'L' {
         let (_, input) = take(1, input);
         Ok((
             input,
@@ -429,6 +540,48 @@ mod tests {
                 .trim()
             ),
             Ok(vec![Token::Long(span(1, 1, "1234567890L"))])
+        )
+    }
+
+    #[test]
+    fn test_double() {
+        assert_eq!(
+            apply(
+                r#"
+1.0 1. .1 1.0d 1.D .1D 2d 1e-2 1e3d
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Double(span(1, 1, "1.0")),
+                Token::Double(span(1, 5, "1.")),
+                Token::Double(span(1, 8, ".1")),
+                Token::Double(span(1, 11, "1.0d")),
+                Token::Double(span(1, 16, "1.D")),
+                Token::Double(span(1, 20, ".1D")),
+                Token::Double(span(1, 24, "2d")),
+                Token::Double(span(1, 27, "1e-2")),
+                Token::Double(span(1, 32, "1e3d")),
+            ])
+        )
+    }
+
+    #[test]
+    fn test_float() {
+        assert_eq!(
+            apply(
+                r#"
+1.0f 1f 1.F .1f 1e2F 
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Float(span(1, 1, "1.0f")),
+                Token::Float(span(1, 6, "1f")),
+                Token::Float(span(1, 9, "1.F")),
+                Token::Float(span(1, 13, ".1f")),
+                Token::Float(span(1, 17, "1e2F")),
+            ])
         )
     }
 

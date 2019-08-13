@@ -48,6 +48,10 @@ fn parse_lambda_or_parenthesized(original: Tokens) -> ParseResult<Expr> {
         Err(_) => return parenthesized::parse(original),
     };
 
+    if ident.fragment == "new" {
+        return parenthesized::parse(original);
+    }
+
     if tpe::primitive::valid(ident.fragment) {
         return lambda::parse(original);
     }

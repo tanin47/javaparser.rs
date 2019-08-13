@@ -254,11 +254,14 @@ pub struct Method<'a> {
 pub enum Statement<'a> {
     Block(Block<'a>),
     Break(Break<'a>),
+    Continue(Continue<'a>),
     Empty,
+    DoWhile(DoWhile<'a>),
     Expr(Expr<'a>),
     ForLoop(ForLoop<'a>),
     Foreach(Foreach<'a>),
     IfElse(IfElse<'a>),
+    Labeled(Labeled<'a>),
     Return(ReturnStmt<'a>),
     Switch(Switch<'a>),
     Synchronized(Synchronized<'a>),
@@ -269,8 +272,19 @@ pub enum Statement<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Labeled<'a> {
+    pub label: Span<'a>,
+    pub statement: Box<Statement<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Continue<'a> {
+    pub identifier_opt: Option<Span<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Break<'a> {
-    pub span: Span<'a>,
+    pub identifier_opt: Option<Span<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -283,6 +297,12 @@ pub struct Switch<'a> {
 pub struct Case<'a> {
     pub label_opt: Option<Box<Expr<'a>>>,
     pub stmts: Vec<Statement<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct DoWhile<'a> {
+    pub block: Block<'a>,
+    pub cond: Box<Expr<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -379,6 +399,8 @@ pub enum Expr<'a> {
     InstanceOf(InstanceOf<'a>),
     Int(Int<'a>),
     Long(Long<'a>),
+    Double(Double<'a>),
+    Float(Float<'a>),
     Hex(Hex<'a>),
     Lambda(Lambda<'a>),
     MethodCall(MethodCall<'a>),
@@ -477,6 +499,16 @@ pub struct NewObject<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Hex<'a> {
+    pub value: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Double<'a> {
+    pub value: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Float<'a> {
     pub value: Span<'a>,
 }
 
