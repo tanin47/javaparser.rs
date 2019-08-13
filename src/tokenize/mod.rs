@@ -50,7 +50,7 @@ fn tokenize(input: Span) -> Result<(Span, Option<Token>), Span> {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = int_or_long_or_double_or_float(input) {
         Ok((input, Some(token)))
-    } else if let Ok((input, token)) = word(input) {
+    } else if let Ok((input, token)) = keyword_or_identifier(input) {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = symbol(input) {
         Ok((input, Some(token)))
@@ -148,14 +148,31 @@ fn is_identifier(index: usize, s: &str) -> bool {
     c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_'
 }
 
-fn word(original: Span) -> Result<(Span, Token), Span> {
-    let (word, input) = take_while(is_identifier, original);
+fn is_keyword(s: &str) -> bool {
+    match s {
+        "abstract" | "assert" | "boolean" | "break" | "byte" | "case" | "catch" | "char"
+        | "class" | "const" | "continue" | "default" | "do" | "double" | "else" | "enum"
+        | "extends" | "final" | "finally" | "float" | "for" | "goto" | "if" | "implements"
+        | "import" | "instanceof" | "int" | "interface" | "long" | "native" | "new" | "package"
+        | "private" | "protected" | "public" | "return" | "short" | "static" | "strictfp"
+        | "super" | "switch" | "synchronized" | "this" | "throw" | "throws" | "transient"
+        | "try" | "void" | "volatile" | "while" | "true" | "false" | "null" => true,
+        _ => false,
+    }
+}
 
-    if word.fragment.is_empty() {
+fn keyword_or_identifier(original: Span) -> Result<(Span, Token), Span> {
+    let (ident, input) = take_while(is_identifier, original);
+
+    if ident.fragment.is_empty() {
         return Err(original);
     }
 
-    Ok((input, Token::Word(word)))
+    if is_keyword(ident.fragment) {
+        Ok((input, Token::Keyword(ident)))
+    } else {
+        Ok((input, Token::Identifier(ident)))
+    }
 }
 
 fn symbol(input: Span) -> Result<(Span, Token), Span> {
@@ -594,7 +611,7 @@ a_b1B
 "#
                 .trim()
             ),
-            Ok(vec![Token::Word(span(1, 1, "a_b1B"))])
+            Ok(vec![Token::Identifier(span(1, 1, "a_b1B"))])
         )
     }
 
@@ -627,12 +644,12 @@ void method() {
                 .trim()
             ),
             Ok(vec![
-                Token::Word(span(1, 1, "void")),
-                Token::Word(span(1, 6, "method")),
+                Token::Keyword(span(1, 1, "void")),
+                Token::Identifier(span(1, 6, "method")),
                 Token::Symbol(span(1, 12, "(")),
                 Token::Symbol(span(1, 13, ")")),
                 Token::Symbol(span(1, 15, "{")),
-                Token::Word(span(3, 5, "a")),
+                Token::Identifier(span(3, 5, "a")),
                 Token::Symbol(span(3, 6, "+")),
                 Token::Symbol(span(3, 7, "+")),
                 Token::Symbol(span(3, 8, ";")),

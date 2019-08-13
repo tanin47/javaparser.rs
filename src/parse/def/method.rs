@@ -1,4 +1,4 @@
-use parse::combinator::{opt, separated_list, separated_nonempty_list, symbol, word};
+use parse::combinator::{keyword, opt, separated_list, separated_nonempty_list, symbol};
 use parse::def::param;
 use parse::statement::block;
 use parse::tree::{ClassType, Method, Modifier, Type, TypeParam};
@@ -6,7 +6,7 @@ use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
 pub fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
-    if let Ok((input, _)) = word("throws")(input) {
+    if let Ok((input, _)) = keyword("throws")(input) {
         separated_nonempty_list(symbol(','), tpe::class::parse_no_array)(input)
     } else {
         Ok((input, vec![]))
@@ -53,7 +53,7 @@ mod tests {
     use parse::def::class_body;
     use parse::tree::{
         Annotated, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated, Method,
-        Modifier, Param, ReturnStmt, Statement, Type, TypeArg, TypeParam,
+        Modifier, Param, ReturnStmt, Statement, Type, TypeArg, TypeParam, Void,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -77,7 +77,9 @@ mod tests {
                             name: span(1, 7, "abstract")
                         })
                     ],
-                    return_type: primitive(1, 16, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 16, "void")
+                    }),
                     name: span(1, 21, "method"),
                     type_params: vec![],
                     params: vec![],
@@ -113,7 +115,9 @@ private void method() {}
                     modifiers: vec![Modifier::Keyword(Keyword {
                         name: span(1, 1, "private")
                     })],
-                    return_type: primitive(1, 9, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 9, "void")
+                    }),
                     name: span(1, 14, "method"),
                     type_params: vec![],
                     params: vec![],
@@ -136,7 +140,9 @@ private void method() {}
                 &[] as Tokens,
                 ClassBodyItem::Method(Method {
                     modifiers: vec![],
-                    return_type: primitive(1, 5, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 5, "void")
+                    }),
                     name: span(1, 10, "method"),
                     type_params: vec![TypeParam {
                         name: span(1, 2, "A"),
@@ -183,7 +189,9 @@ private void method() {}
                 &[] as Tokens,
                 ClassBodyItem::Method(Method {
                     modifiers: vec![],
-                    return_type: primitive(1, 18, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 18, "void")
+                    }),
                     name: span(1, 23, "method"),
                     type_params: vec![
                         TypeParam {

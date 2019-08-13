@@ -1,4 +1,4 @@
-use parse::combinator::identifier;
+use parse::combinator::{any_keyword, identifier};
 use parse::tpe::array;
 use parse::tree::{PrimitiveType, Type};
 use parse::{ParseResult, Tokens};
@@ -12,11 +12,10 @@ pub fn valid(s: &str) -> bool {
         || s == "float"
         || s == "double"
         || s == "char"
-        || s == "void"
 }
 
 pub fn parse_no_array(original: Tokens) -> ParseResult<PrimitiveType> {
-    let (input, name) = identifier(original)?;
+    let (input, name) = any_keyword(original)?;
 
     if valid(name.fragment) {
         Ok((input, PrimitiveType { name }))

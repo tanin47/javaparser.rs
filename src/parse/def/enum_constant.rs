@@ -28,7 +28,7 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Annotated, Block, ClassBody, ClassBodyItem, EnumConstant, Expr, Int, MarkerAnnotated,
-        Method,
+        Method, Type, Void,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -76,7 +76,9 @@ FIRST(1) {
                     body_opt: Some(ClassBody {
                         items: vec![ClassBodyItem::Method(Method {
                             modifiers: vec![],
-                            return_type: primitive(2, 3, "void"),
+                            return_type: Type::Void(Void {
+                                span: span(2, 3, "void")
+                            }),
                             name: span(2, 8, "method"),
                             type_params: vec![],
                             params: vec![],

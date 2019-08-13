@@ -1,10 +1,10 @@
-use parse::combinator::{identifier, many0, opt, separated_nonempty_list, symbol, word};
+use parse::combinator::{identifier, keyword, many0, opt, separated_nonempty_list, symbol};
 use parse::statement::{block, variable_declarators};
 use parse::tree::{Catch, StandaloneVariableDeclarator, Statement, Try};
 use parse::{tpe, ParseResult, Tokens};
 
 fn parse_catch(input: Tokens) -> ParseResult<Catch> {
-    let (input, _) = word("catch")(input)?;
+    let (input, _) = keyword("catch")(input)?;
     let (input, _) = symbol('(')(input)?;
     let (input, class_types) =
         separated_nonempty_list(symbol('|'), tpe::class::parse_no_array)(input)?;
@@ -37,13 +37,13 @@ fn parse_resources(input: Tokens) -> ParseResult<Vec<StandaloneVariableDeclarato
 }
 
 pub fn parse(input: Tokens) -> ParseResult<Statement> {
-    let (input, _) = word("try")(input)?;
+    let (input, _) = keyword("try")(input)?;
     let (input, resources) = parse_resources(input)?;
     let (input, try) = block::parse_block(input)?;
 
     let (input, catches) = many0(parse_catch)(input)?;
 
-    let (input, finally_opt) = if let Ok((input, _)) = word("finally")(input) {
+    let (input, finally_opt) = if let Ok((input, _)) = keyword("finally")(input) {
         let (input, finally) = block::parse_block(input)?;
         (input, Some(finally))
     } else {
@@ -72,7 +72,7 @@ mod tests {
     use test_common::{code, span};
 
     #[test]
-    fn test_if() {
+    fn test_multiple_catches() {
         assert_eq!(
             parse(&code(
                 r#"
@@ -86,7 +86,7 @@ try (
 } catch (Exp e) {
     e.run();
 } finally {
-    final();
+    final_method();
 }
             "#
             )),
@@ -169,7 +169,7 @@ try (
                     finally_opt: Some(Block {
                         stmts: vec![Statement::Expr(Expr::MethodCall(MethodCall {
                             prefix_opt: None,
-                            name: span(11, 5, "final"),
+                            name: span(11, 5, "final_method"),
                             type_args_opt: None,
                             args: vec![]
                         }))]

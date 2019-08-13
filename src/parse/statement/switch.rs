@@ -1,15 +1,15 @@
-use parse::combinator::{many0, symbol, word};
+use parse::combinator::{keyword, many0, symbol};
 use parse::statement::block;
 use parse::tree::{Case, Statement, Switch, WhileLoop};
 use parse::{expr, statement, ParseResult, Tokens};
 
 fn parse_case(input: Tokens) -> ParseResult<Case> {
-    let (input, label_opt) = if let Ok((input, _)) = word("case")(input) {
+    let (input, label_opt) = if let Ok((input, _)) = keyword("case")(input) {
         // TODO: The below only allows EnumConstant and ConstantExpression. We could optimize something here.
         let (input, expr) = expr::parse(input)?;
         let (input, _) = symbol(':')(input)?;
         (input, Some(Box::new(expr)))
-    } else if let Ok((input, _)) = word("default")(input) {
+    } else if let Ok((input, _)) = keyword("default")(input) {
         let (input, _) = symbol(':')(input)?;
         (input, None)
     } else {
@@ -22,7 +22,7 @@ fn parse_case(input: Tokens) -> ParseResult<Case> {
 }
 
 pub fn parse(input: Tokens) -> ParseResult<Statement> {
-    let (input, _) = word("switch")(input)?;
+    let (input, _) = keyword("switch")(input)?;
     let (input, _) = symbol('(')(input)?;
     let (input, expr) = expr::parse(input)?;
     let (input, _) = symbol(')')(input)?;

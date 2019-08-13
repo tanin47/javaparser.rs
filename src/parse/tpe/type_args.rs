@@ -1,16 +1,16 @@
-use parse::combinator::{separated_list, separated_nonempty_list, symbol, word};
+use parse::combinator::{keyword, separated_list, separated_nonempty_list, symbol};
 use parse::tpe::class;
 use parse::tree::{ClassType, Type, TypeArg, WildcardType};
 use parse::{ParseResult, Tokens};
 
 pub fn parse_wildcard_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
-    let (input, _) = word("extends")(input)?;
+    let (input, _) = keyword("extends")(input)?;
 
     separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
 }
 
 pub fn parse_wildcard_super(input: Tokens) -> ParseResult<ClassType> {
-    let (input, _) = word("super")(input)?;
+    let (input, _) = keyword("super")(input)?;
 
     class::parse_no_array(input)
 }

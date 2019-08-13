@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, many0, separated_list};
+use parse::combinator::{any_keyword, identifier, many0, separated_list};
 use parse::def::annotateds;
 use parse::tree::{Keyword, Modifier};
 use parse::{ParseResult, Tokens};
@@ -19,7 +19,7 @@ fn parse_single(input: Tokens) -> ParseResult<Modifier> {
 }
 
 fn keyword(original: Tokens) -> ParseResult<Span> {
-    let (input, keyword) = identifier(original)?;
+    let (input, keyword) = any_keyword(original)?;
 
     match keyword.fragment {
         "abstract" | "default" | "final" | "native" | "private" | "protected" | "public"

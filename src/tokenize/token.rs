@@ -11,14 +11,16 @@ pub enum Token<'a> {
     Long(Span<'a>),
     String(Span<'a>),
     Symbol(Span<'a>),
-    Word(Span<'a>),
+    Identifier(Span<'a>),
+    Keyword(Span<'a>),
 }
 
 impl<'a> Token<'a> {
     pub fn span(&self) -> Span<'a> {
         let s = match self {
             Token::Symbol(s) => s,
-            Token::Word(s) => s,
+            Token::Identifier(s) => s,
+            Token::Keyword(s) => s,
             Token::Int(s) => s,
             Token::Double(s) => s,
             Token::Float(s) => s,

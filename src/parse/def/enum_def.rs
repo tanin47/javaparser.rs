@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, opt, separated_list, symbol, word};
+use parse::combinator::{identifier, keyword, opt, separated_list, symbol};
 use parse::def::{class, class_body, enum_constant, modifiers};
 use parse::tree::{ClassBody, Enum, Modifier};
 use parse::{ParseResult, Tokens};
@@ -42,7 +42,7 @@ pub fn parse_tail<'a>(
 }
 
 pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
-    word("enum")(input)
+    keyword("enum")(input)
 }
 
 #[cfg(test)]

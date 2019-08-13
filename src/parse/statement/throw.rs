@@ -1,9 +1,9 @@
-use parse::combinator::{symbol, word};
+use parse::combinator::{keyword, symbol};
 use parse::tree::{Statement, Throw};
 use parse::{expr, ParseResult, Tokens};
 
 pub fn parse(input: Tokens) -> ParseResult<Statement> {
-    let (input, _) = word("throw")(input)?;
+    let (input, _) = keyword("throw")(input)?;
 
     let (input, expr) = expr::parse(input)?;
 

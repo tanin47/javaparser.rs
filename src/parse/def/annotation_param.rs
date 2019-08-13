@@ -1,11 +1,11 @@
-use parse::combinator::{symbol, word};
+use parse::combinator::{keyword, symbol};
 use parse::tpe::array;
 use parse::tree::{AnnotationParam, Expr, Modifier, Type};
 use parse::{expr, ParseResult, Tokens};
 use tokenize::span::Span;
 
 fn parse_default(input: Tokens) -> ParseResult<Option<Expr>> {
-    match word("default")(input) {
+    match keyword("default")(input) {
         Ok((input, _)) => {
             let (input, default) = expr::parse(input)?;
             Ok((input, Some(default)))

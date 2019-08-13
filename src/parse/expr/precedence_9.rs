@@ -1,4 +1,4 @@
-use parse::combinator::{get_and_followed_by, is_not, symbol, symbol2, word};
+use parse::combinator::{get_and_followed_by, is_not, keyword, symbol, symbol2};
 use parse::expr::precedence_10;
 use parse::tree::{BinaryOperation, Expr, InstanceOf};
 use parse::{tpe, ParseResult, Tokens};
@@ -13,7 +13,7 @@ fn op(input: Tokens) -> ParseResult<Span> {
         Ok(ok)
     } else if let Ok(ok) = get_and_followed_by(symbol('>'), is_not(symbol('>')))(input) {
         Ok(ok)
-    } else if let Ok(ok) = word("instanceof")(input) {
+    } else if let Ok(ok) = keyword("instanceof")(input) {
         Ok(ok)
     } else {
         Err(input)

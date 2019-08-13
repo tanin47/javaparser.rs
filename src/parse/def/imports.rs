@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, many0, opt, separated_nonempty_list, symbol, word};
+use parse::combinator::{identifier, keyword, many0, opt, separated_nonempty_list, symbol};
 use parse::tree::Import;
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
@@ -12,9 +12,9 @@ fn parse_wildcard(input: Tokens) -> ParseResult<Span> {
 }
 
 fn import(input: Tokens) -> ParseResult<Import> {
-    let (input, _) = word("import")(input)?;
+    let (input, _) = keyword("import")(input)?;
 
-    let (input, static_opt) = opt(word("static"))(input)?;
+    let (input, static_opt) = opt(keyword("static"))(input)?;
 
     let (input, components) = separated_nonempty_list(symbol('.'), identifier)(input)?;
     let (input, wildcard_opt) = opt(parse_wildcard)(input)?;

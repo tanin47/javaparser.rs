@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, opt, separated_list, symbol, word};
+use parse::combinator::{identifier, keyword, opt, separated_list, symbol};
 use parse::def::class_body;
 use parse::tpe::type_args;
 use parse::tree::{ClassType, Expr, NewObject, TypeArg};

@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, symbol, word};
+use parse::combinator::{identifier, keyword, symbol};
 use parse::def::{annotation_body, modifiers};
 use parse::tree::{Annotation, Modifier};
 use parse::{ParseResult, Tokens};
@@ -24,7 +24,7 @@ pub fn parse_tail<'a>(
 
 pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
     let (input, _) = symbol('@')(input)?;
-    word("interface")(input)
+    keyword("interface")(input)
 }
 
 #[cfg(test)]

@@ -114,13 +114,13 @@ pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseRes
     }
 }
 
-pub fn word<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+pub fn keyword<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
         if input.is_empty() {
             return Err(input);
         }
 
-        if let Token::Word(span) = &input[0] {
+        if let Token::Keyword(span) = &input[0] {
             if span.fragment == s {
                 return Ok((&input[1..], *span));;
             }
@@ -130,12 +130,24 @@ pub fn word<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> 
     }
 }
 
+pub fn any_keyword(input: Tokens) -> ParseResult<Span> {
+    if input.is_empty() {
+        return Err(input);
+    }
+
+    if let Token::Keyword(span) = &input[0] {
+        Ok((&input[1..], *span))
+    } else {
+        Err(input)
+    }
+}
+
 pub fn identifier(input: Tokens) -> ParseResult<Span> {
     if input.is_empty() {
         return Err(input);
     }
 
-    if let Token::Word(span) = &input[0] {
+    if let Token::Identifier(span) = &input[0] {
         Ok((&input[1..], *span))
     } else {
         Err(input)
