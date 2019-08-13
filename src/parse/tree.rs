@@ -393,26 +393,42 @@ pub enum Expr<'a> {
     BinaryOperation(BinaryOperation<'a>),
     Boolean(Boolean<'a>),
     Cast(Cast<'a>),
+    Char(Char<'a>),
     ConstructorReference(ConstructorReference<'a>),
-    FieldAccess(FieldAccess<'a>),
-    ReservedFieldAccess(ReservedFieldAccess<'a>),
-    InstanceOf(InstanceOf<'a>),
-    Int(Int<'a>),
-    Long(Long<'a>),
     Double(Double<'a>),
+    FieldAccess(FieldAccess<'a>),
     Float(Float<'a>),
     Hex(Hex<'a>),
+    InstanceOf(InstanceOf<'a>),
+    Int(Int<'a>),
     Lambda(Lambda<'a>),
+    Long(Long<'a>),
     MethodCall(MethodCall<'a>),
     MethodReference(MethodReference<'a>),
     Name(Name<'a>),
     NewArray(NewArray<'a>),
     NewObject(NewObject<'a>),
     Null(Null<'a>),
+    Class(ClassExpr<'a>),
     String(LiteralString<'a>),
-    Char(Char<'a>),
+    Super(Super<'a>),
+    SuperConstructorCall(SuperConstructorCall<'a>),
+    This(This<'a>),
+    ThisConstructorCall(ThisConstructorCall<'a>),
     Ternary(Ternary<'a>),
     UnaryOperation(UnaryOperation<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct This<'a> {
+    pub tpe_opt: Option<Type<'a>>,
+    pub span: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Super<'a> {
+    pub tpe_opt: Option<Type<'a>>,
+    pub span: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -461,6 +477,20 @@ pub struct Keyword<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Name<'a> {
     pub name: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct SuperConstructorCall<'a> {
+    pub type_args_opt: Option<Vec<TypeArg<'a>>>,
+    pub name: Span<'a>,
+    pub args: Vec<Expr<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ThisConstructorCall<'a> {
+    pub type_args_opt: Option<Vec<TypeArg<'a>>>,
+    pub name: Span<'a>,
+    pub args: Vec<Expr<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -545,9 +575,9 @@ pub enum Assigned<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ReservedFieldAccess<'a> {
+pub struct ClassExpr<'a> {
     pub tpe: Type<'a>,
-    pub field: Span<'a>,
+    pub span: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

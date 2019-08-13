@@ -1,11 +1,12 @@
 use either::Either;
 use parse::combinator::{identifier, symbol, symbol2};
 use parse::tpe::{primitive, type_args};
-use parse::tree::{Boolean, Expr, MethodCall, Name, Null, Type};
+use parse::tree::{Boolean, Expr, Keyword, MethodCall, Name, Null, Super, This, Type};
 use parse::{tpe, ParseResult, Tokens};
 
 pub mod array_access;
 pub mod array_initializer;
+pub mod constructor_call;
 pub mod lambda;
 pub mod literal_char;
 pub mod method_call;
@@ -24,6 +25,8 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
     } else if let Ok(ok) = literal_char::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = array_initializer::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = constructor_call::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = parse_prefix_keyword_or_identifier(input) {
         Ok(ok)
@@ -115,6 +118,20 @@ fn parse_prefix_keyword_or_identifier(original: Tokens) -> ParseResult<Expr> {
                 }),
             )),
             "new" => parse_new_object_or_array(input),
+            "this" => Ok((
+                input,
+                Expr::This(This {
+                    tpe_opt: None,
+                    span: keyword.name,
+                }),
+            )),
+            "super" => Ok((
+                input,
+                Expr::Super(Super {
+                    tpe_opt: None,
+                    span: keyword.name,
+                }),
+            )),
             _ => Err(input),
         },
         Either::Right(name) => {

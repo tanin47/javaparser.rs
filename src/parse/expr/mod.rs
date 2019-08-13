@@ -48,9 +48,9 @@ mod tests {
 
     use super::parse;
     use parse::tree::{
-        ArrayType, BinaryOperation, Boolean, ClassType, ConstructorReference, Expr, FieldAccess,
-        MethodCall, MethodReference, MethodReferencePrimary, Name, PrimitiveType, ReferenceType,
-        ReservedFieldAccess, Type, TypeArg,
+        ArrayType, BinaryOperation, Boolean, ClassExpr, ClassType, ConstructorReference, Expr,
+        FieldAccess, MethodCall, MethodReference, MethodReferencePrimary, Name, PrimitiveType,
+        ReferenceType, Type, TypeArg,
     };
     use parse::Tokens;
 
@@ -115,13 +115,13 @@ Test.class.hashCode()
             Ok((
                 &[] as Tokens,
                 Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::ReservedFieldAccess(ReservedFieldAccess {
+                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 1, "Test"),
                             type_args_opt: None
                         }),
-                        field: span(1, 6, "class")
+                        span: span(1, 6, "class")
                     }))),
                     name: span(1, 12, "hashCode"),
                     type_args_opt: None,

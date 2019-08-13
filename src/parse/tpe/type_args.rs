@@ -1,5 +1,5 @@
 use parse::combinator::{keyword, separated_list, separated_nonempty_list, symbol};
-use parse::tpe::class;
+use parse::tpe::{class, primitive};
 use parse::tree::{ClassType, Type, TypeArg, WildcardType};
 use parse::{ParseResult, Tokens};
 
@@ -39,13 +39,19 @@ pub fn parse_wildcard(input: Tokens) -> ParseResult<TypeArg> {
     ))
 }
 
-pub fn parse_non_wildcard(original: Tokens) -> ParseResult<TypeArg> {
-    let (input, tpe) = class::parse(original)?;
+pub fn parse_non_wildcard(input: Tokens) -> ParseResult<TypeArg> {
+    let (input, tpe) = if let Ok(ok) = primitive::parse(input) {
+        ok
+    } else if let Ok(ok) = class::parse(input) {
+        ok
+    } else {
+        return Err(input);
+    };
 
     match tpe {
         Type::Class(tpe) => Ok((input, TypeArg::Class(tpe))),
         Type::Array(tpe) => Ok((input, TypeArg::Array(tpe))),
-        _ => Err(original),
+        _ => Err(input),
     }
 }
 
