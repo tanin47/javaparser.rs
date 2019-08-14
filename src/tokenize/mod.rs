@@ -1,5 +1,6 @@
+use std::io::Write;
 use std::ops::Index;
-use std::slice;
+use std::{io, slice};
 use tokenize::combinator::{take, take_while};
 use tokenize::span::CharAt;
 use tokenize::span::Span;
@@ -75,20 +76,31 @@ fn string(input: Span) -> Result<(Span, Token), Span> {
         return Err(input);
     }
 
-    let (s, after) = take_while(
-        |index, s| {
-            let end_cond =
-                index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '"';
-            let end_cond_2 = index >= 3
-                && s.char_at(index - 3) == '\\'
-                && s.char_at(index - 2) == '\\'
-                && s.char_at(index - 1) == '"';
-            !(end_cond || end_cond_2)
-        },
-        input,
-    );
+    let mut escaped = false;
+    let mut size = 1;
 
-    Ok((after, Token::String(s)))
+    for index in 1..input.fragment.len() {
+        let c = input.fragment.char_at(index);
+
+        size += 1;
+
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        if c == '"' {
+            break;
+        }
+
+        if c == '\\' {
+            escaped = true;
+        }
+    }
+
+    let (string, after) = take(size, input);
+
+    Ok((after, Token::String(string)))
 }
 
 fn literal_char(input: Span) -> Result<(Span, Token), Span> {
@@ -133,19 +145,32 @@ fn hex(original: Span) -> Result<(Span, Token), Span> {
         input,
     );
 
-    Ok((
-        input,
-        Token::Hex(Span {
-            line: prefix.line,
-            col: prefix.col,
-            fragment: &original.fragment[0..(prefix.fragment.len() + hex.fragment.len())],
-        }),
-    ))
+    let (maybe_l, input_after_l) = take(1, input);
+
+    if maybe_l.fragment.char_at(0) == 'L' {
+        Ok((
+            input_after_l,
+            Token::Hex(Span {
+                line: prefix.line,
+                col: prefix.col,
+                fragment: &original.fragment[0..(prefix.fragment.len() + hex.fragment.len() + 1)],
+            }),
+        ))
+    } else {
+        Ok((
+            input,
+            Token::Hex(Span {
+                line: prefix.line,
+                col: prefix.col,
+                fragment: &original.fragment[0..(prefix.fragment.len() + hex.fragment.len())],
+            }),
+        ))
+    }
 }
 
 fn is_identifier(index: usize, s: &str) -> bool {
     let c = s.char_at(index);
-    c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_'
+    c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_' || c == '$'
 }
 
 fn is_keyword(s: &str) -> bool {
@@ -242,63 +267,87 @@ fn float_or_double_end<'a>(
     }
 }
 
-fn float_or_double_tail<'a>(
+fn float_or_double_e<'a>(
+    num: Span<'a>,
+    original: Span<'a>,
+    include_dot: bool,
+) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    let (symbol, input) = take(1, original);
+    let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
+
+    if last_char != 'E' {
+        return float_or_double_end(num, original, include_dot);
+    }
+
+    if num.fragment.is_empty() {
+        return Err(input);
+    }
+
+    let (maybe_minus, input) = if input.fragment.char_at(0) == '-' {
+        take(1, input)
+    } else {
+        (
+            Span {
+                line: input.line,
+                col: input.col,
+                fragment: "",
+            },
+            input,
+        )
+    };
+    let (second_number, input) = number(input)?;
+    let num = Span {
+        line: num.line,
+        col: num.col,
+        fragment: unsafe {
+            std::str::from_utf8_unchecked(slice::from_raw_parts(
+                num.fragment.as_ptr(),
+                num.fragment.len()
+                    + symbol.fragment.len()
+                    + maybe_minus.fragment.len()
+                    + second_number.fragment.len(),
+            ))
+        },
+    };
+
+    float_or_double_end(num, input, true)
+}
+
+fn float_or_double_dot<'a>(
     first_number: Span<'a>,
     original: Span<'a>,
 ) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
-    if let Ok((input, token)) = float_or_double_end(first_number, original, false) {
-        return Ok((input, token));
-    }
-
     let (symbol, input) = take(1, original);
-
     let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
-    if last_char == '.' || last_char == 'E' {
-        let (maybe_minus, input) = if last_char == 'E' && input.fragment.char_at(0) == '-' {
-            take(1, input)
-        } else {
-            (
-                Span {
-                    line: input.line,
-                    col: input.col,
-                    fragment: "",
-                },
-                input,
-            )
-        };
 
-        let (second_number, input) = number(input)?;
-
-        if first_number.fragment.is_empty() && second_number.fragment.is_empty() {
-            return Err(original);
-        }
-
-        float_or_double_end(
-            Span {
-                line: first_number.line,
-                col: first_number.col,
-                fragment: unsafe {
-                    std::str::from_utf8_unchecked(slice::from_raw_parts(
-                        first_number.fragment.as_ptr(),
-                        first_number.fragment.len()
-                            + symbol.fragment.len()
-                            + maybe_minus.fragment.len()
-                            + second_number.fragment.len(),
-                    ))
-                },
-            },
-            input,
-            true,
-        )
-    } else {
-        Err(input)
+    if last_char != '.' {
+        return float_or_double_e(first_number, original, false);
     }
+
+    let (second_number, input) = number(input)?;
+
+    if first_number.fragment.is_empty() && second_number.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let num = Span {
+        line: first_number.line,
+        col: first_number.col,
+        fragment: unsafe {
+            std::str::from_utf8_unchecked(slice::from_raw_parts(
+                first_number.fragment.as_ptr(),
+                first_number.fragment.len() + symbol.fragment.len() + second_number.fragment.len(),
+            ))
+        },
+    };
+
+    float_or_double_e(num, input, true)
 }
 
 fn int_or_long_or_double_or_float(original: Span) -> Result<(Span, Token), Span> {
     let (number, input) = number(original)?;
 
-    if let Ok(ok) = float_or_double_tail(number, input) {
+    if let Ok(ok) = float_or_double_dot(number, input) {
         return Ok(ok);
     }
 
@@ -458,6 +507,22 @@ mod tests {
     }
 
     #[test]
+    fn test_escaped_backslash_string_3() {
+        assert_eq!(
+            apply(
+                r#"
+"\\\"" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\\\\\\\"\"")),
+                Token::Symbol(span(1, 8, "+"))
+            ])
+        )
+    }
+
+    #[test]
     fn test_empty_char() {
         assert_eq!(
             apply(
@@ -535,6 +600,19 @@ mod tests {
     }
 
     #[test]
+    fn test_hex_with_l() {
+        assert_eq!(
+            apply(
+                r#"
+0x0123456789abcdefABCDEFL
+"#
+                .trim()
+            ),
+            Ok(vec![Token::Hex(span(1, 1, "0x0123456789abcdefABCDEFL"))])
+        )
+    }
+
+    #[test]
     fn test_int() {
         assert_eq!(
             apply(
@@ -565,7 +643,7 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-1.0 1. .1 1.0d 1.D .1D 2d 1e-2 1e3d
+1.0 1. .1 1.0d 1.D .1D 2d 1e-2 1e3d 5.3e4d e2
 "#
                 .trim()
             ),
@@ -579,6 +657,8 @@ mod tests {
                 Token::Double(span(1, 24, "2d")),
                 Token::Double(span(1, 27, "1e-2")),
                 Token::Double(span(1, 32, "1e3d")),
+                Token::Double(span(1, 37, "5.3e4d")),
+                Token::Identifier(span(1, 44, "e2")),
             ])
         )
     }
@@ -588,7 +668,7 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-1.0f 1f 1.F .1f 1e2F 
+1.0f 1f 1.F .1f 1e2F 1.3e-2F 
 "#
                 .trim()
             ),
@@ -598,6 +678,7 @@ mod tests {
                 Token::Float(span(1, 9, "1.F")),
                 Token::Float(span(1, 13, ".1f")),
                 Token::Float(span(1, 17, "1e2F")),
+                Token::Float(span(1, 22, "1.3e-2F")),
             ])
         )
     }
@@ -607,11 +688,11 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-a_b1B
+a_b$1B
 "#
                 .trim()
             ),
-            Ok(vec![Token::Identifier(span(1, 1, "a_b1B"))])
+            Ok(vec![Token::Identifier(span(1, 1, "a_b$1B"))])
         )
     }
 

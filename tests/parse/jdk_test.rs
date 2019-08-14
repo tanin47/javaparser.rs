@@ -20,13 +20,12 @@ fn test() {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if !path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .ends_with(".java")
-        {
+        let filename = path.file_name().unwrap().to_str().unwrap();
+        if !filename.ends_with(".java") {
+            continue;
+        }
+
+        if filename == "package-info.java" {
             continue;
         }
 

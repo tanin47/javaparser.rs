@@ -114,6 +114,62 @@ pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseRes
     }
 }
 
+pub fn symbol4<'a>(
+    a: char,
+    b: char,
+    c: char,
+    d: char,
+) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+    move |input: Tokens<'a>| {
+        if input.len() < 4 {
+            return Err(input);
+        }
+
+        if let Token::Symbol(first) = input[0] {
+            if let Token::Symbol(second) = input[1] {
+                if let Token::Symbol(third) = input[2] {
+                    if let Token::Symbol(fourth) = input[3] {
+                        if first.fragment.len() == 1
+                            && second.fragment.len() == 1
+                            && third.fragment.len() == 1
+                            && fourth.fragment.len() == 1
+                            && first.fragment.char_at(0) == a
+                            && second.fragment.char_at(0) == b
+                            && third.fragment.char_at(0) == c
+                            && fourth.fragment.char_at(0) == d
+                            && first.line == second.line
+                            && first.line == third.line
+                            && first.line == fourth.line
+                            && first.col + 1 == second.col
+                            && first.col + 2 == third.col
+                            && first.col + 3 == fourth.col
+                        {
+                            return Ok((
+                                &input[4..],
+                                Span {
+                                    line: first.line,
+                                    col: first.col,
+                                    fragment: unsafe {
+                                        std::str::from_utf8_unchecked(slice::from_raw_parts(
+                                            first.fragment.as_ptr(),
+                                            first.fragment.len()
+                                                + second.fragment.len()
+                                                + third.fragment.len()
+                                                + fourth.fragment.len(),
+                                        ))
+                                    },
+                                },
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(input)
+    }
+}
+
 pub fn keyword<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
         if input.is_empty() {

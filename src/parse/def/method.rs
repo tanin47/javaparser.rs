@@ -1,6 +1,7 @@
 use parse::combinator::{keyword, opt, separated_list, separated_nonempty_list, symbol};
 use parse::def::param;
 use parse::statement::block;
+use parse::tpe::array;
 use parse::tree::{ClassType, Method, Modifier, Type, TypeParam};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
@@ -23,6 +24,8 @@ pub fn parse<'a>(
     let (input, _) = symbol('(')(input)?;
     let (input, params) = separated_list(symbol(','), param::parse)(input)?;
     let (input, _) = symbol(')')(input)?;
+
+    let (input, return_type) = array::parse_tail(input, return_type)?;
 
     let (input, throws) = parse_throws(input)?;
 
@@ -52,8 +55,9 @@ pub fn parse<'a>(
 mod tests {
     use parse::def::class_body;
     use parse::tree::{
-        Annotated, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated, Method,
-        Modifier, Param, ReturnStmt, Statement, Type, TypeArg, TypeParam, Void,
+        Annotated, ArrayType, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated,
+        Method, Modifier, Param, PrimitiveType, ReturnStmt, Statement, Type, TypeArg, TypeParam,
+        Void,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -71,7 +75,11 @@ mod tests {
                 ClassBodyItem::Method(Method {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "abstract")
@@ -96,6 +104,34 @@ mod tests {
                         }
                     ],
                     block_opt: None,
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn test_array_tail() {
+        assert_eq!(
+            class_body::parse_item(&code(
+                r#"
+int method()[] {}
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                ClassBodyItem::Method(Method {
+                    modifiers: vec![],
+                    return_type: Type::Array(ArrayType {
+                        tpe: Box::new(Type::Primitive(PrimitiveType {
+                            name: span(1, 1, "int")
+                        })),
+                        size_opt: None
+                    }),
+                    name: span(1, 5, "method"),
+                    type_params: vec![],
+                    params: vec![],
+                    throws: vec![],
+                    block_opt: Some(Block { stmts: vec![] }),
                 })
             ))
         );

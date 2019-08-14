@@ -42,18 +42,18 @@ pub enum Annotated<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct NormalAnnotated<'a> {
-    pub name: Span<'a>,
+    pub class: ClassType<'a>,
     pub params: Vec<AnnotatedParam<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct MarkerAnnotated<'a> {
-    pub name: Span<'a>,
+    pub class: ClassType<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SingleAnnotated<'a> {
-    pub name: Span<'a>,
+    pub class: ClassType<'a>,
     pub expr: Expr<'a>,
 }
 
@@ -252,8 +252,10 @@ pub struct Method<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement<'a> {
+    Assert(Assert<'a>),
     Block(Block<'a>),
     Break(Break<'a>),
+    Class(Class<'a>),
     Continue(Continue<'a>),
     Empty,
     DoWhile(DoWhile<'a>),
@@ -269,6 +271,12 @@ pub enum Statement<'a> {
     Try(Try<'a>),
     WhileLoop(WhileLoop<'a>),
     VariableDeclarators(VariableDeclarators<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Assert<'a> {
+    pub expr: Expr<'a>,
+    pub error_opt: Option<Expr<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -481,6 +489,7 @@ pub struct Name<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SuperConstructorCall<'a> {
+    pub prefix_opt: Option<This<'a>>,
     pub type_args_opt: Option<Vec<TypeArg<'a>>>,
     pub name: Span<'a>,
     pub args: Vec<Expr<'a>>,
@@ -521,6 +530,7 @@ pub struct ArrayInitializer<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct NewObject<'a> {
+    pub prefix_opt: Option<Box<Expr<'a>>>,
     pub tpe: ClassType<'a>,
     pub constructor_type_args_opt: Option<Vec<TypeArg<'a>>>,
     pub args: Vec<Expr<'a>>,

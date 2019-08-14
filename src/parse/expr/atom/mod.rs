@@ -7,9 +7,9 @@ use parse::{tpe, ParseResult, Tokens};
 pub mod array_access;
 pub mod array_initializer;
 pub mod constructor_call;
+pub mod invocation;
 pub mod lambda;
 pub mod literal_char;
-pub mod method_call;
 pub mod name;
 pub mod new_array;
 pub mod new_object;
@@ -84,7 +84,7 @@ fn parse_lambda_or_parenthesized(original: Tokens) -> ParseResult<Expr> {
 
 fn parse_new_object_or_array(input: Tokens) -> ParseResult<Expr> {
     if let Ok((input, Some(type_args))) = type_args::parse(input) {
-        return new_object::parse_tail2(input, Some(type_args));
+        return new_object::parse_tail2(None, input, Some(type_args));
     }
 
     let (input, tpe) = tpe::parse_no_array(input)?;
@@ -94,7 +94,7 @@ fn parse_new_object_or_array(input: Tokens) -> ParseResult<Expr> {
         Ok((input, expr))
     } else {
         match copied {
-            Type::Class(class) => new_object::parse_tail3(input, None, class),
+            Type::Class(class) => new_object::parse_tail3(None, input, None, class),
             _ => Err(input),
         }
     }
@@ -137,7 +137,7 @@ fn parse_prefix_keyword_or_identifier(original: Tokens) -> ParseResult<Expr> {
         Either::Right(name) => {
             if let Ok(_) = symbol2('-', '>')(input) {
                 lambda::parse(original)
-            } else if let Ok((input, args)) = method_call::parse_args(input) {
+            } else if let Ok((input, args)) = invocation::parse_args(input) {
                 Ok((
                     input,
                     Expr::MethodCall(MethodCall {

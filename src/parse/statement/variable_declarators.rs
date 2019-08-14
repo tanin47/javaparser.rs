@@ -74,8 +74,8 @@ pub fn parse(input: Tokens) -> ParseResult<Statement> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        Annotated, ArrayType, Expr, Int, MarkerAnnotated, Modifier, PrimitiveType, Statement, Type,
-        VariableDeclarator, VariableDeclarators,
+        Annotated, ArrayType, ClassType, Expr, Int, MarkerAnnotated, Modifier, PrimitiveType,
+        Statement, Type, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
     use test_common::{code, span};
@@ -92,7 +92,11 @@ mod tests {
                 &[] as Tokens,
                 Statement::VariableDeclarators(VariableDeclarators {
                     modifiers: vec![Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                        name: span(1, 2, "Anno")
+                        class: ClassType {
+                            prefix_opt: None,
+                            name: span(1, 2, "Anno"),
+                            type_args_opt: None
+                        }
                     }))],
                     declarators: vec![VariableDeclarator {
                         tpe: Type::Primitive(PrimitiveType {

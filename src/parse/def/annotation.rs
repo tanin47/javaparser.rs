@@ -30,8 +30,8 @@ pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
 #[cfg(test)]
 mod tests {
     use parse::tree::{
-        Annotated, Annotation, AnnotationBody, CompilationUnitItem, Keyword, MarkerAnnotated,
-        Modifier,
+        Annotated, Annotation, AnnotationBody, ClassType, CompilationUnitItem, Keyword,
+        MarkerAnnotated, Modifier,
     };
     use parse::{compilation_unit, Tokens};
     use test_common::{code, primitive, span};
@@ -49,7 +49,11 @@ mod tests {
                 CompilationUnitItem::Annotation(Annotation {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "private")

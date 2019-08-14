@@ -1,9 +1,11 @@
 use either::Either;
 use parse::combinator::symbol;
 use parse::expr::atom;
-use parse::expr::atom::{array_access, method_call, name};
+use parse::expr::atom::{array_access, invocation, name, new_object};
 use parse::expr::precedence_15::convert_to_type;
-use parse::tree::{ClassExpr, Expr, FieldAccess, Keyword, MethodCall, Super, This, Type};
+use parse::tree::{
+    ClassExpr, Expr, FieldAccess, Keyword, MethodCall, Super, SuperConstructorCall, This, Type,
+};
 use parse::{tpe, ParseResult, Tokens};
 
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
@@ -77,47 +79,35 @@ fn parse_reserved_field_access_tail<'a>(
         _ => return Err(input),
     };
 
-    Ok((input, expr))
+    parse_tail(expr, input)
 }
 
 fn parse_dot<'a>(parent: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
     let (input, expr) = if let Ok(_) = symbol('<')(input) {
-        let (input, method_call) = method_call::parse(true)(input)?;
-
-        (
-            input,
-            Expr::MethodCall(MethodCall {
-                prefix_opt: Some(Box::new(parent)),
-                name: method_call.name,
-                type_args_opt: method_call.type_args_opt,
-                args: method_call.args,
-            }),
-        )
+        invocation::parse(input, Some(parent))?
     } else {
         let (input, keyword_or_name) = name::parse(input)?;
 
-        match keyword_or_name {
-            Either::Left(keyword) => {
-                if let Ok(class_type) = convert_to_type(parent) {
-                    parse_reserved_field_access_tail(Type::Class(class_type), keyword, input)?
-                } else {
-                    return Err(input);
+        if let Ok(_) = symbol('(')(input) {
+            invocation::parse_tail(input, Some(parent), keyword_or_name, None)?
+        } else {
+            match keyword_or_name {
+                Either::Left(keyword) => {
+                    if keyword.name.fragment == "new" {
+                        new_object::parse_tail(Some(parent), input)?
+                    } else if let Ok(class_type) = convert_to_type(parent) {
+                        parse_reserved_field_access_tail(Type::Class(class_type), keyword, input)?
+                    } else {
+                        return Err(input);
+                    }
                 }
-            }
-            Either::Right(name) => {
-                if let Ok(_) = symbol('(')(input) {
-                    let (input, method_call) =
-                        method_call::parse_tail(input, Some(Box::new(parent)), name.name, None)?;
-                    (input, Expr::MethodCall(method_call))
-                } else {
-                    (
-                        input,
-                        Expr::FieldAccess(FieldAccess {
-                            expr: Box::new(parent),
-                            field: name,
-                        }),
-                    )
-                }
+                Either::Right(name) => (
+                    input,
+                    Expr::FieldAccess(FieldAccess {
+                        expr: Box::new(parent),
+                        field: name,
+                    }),
+                ),
             }
         }
     };
@@ -131,10 +121,68 @@ mod tests {
 
     use super::parse;
     use parse::tree::{
-        ArrayType, ClassExpr, ClassType, Expr, FieldAccess, MethodCall, Name, PrimitiveType, Super,
-        This, Type,
+        ArrayType, ClassExpr, ClassType, Expr, FieldAccess, MethodCall, Name, NewObject,
+        PrimitiveType, Super, SuperConstructorCall, This, Type,
     };
     use parse::Tokens;
+
+    #[test]
+    fn test_dot_new_member() {
+        assert_eq!(
+            parse(&code(
+                r#"
+a.new Test()
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                Expr::NewObject(NewObject {
+                    prefix_opt: Some(Box::new(Expr::Name(Name {
+                        name: span(1, 1, "a")
+                    }))),
+                    tpe: ClassType {
+                        prefix_opt: None,
+                        name: span(1, 7, "Test"),
+                        type_args_opt: None
+                    },
+                    constructor_type_args_opt: None,
+                    args: vec![],
+                    body_opt: None
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn test_super_constructor_call() {
+        assert_eq!(
+            parse(&code(
+                r#"
+Parent.Test.this.super()
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                Expr::SuperConstructorCall(SuperConstructorCall {
+                    prefix_opt: Some(This {
+                        tpe_opt: Some(Type::Class(ClassType {
+                            prefix_opt: Some(Box::new(ClassType {
+                                prefix_opt: None,
+                                name: span(1, 1, "Parent"),
+                                type_args_opt: None
+                            })),
+                            name: span(1, 8, "Test"),
+                            type_args_opt: None
+                        })),
+                        span: span(1, 13, "this")
+                    }),
+                    type_args_opt: None,
+                    name: span(1, 18, "super"),
+                    args: vec![]
+                })
+            ))
+        );
+    }
 
     #[test]
     fn test_super_with_parent() {
@@ -257,23 +305,53 @@ Test.class.hashCode()
     }
 
     #[test]
-    fn test_primitive_array_class() {
+    fn test_primitive_class() {
         assert_eq!(
             parse(&code(
                 r#"
-byte[].class
+char.class.hashCode()
             "#
             )),
             Ok((
                 &[] as Tokens,
-                Expr::Class(ClassExpr {
-                    tpe: Type::Array(ArrayType {
-                        tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "byte")
-                        })),
-                        size_opt: None
-                    }),
-                    span: span(1, 8, "class")
+                Expr::MethodCall(MethodCall {
+                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+                        tpe: Type::Primitive(PrimitiveType {
+                            name: span(1, 1, "char")
+                        }),
+                        span: span(1, 6, "class")
+                    }))),
+                    type_args_opt: None,
+                    name: span(1, 12, "hashCode"),
+                    args: vec![]
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn test_primitive_array_class() {
+        assert_eq!(
+            parse(&code(
+                r#"
+byte[].class.hashCode()
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                Expr::MethodCall(MethodCall {
+                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+                        tpe: Type::Array(ArrayType {
+                            tpe: Box::new(Type::Primitive(PrimitiveType {
+                                name: span(1, 1, "byte")
+                            })),
+                            size_opt: None
+                        }),
+                        span: span(1, 8, "class")
+                    }))),
+                    type_args_opt: None,
+                    name: span(1, 14, "hashCode"),
+                    args: vec![]
                 })
             ))
         );
@@ -284,25 +362,30 @@ byte[].class
         assert_eq!(
             parse(&code(
                 r#"
-Parent.Test[].class
+Parent.Test[].class.hashCode()
             "#
             )),
             Ok((
                 &[] as Tokens,
-                Expr::Class(ClassExpr {
-                    tpe: Type::Array(ArrayType {
-                        tpe: Box::new(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
-                                prefix_opt: None,
-                                name: span(1, 1, "Parent"),
+                Expr::MethodCall(MethodCall {
+                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+                        tpe: Type::Array(ArrayType {
+                            tpe: Box::new(Type::Class(ClassType {
+                                prefix_opt: Some(Box::new(ClassType {
+                                    prefix_opt: None,
+                                    name: span(1, 1, "Parent"),
+                                    type_args_opt: None
+                                })),
+                                name: span(1, 8, "Test"),
                                 type_args_opt: None
                             })),
-                            name: span(1, 8, "Test"),
-                            type_args_opt: None
-                        })),
-                        size_opt: None
-                    }),
-                    span: span(1, 15, "class")
+                            size_opt: None
+                        }),
+                        span: span(1, 15, "class")
+                    }))),
+                    type_args_opt: None,
+                    name: span(1, 21, "hashCode"),
+                    args: vec![]
                 })
             ))
         );

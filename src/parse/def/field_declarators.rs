@@ -26,8 +26,8 @@ pub fn parse<'a>(
 mod tests {
     use parse::def::class_body;
     use parse::tree::{
-        Annotated, ArrayType, ClassBodyItem, Expr, FieldDeclarators, Int, Keyword, MarkerAnnotated,
-        Modifier, PrimitiveType, Type, VariableDeclarator,
+        Annotated, ArrayType, ClassBodyItem, ClassType, Expr, FieldDeclarators, Int, Keyword,
+        MarkerAnnotated, Modifier, PrimitiveType, Type, VariableDeclarator,
     };
     use parse::Tokens;
     use test_common::{code, span};
@@ -45,7 +45,11 @@ mod tests {
                 ClassBodyItem::FieldDeclarators(FieldDeclarators {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "private")

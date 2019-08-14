@@ -55,7 +55,11 @@ final @Anno Test... t
                             name: span(1, 1, "final")
                         }),
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 8, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 8, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                     ],
                     tpe: Type::Class(ClassType {

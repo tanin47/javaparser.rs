@@ -31,6 +31,7 @@ throw new Exception();
                 &[] as Tokens,
                 Statement::Throw(Throw {
                     expr: Expr::NewObject(NewObject {
+                        prefix_opt: None,
                         tpe: ClassType {
                             prefix_opt: None,
                             name: span(1, 11, "Exception"),

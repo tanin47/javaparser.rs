@@ -3,8 +3,10 @@ use parse::tree::{Labeled, Statement};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
+pub mod assert;
 pub mod block;
 pub mod break_stmt;
+pub mod class;
 pub mod continue_stmt;
 pub mod do_while;
 pub mod expr;
@@ -33,7 +35,11 @@ fn parse_label(input: Tokens) -> ParseResult<Span> {
 fn parse_statement(input: Tokens) -> ParseResult<Statement> {
     if let Ok((input, _)) = symbol(';')(input) {
         Ok((input, Statement::Empty))
+    } else if let Ok(ok) = assert::parse(input) {
+        Ok(ok)
     } else if let Ok(ok) = break_stmt::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = class::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = continue_stmt::parse(input) {
         Ok(ok)

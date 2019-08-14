@@ -43,7 +43,7 @@ pub fn parse<'a>(
 mod tests {
     use parse::def::annotation_body;
     use parse::tree::{
-        Annotated, AnnotationBodyItem, AnnotationParam, ArrayType, Expr, Int, Keyword,
+        Annotated, AnnotationBodyItem, AnnotationParam, ArrayType, ClassType, Expr, Int, Keyword,
         MarkerAnnotated, Modifier, Type,
     };
     use parse::Tokens;
@@ -62,7 +62,11 @@ mod tests {
                 AnnotationBodyItem::Param(AnnotationParam {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "public")
