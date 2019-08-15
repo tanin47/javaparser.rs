@@ -66,7 +66,7 @@ fn tokenize(input: Span) -> Result<(Span, Option<Token>), Span> {
 
 fn is_whitespace(index: usize, s: &str) -> bool {
     let c = s.char_at(index);
-    c == ' ' || c == '\t' || c == '\r' || c == '\n'
+    c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == 12 as char // form feed
 }
 
 fn skip_space(input: Span) -> Span {

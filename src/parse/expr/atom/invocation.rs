@@ -25,17 +25,15 @@ pub fn parse_tail<'a>(
     match keyword_or_name {
         Either::Left(keyword) => {
             if keyword.name.fragment == "super" {
-                if let Some(Expr::This(this)) = prefix_opt {
-                    return Ok((
-                        input,
-                        Expr::SuperConstructorCall(SuperConstructorCall {
-                            prefix_opt: Some(this),
-                            name: keyword.name,
-                            type_args_opt,
-                            args,
-                        }),
-                    ));
-                }
+                return Ok((
+                    input,
+                    Expr::SuperConstructorCall(SuperConstructorCall {
+                        prefix_opt: prefix_opt.map(Box::new),
+                        name: keyword.name,
+                        type_args_opt,
+                        args,
+                    }),
+                ));
             }
 
             Err(input)
