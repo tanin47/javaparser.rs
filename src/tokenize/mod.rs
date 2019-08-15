@@ -129,7 +129,7 @@ fn literal_char(input: Span) -> Result<(Span, Token), Span> {
 fn hex(original: Span) -> Result<(Span, Token), Span> {
     if original.fragment.len() >= 2
         && original.fragment.char_at(0) == '0'
-        && original.fragment.char_at(1) == 'x'
+        && original.fragment.char_at(1).to_ascii_uppercase() == 'X'
     {
     } else {
         return Err(original);
@@ -212,7 +212,7 @@ fn number(original: Span) -> Result<(Span, Span), Span> {
     let (number, input) = take_while(
         |index, s| {
             let c = s.char_at(index);
-            c >= '0' && c <= '9'
+            (c >= '0' && c <= '9') || (c == '_' && index > 0)
         },
         original,
     );
@@ -604,11 +604,11 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-0x0123456789abcdefABCDEFL
+0X0123456789abcdefABCDEFL
 "#
                 .trim()
             ),
-            Ok(vec![Token::Hex(span(1, 1, "0x0123456789abcdefABCDEFL"))])
+            Ok(vec![Token::Hex(span(1, 1, "0X0123456789abcdefABCDEFL"))])
         )
     }
 

@@ -220,17 +220,7 @@ where
     }
 }
 
-pub fn is_not<'a, F, T>(f: F) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span>
-where
-    F: Fn(Tokens<'a>) -> ParseResult<'a, T>,
-{
-    move |input: Tokens<'a>| match f(input) {
-        Ok((_, result)) => Err(input),
-        Err(_) => Ok((input.split_at(1).1, input[0].span())),
-    }
-}
-
-pub fn get_and_followed_by<'a, I, F>(
+pub fn get_and_not_followed_by<'a, I, F>(
     item: I,
     followed: F,
 ) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>
@@ -241,11 +231,16 @@ where
     move |original: Tokens<'a>| {
         let (input, result) = item(original)?;
 
-        if let Ok((_, followed)) = followed(input) {
-            return Ok((input, result));
+        if input.len() > 0
+            && result.line == input[0].span().line
+            && result.col + result.fragment.len() == input[0].span().col
+        {
+            if let Ok((_, followed)) = followed(input) {
+                return Err(original);
+            }
         }
 
-        Err(original)
+        Ok((input, result))
     }
 }
 

@@ -1,4 +1,4 @@
-use parse::combinator::{get_and_followed_by, identifier, is_not, opt, symbol};
+use parse::combinator::{get_and_not_followed_by, identifier, opt, symbol};
 use parse::tree::{Labeled, Statement};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
@@ -26,7 +26,7 @@ fn parse_label(input: Tokens) -> ParseResult<Span> {
     if label.fragment == "default" {
         Err(input)
     } else {
-        let (input, _) = get_and_followed_by(symbol(':'), is_not(symbol(':')))(input)?;
+        let (input, _) = get_and_not_followed_by(symbol(':'), symbol(':'))(input)?;
 
         Ok((input, label))
     }

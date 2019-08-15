@@ -75,6 +75,7 @@ fn parse_param_or_field_declarators<'a>(
 }
 
 pub fn parse_item(input: Tokens) -> ParseResult<AnnotationBodyItem> {
+    let (input, _) = many0(symbol(';'))(input)?;
     let (input, modifiers) = modifiers::parse(input)?;
 
     if let Ok((input, _)) = enum_def::parse_prefix(input) {
@@ -97,6 +98,7 @@ pub fn parse_items(input: Tokens) -> ParseResult<Vec<AnnotationBodyItem>> {
 pub fn parse(input: Tokens) -> ParseResult<AnnotationBody> {
     let (input, _) = symbol('{')(input)?;
     let (input, items) = parse_items(input)?;
+    let (input, _) = many0(symbol(';'))(input)?;
     let (input, _) = symbol('}')(input)?;
 
     Ok((input, AnnotationBody { items }))

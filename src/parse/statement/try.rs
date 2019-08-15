@@ -1,4 +1,5 @@
 use parse::combinator::{identifier, keyword, many0, opt, separated_nonempty_list, symbol};
+use parse::def::modifiers;
 use parse::statement::{block, variable_declarators};
 use parse::tree::{Catch, StandaloneVariableDeclarator, Statement, Try};
 use parse::{tpe, ParseResult, Tokens};
@@ -6,6 +7,7 @@ use parse::{tpe, ParseResult, Tokens};
 fn parse_catch(input: Tokens) -> ParseResult<Catch> {
     let (input, _) = keyword("catch")(input)?;
     let (input, _) = symbol('(')(input)?;
+    let (input, modifiers) = modifiers::parse(input)?;
     let (input, class_types) =
         separated_nonempty_list(symbol('|'), tpe::class::parse_no_array)(input)?;
     let (input, param_name) = identifier(input)?;
@@ -16,6 +18,7 @@ fn parse_catch(input: Tokens) -> ParseResult<Catch> {
     Ok((
         input,
         Catch {
+            modifiers,
             param_name,
             class_types,
             block,
@@ -65,7 +68,7 @@ pub fn parse(input: Tokens) -> ParseResult<Statement> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        Block, Catch, ClassType, Expr, Int, MethodCall, Name, PrimitiveType,
+        Block, Catch, ClassType, Expr, Int, Keyword, MethodCall, Modifier, Name, PrimitiveType,
         StandaloneVariableDeclarator, Statement, Throw, Try, Type, UnaryOperation,
     };
     use parse::Tokens;
@@ -83,7 +86,7 @@ try (
     i++;
 } catch (Exception | Exception2 e) {
     throw e;
-} catch (Exp e) {
+} catch (final Exp e) {
     e.run();
 } finally {
     final_method();
@@ -126,6 +129,7 @@ try (
                     ],
                     catches: vec![
                         Catch {
+                            modifiers: vec![],
                             param_name: span(6, 33, "e"),
                             class_types: vec![
                                 ClassType {
@@ -148,10 +152,13 @@ try (
                             }
                         },
                         Catch {
-                            param_name: span(8, 14, "e"),
+                            modifiers: vec![Modifier::Keyword(Keyword {
+                                name: span(8, 10, "final")
+                            })],
+                            param_name: span(8, 20, "e"),
                             class_types: vec![ClassType {
                                 prefix_opt: None,
-                                name: span(8, 10, "Exp"),
+                                name: span(8, 16, "Exp"),
                                 type_args_opt: None
                             }],
                             block: Block {

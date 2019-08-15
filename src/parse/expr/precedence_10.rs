@@ -1,15 +1,15 @@
-use parse::combinator::{any_symbol, get_and_followed_by, is_not, symbol, symbol2, symbol3};
+use parse::combinator::{any_symbol, get_and_not_followed_by, symbol, symbol2, symbol3};
 use parse::expr::precedence_11;
 use parse::tree::{BinaryOperation, Expr};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
 fn op(input: Tokens) -> ParseResult<Span> {
-    if let Ok(ok) = get_and_followed_by(symbol3('>', '>', '>'), is_not(symbol('=')))(input) {
+    if let Ok(ok) = get_and_not_followed_by(symbol3('>', '>', '>'), symbol('='))(input) {
         Ok(ok)
-    } else if let Ok(ok) = get_and_followed_by(symbol2('<', '<'), is_not(symbol('=')))(input) {
+    } else if let Ok(ok) = get_and_not_followed_by(symbol2('<', '<'), symbol('='))(input) {
         Ok(ok)
-    } else if let Ok(ok) = get_and_followed_by(symbol2('>', '>'), is_not(any_symbol(">=")))(input) {
+    } else if let Ok(ok) = get_and_not_followed_by(symbol2('>', '>'), any_symbol(">="))(input) {
         Ok(ok)
     } else {
         Err(input)

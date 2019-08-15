@@ -1,17 +1,38 @@
-use parse::combinator::{identifier, many0, opt, separated_nonempty_list, symbol};
+use parse::combinator::{identifier, many0, opt, separated_list, separated_nonempty_list, symbol};
 use parse::tpe::class;
 use parse::tree::{
-    Annotated, AnnotatedParam, ClassType, MarkerAnnotated, NormalAnnotated, SingleAnnotated,
+    Annotated, AnnotatedParam, AnnotatedValue, AnnotatedValueArray, ClassType, MarkerAnnotated,
+    NormalAnnotated, SingleAnnotated,
 };
 use parse::{expr, ParseResult, Tokens};
 use tokenize::span::Span;
 
+fn parse_array_value(input: Tokens) -> ParseResult<AnnotatedValueArray> {
+    let (input, _) = symbol('{')(input)?;
+    let (input, items) = separated_list(symbol(','), parse_value)(input)?;
+    let (input, _) = opt(symbol(','))(input)?;
+    let (input, _) = symbol('}')(input)?;
+
+    Ok((input, AnnotatedValueArray { items }))
+}
+
+fn parse_value(input: Tokens) -> ParseResult<AnnotatedValue> {
+    if let Ok((input, annotated)) = parse_annotated(input) {
+        Ok((input, AnnotatedValue::Annotated(Box::new(annotated))))
+    } else if let Ok((input, array)) = parse_array_value(input) {
+        Ok((input, AnnotatedValue::Array(array)))
+    } else {
+        let (input, expr) = expr::parse(input)?;
+        Ok((input, AnnotatedValue::Expr(expr)))
+    }
+}
+
 fn parse_param(input: Tokens) -> ParseResult<AnnotatedParam> {
     let (input, name) = identifier(input)?;
     let (input, _) = symbol('=')(input)?;
-    let (input, expr) = expr::parse(input)?;
+    let (input, value) = parse_value(input)?;
 
-    Ok((input, AnnotatedParam { name, expr }))
+    Ok((input, AnnotatedParam { name, value }))
 }
 
 fn parse_class<'a>(
@@ -59,9 +80,9 @@ pub fn parse_annotated(input: Tokens) -> ParseResult<Annotated> {
             let (input, _) = symbol(')')(input)?;
             Ok((input, Annotated::Normal(NormalAnnotated { class, params })))
         } else {
-            let (input, expr) = expr::parse(input)?;
+            let (input, value) = parse_value(input)?;
             let (input, _) = symbol(')')(input)?;
-            Ok((input, Annotated::Single(SingleAnnotated { class, expr })))
+            Ok((input, Annotated::Single(SingleAnnotated { class, value })))
         }
     } else {
         Ok((input, Annotated::Marker(MarkerAnnotated { class })))
@@ -76,8 +97,8 @@ pub fn parse(input: Tokens) -> ParseResult<Vec<Annotated>> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        Annotated, AnnotatedParam, ClassType, Expr, Int, MarkerAnnotated, NormalAnnotated,
-        SingleAnnotated,
+        Annotated, AnnotatedParam, AnnotatedValue, ClassType, Expr, Int, MarkerAnnotated,
+        NormalAnnotated, SingleAnnotated,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -121,9 +142,9 @@ mod tests {
                             name: span(3, 2, "Anno"),
                             type_args_opt: None
                         },
-                        expr: Expr::Int(Int {
+                        value: AnnotatedValue::Expr(Expr::Int(Int {
                             value: span(3, 7, "1")
-                        })
+                        }))
                     }),
                     Annotated::Normal(NormalAnnotated {
                         class: ClassType {
@@ -133,9 +154,9 @@ mod tests {
                         },
                         params: vec![AnnotatedParam {
                             name: span(4, 7, "number"),
-                            expr: Expr::Int(Int {
+                            value: AnnotatedValue::Expr(Expr::Int(Int {
                                 value: span(4, 14, "1")
-                            })
+                            }))
                         }]
                     }),
                 ]

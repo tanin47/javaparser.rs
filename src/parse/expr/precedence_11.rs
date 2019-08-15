@@ -1,13 +1,13 @@
-use parse::combinator::{any_symbol, get_and_followed_by, is_not, symbol};
+use parse::combinator::{any_symbol, get_and_not_followed_by, symbol};
 use parse::expr::precedence_12;
 use parse::tree::{BinaryOperation, Expr};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
 fn op(input: Tokens) -> ParseResult<Span> {
-    if let Ok(ok) = get_and_followed_by(symbol('+'), is_not(any_symbol("+=")))(input) {
+    if let Ok(ok) = get_and_not_followed_by(symbol('+'), any_symbol("+="))(input) {
         Ok(ok)
-    } else if let Ok(ok) = get_and_followed_by(symbol('-'), is_not(any_symbol("-=")))(input) {
+    } else if let Ok(ok) = get_and_not_followed_by(symbol('-'), any_symbol("-="))(input) {
         Ok(ok)
     } else {
         Err(input)
@@ -33,4 +33,40 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     let (input, left) = precedence_12::parse(input)?;
     parse_tail(left, input)
+}
+
+#[cfg(test)]
+mod tests {
+    use test_common::{code, span};
+
+    use super::parse;
+    use parse::tree::{BinaryOperation, Expr, Name, UnaryOperation};
+    use parse::Tokens;
+
+    #[test]
+    fn test_increment() {
+        assert_eq!(
+            parse(&code(
+                r#"
+a + ++b
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                Expr::BinaryOperation(BinaryOperation {
+                    left: Box::new(Expr::Name(Name {
+                        name: span(1, 1, "a")
+                    })),
+                    operator: span(1, 3, "+"),
+                    right: Box::new(Expr::UnaryOperation(UnaryOperation {
+                        expr: Box::new(Expr::Name(Name {
+                            name: span(1, 7, "b")
+                        })),
+                        operator: span(1, 5, "++"),
+                        is_post: false
+                    }))
+                })
+            ))
+        );
+    }
 }

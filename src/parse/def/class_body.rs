@@ -98,6 +98,7 @@ fn parse_method_constructor_or_field<'a>(
 }
 
 pub fn parse_item(input: Tokens) -> ParseResult<ClassBodyItem> {
+    let (input, _) = many0(symbol(';'))(input)?;
     let (input, modifiers) = modifiers::parse(input)?;
 
     if let Ok((input, _)) = class::parse_prefix(input) {
@@ -122,6 +123,7 @@ pub fn parse_items(input: Tokens) -> ParseResult<Vec<ClassBodyItem>> {
 pub fn parse(input: Tokens) -> ParseResult<ClassBody> {
     let (input, _) = symbol('{')(input)?;
     let (input, items) = parse_items(input)?;
+    let (input, _) = many0(symbol(';'))(input)?;
     let (input, _) = symbol('}')(input)?;
 
     Ok((input, ClassBody { items }))

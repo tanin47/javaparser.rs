@@ -1,4 +1,4 @@
-use parse::combinator::{get_and_followed_by, identifier, is_not, symbol};
+use parse::combinator::{get_and_not_followed_by, identifier, symbol};
 use parse::tpe::{array, type_args};
 use parse::tree::{ClassType, Type};
 use parse::{ParseResult, Tokens};
@@ -31,7 +31,7 @@ pub fn parse_tail<'a>(
         type_args_opt,
     };
 
-    if let Ok((input, _)) = get_and_followed_by(symbol('.'), is_not(symbol('.')))(input) {
+    if let Ok((input, _)) = get_and_not_followed_by(symbol('.'), symbol('.'))(input) {
         parse_no_array_with_prefix(input, Some(tpe))
     } else {
         Ok((input, tpe))

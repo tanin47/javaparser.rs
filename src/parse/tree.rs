@@ -54,13 +54,25 @@ pub struct MarkerAnnotated<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct SingleAnnotated<'a> {
     pub class: ClassType<'a>,
-    pub expr: Expr<'a>,
+    pub value: AnnotatedValue<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct AnnotatedParam<'a> {
     pub name: Span<'a>,
-    pub expr: Expr<'a>,
+    pub value: AnnotatedValue<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum AnnotatedValue<'a> {
+    Expr(Expr<'a>),
+    Annotated(Box<Annotated<'a>>),
+    Array(AnnotatedValueArray<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct AnnotatedValueArray<'a> {
+    pub items: Vec<AnnotatedValue<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -193,8 +205,8 @@ pub enum TypeArg<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct WildcardType<'a> {
     pub name: Span<'a>,
-    pub extends: Vec<ClassType<'a>>,
-    pub super_opt: Option<ClassType<'a>>,
+    pub extends: Vec<ReferenceType<'a>>,
+    pub super_opt: Option<ReferenceType<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -329,6 +341,7 @@ pub struct Try<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Catch<'a> {
+    pub modifiers: Vec<Modifier<'a>>,
     pub param_name: Span<'a>,
     pub class_types: Vec<ClassType<'a>>,
     pub block: Block<'a>,
@@ -626,6 +639,6 @@ pub struct UnaryOperation<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Cast<'a> {
-    pub tpe: Type<'a>,
+    pub tpes: Vec<Type<'a>>,
     pub expr: Box<Expr<'a>>,
 }
