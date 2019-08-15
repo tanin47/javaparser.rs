@@ -12,7 +12,7 @@ We've chosen Rust because:
 
 1. Rust can operate on string slices, and we can avoid making a lot of copies of strings.
 2. Memory overhead on an object is low.
-3. It's a modern language which is more pleasant to use than an ancient language.
+3. It's a modern language which is more pleasant to use.
 
 Status
 -------
