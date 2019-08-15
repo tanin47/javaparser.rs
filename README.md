@@ -6,13 +6,13 @@ Java parser written in Rust
 Our hand-written Java parser supports Java 8 to 12. 
 
 Initially, [Lilit](https://lilit.dev)'s semantics engine was built with Scala/Java. 
-But, quickly enough, we have reached the limit in terms of memory footprint and computation time.
-We want to reduce these 2 factors by ~10x.
+But, quickly enough, we have reached the limit in terms of how much we can pay for the machines. The cost is proportional to memory usage. Therefore, we want to reduce memory usage by ~10x.
 
 We've chosen Rust because:
 
 1. Rust can operate on string slices, and we can avoid making a lot of copies of strings.
 2. Memory overhead on an object is low.
+3. It's a modern language which is more pleasant to use than an ancient language.
 
 Status
 -------
