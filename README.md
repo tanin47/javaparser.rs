@@ -26,3 +26,18 @@ Develop
 
 We have acceptance test in `./tests/syntax/acceptance_test.rs`, which tests the parser against real-world Java files in 
 `./test/fixtures/*.java`.
+
+
+Benchmark test
+---------------
+
+`cargo test benchmark --release -- --nocapture --ignored`. Parsing `./tests/fixtures/LocalCache.java` takes ~9ms. [Javaparser](https://github.com/javaparser/javaparser) written in Java takes ~60ms.
+
+
+Real-world test
+----------------
+
+Our real-world test parses all Java files under the specified directory (recursively). Note that it doesn't parse `package-info.java`.
+
+1. Change the directory location in `./tests/parse/real_world_test.rs`.
+2. `cargo test real_world --release -- --nocapture --ignored`
