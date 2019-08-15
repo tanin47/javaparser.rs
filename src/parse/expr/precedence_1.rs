@@ -1,11 +1,11 @@
-use parse::combinator::{get_and_followed_by, is_not, symbol, symbol2, symbol3};
+use parse::combinator::{get_and_not_followed_by, symbol, symbol2, symbol3, symbol4};
 use parse::expr::{precedence_1, precedence_2};
 use parse::tree::{Assigned, Assignment, Expr};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
 fn op(input: Tokens) -> ParseResult<Span> {
-    if let Ok(ok) = get_and_followed_by(symbol('='), is_not(symbol('=')))(input) {
+    if let Ok(ok) = get_and_not_followed_by(symbol('='), symbol('='))(input) {
         Ok(ok)
     } else if let Ok(ok) = symbol2('+', '=')(input) {
         Ok(ok)
@@ -26,6 +26,8 @@ fn op(input: Tokens) -> ParseResult<Span> {
     } else if let Ok(ok) = symbol3('<', '<', '=')(input) {
         Ok(ok)
     } else if let Ok(ok) = symbol3('>', '>', '=')(input) {
+        Ok(ok)
+    } else if let Ok(ok) = symbol4('>', '>', '>', '=')(input) {
         Ok(ok)
     } else {
         Err(input)
@@ -88,6 +90,29 @@ a <<= b
                     operator: span(1, 3, "<<="),
                     expr: Box::new(Expr::Name(Name {
                         name: span(1, 7, "b")
+                    }))
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn test_longest_assignment() {
+        assert_eq!(
+            parse(&code(
+                r#"
+a >>>= b
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                Expr::Assignment(Assignment {
+                    assigned: Box::new(Assigned::Name(Name {
+                        name: span(1, 1, "a")
+                    })),
+                    operator: span(1, 3, ">>>="),
+                    expr: Box::new(Expr::Name(Name {
+                        name: span(1, 8, "b")
                     }))
                 })
             ))

@@ -1,14 +1,16 @@
-use parse::tree::{Expr, Hex, Int, Long};
+use parse::tree::{Double, Expr, Float, Hex, Int, Long};
 use parse::{ParseResult, Tokens};
 use tokenize::token::Token;
 
 pub fn parse(input: Tokens) -> ParseResult<Expr> {
     if let Token::Int(value) = input[0] {
         Ok((&input[1..], Expr::Int(Int { value })))
-    } else if let Token::Hex(value) = input[0] {
-        Ok((&input[1..], Expr::Hex(Hex { value })))
     } else if let Token::Long(value) = input[0] {
         Ok((&input[1..], Expr::Long(Long { value })))
+    } else if let Token::Double(value) = input[0] {
+        Ok((&input[1..], Expr::Double(Double { value })))
+    } else if let Token::Float(value) = input[0] {
+        Ok((&input[1..], Expr::Float(Float { value })))
     } else {
         Err(input)
     }
@@ -17,7 +19,7 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 #[cfg(test)]
 mod tests {
     use super::parse;
-    use parse::tree::{Expr, Hex};
+    use parse::tree::{Expr, Int};
     use parse::Tokens;
     use test_common::{code, span};
 
@@ -31,7 +33,7 @@ mod tests {
             )),
             Ok((
                 &[] as Tokens,
-                Expr::Hex(Hex {
+                Expr::Int(Int {
                     value: span(1, 1, "0xab1cdef123")
                 })
             ))

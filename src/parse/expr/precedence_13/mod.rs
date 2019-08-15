@@ -37,9 +37,9 @@ mod tests {
             Ok((
                 &[] as Tokens,
                 Expr::Cast(Cast {
-                    tpe: Type::Primitive(PrimitiveType {
+                    tpes: vec![Type::Primitive(PrimitiveType {
                         name: span(1, 2, "int")
-                    }),
+                    })],
                     expr: Box::new(Expr::UnaryOperation(UnaryOperation {
                         expr: Box::new(Expr::Name(Name {
                             name: span(1, 8, "a")

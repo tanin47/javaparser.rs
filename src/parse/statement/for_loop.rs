@@ -1,4 +1,4 @@
-use parse::combinator::{opt, separated_list, symbol, word};
+use parse::combinator::{keyword, opt, separated_list, symbol};
 use parse::statement::block::parse_block_or_single_statement;
 use parse::statement::variable_declarators;
 use parse::tree::{ForLoop, Foreach, Statement};
@@ -54,7 +54,7 @@ fn parse_for_loop(input: Tokens) -> ParseResult<Statement> {
 }
 
 pub fn parse(original: Tokens) -> ParseResult<Statement> {
-    let (input, _) = word("for")(original)?;
+    let (input, _) = keyword("for")(original)?;
     let (input, _) = symbol('(')(input)?;
 
     if let Ok(ok) = parse_foreach(input) {

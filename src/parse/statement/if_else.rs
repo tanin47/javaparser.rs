@@ -1,10 +1,10 @@
-use parse::combinator::{symbol, word};
+use parse::combinator::{keyword, symbol};
 use parse::statement::block;
 use parse::tree::{IfElse, Statement};
 use parse::{expr, ParseResult, Tokens};
 
 pub fn parse(input: Tokens) -> ParseResult<Statement> {
-    let (input, _) = word("if")(input)?;
+    let (input, _) = keyword("if")(input)?;
 
     let (input, _) = symbol('(')(input)?;
     let (input, cond) = expr::parse(input)?;
@@ -13,7 +13,7 @@ pub fn parse(input: Tokens) -> ParseResult<Statement> {
 
     let (input, block) = block::parse_block_or_single_statement(input)?;
 
-    let (input, else_block_opt) = match word("else")(input) {
+    let (input, else_block_opt) = match keyword("else")(input) {
         Ok((input, _)) => {
             let (input, else_block) = block::parse_block_or_single_statement(input)?;
             (input, Some(else_block))

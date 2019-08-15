@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, separated_nonempty_list, symbol, word};
+use parse::combinator::{identifier, keyword, opt, separated_nonempty_list, symbol};
 use parse::def::{class_body, type_params};
 use parse::tpe::class;
 use parse::tree::{ClassType, Interface, Modifier};
@@ -6,7 +6,7 @@ use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
 fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
-    if let Ok((input, _)) = word("extends")(input) {
+    if let Ok((input, _)) = keyword("extends")(input) {
         let (input, classes) = separated_nonempty_list(symbol(','), class::parse_no_array)(input)?;
         Ok((input, classes))
     } else {
@@ -24,6 +24,7 @@ pub fn parse_tail<'a>(
     let (input, extends) = parse_extends(input)?;
 
     let (input, body) = class_body::parse(input)?;
+    let (input, _) = opt(symbol(';'))(input)?;
 
     Ok((
         input,
@@ -38,7 +39,7 @@ pub fn parse_tail<'a>(
 }
 
 pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
-    word("interface")(input)
+    keyword("interface")(input)
 }
 
 #[cfg(test)]
@@ -63,7 +64,11 @@ mod tests {
                 CompilationUnitItem::Interface(Interface {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "private")

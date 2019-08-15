@@ -1,4 +1,5 @@
-use parse::combinator::{separated_list, symbol};
+use parse::combinator::{opt, separated_list, symbol};
+use parse::def::method::parse_throws;
 use parse::def::param;
 use parse::statement::block;
 use parse::tree::{Constructor, Modifier, TypeParam};
@@ -14,8 +15,10 @@ pub fn parse<'a>(
     let (input, _) = symbol('(')(input)?;
     let (input, params) = separated_list(symbol(','), param::parse)(input)?;
     let (input, _) = symbol(')')(input)?;
+    let (input, throws) = parse_throws(input)?;
 
     let (input, block) = block::parse_block(input)?;
+    let (input, _) = opt(symbol(';'))(input)?;
 
     Ok((
         input,
@@ -24,6 +27,7 @@ pub fn parse<'a>(
             type_params,
             name,
             params,
+            throws,
             block,
         },
     ))
@@ -44,7 +48,7 @@ mod tests {
         assert_eq!(
             class_body::parse_item(&code(
                 r#"
-@Anno private constructor() {}
+@Anno private constructor() throws Exp {}
             "#
             )),
             Ok((
@@ -52,7 +56,11 @@ mod tests {
                 ClassBodyItem::Constructor(Constructor {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "private")
@@ -61,6 +69,11 @@ mod tests {
                     name: span(1, 15, "constructor"),
                     type_params: vec![],
                     params: vec![],
+                    throws: vec![ClassType {
+                        prefix_opt: None,
+                        name: span(1, 36, "Exp"),
+                        type_args_opt: None
+                    }],
                     block: Block { stmts: vec![] },
                 })
             ))
@@ -106,6 +119,7 @@ mod tests {
                             name: span(1, 19, "a"),
                         }
                     ],
+                    throws: vec![],
                     block: Block { stmts: vec![] },
                 })
             ))

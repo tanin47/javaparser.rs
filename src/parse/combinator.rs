@@ -114,13 +114,69 @@ pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseRes
     }
 }
 
-pub fn word<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+pub fn symbol4<'a>(
+    a: char,
+    b: char,
+    c: char,
+    d: char,
+) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
+    move |input: Tokens<'a>| {
+        if input.len() < 4 {
+            return Err(input);
+        }
+
+        if let Token::Symbol(first) = input[0] {
+            if let Token::Symbol(second) = input[1] {
+                if let Token::Symbol(third) = input[2] {
+                    if let Token::Symbol(fourth) = input[3] {
+                        if first.fragment.len() == 1
+                            && second.fragment.len() == 1
+                            && third.fragment.len() == 1
+                            && fourth.fragment.len() == 1
+                            && first.fragment.char_at(0) == a
+                            && second.fragment.char_at(0) == b
+                            && third.fragment.char_at(0) == c
+                            && fourth.fragment.char_at(0) == d
+                            && first.line == second.line
+                            && first.line == third.line
+                            && first.line == fourth.line
+                            && first.col + 1 == second.col
+                            && first.col + 2 == third.col
+                            && first.col + 3 == fourth.col
+                        {
+                            return Ok((
+                                &input[4..],
+                                Span {
+                                    line: first.line,
+                                    col: first.col,
+                                    fragment: unsafe {
+                                        std::str::from_utf8_unchecked(slice::from_raw_parts(
+                                            first.fragment.as_ptr(),
+                                            first.fragment.len()
+                                                + second.fragment.len()
+                                                + third.fragment.len()
+                                                + fourth.fragment.len(),
+                                        ))
+                                    },
+                                },
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(input)
+    }
+}
+
+pub fn keyword<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     move |input: Tokens<'a>| {
         if input.is_empty() {
             return Err(input);
         }
 
-        if let Token::Word(span) = &input[0] {
+        if let Token::Keyword(span) = &input[0] {
             if span.fragment == s {
                 return Ok((&input[1..], *span));;
             }
@@ -130,12 +186,24 @@ pub fn word<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> 
     }
 }
 
+pub fn any_keyword(input: Tokens) -> ParseResult<Span> {
+    if input.is_empty() {
+        return Err(input);
+    }
+
+    if let Token::Keyword(span) = &input[0] {
+        Ok((&input[1..], *span))
+    } else {
+        Err(input)
+    }
+}
+
 pub fn identifier(input: Tokens) -> ParseResult<Span> {
     if input.is_empty() {
         return Err(input);
     }
 
-    if let Token::Word(span) = &input[0] {
+    if let Token::Identifier(span) = &input[0] {
         Ok((&input[1..], *span))
     } else {
         Err(input)
@@ -152,17 +220,7 @@ where
     }
 }
 
-pub fn is_not<'a, F, T>(f: F) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span>
-where
-    F: Fn(Tokens<'a>) -> ParseResult<'a, T>,
-{
-    move |input: Tokens<'a>| match f(input) {
-        Ok((_, result)) => Err(input),
-        Err(_) => Ok((input.split_at(1).1, input[0].span())),
-    }
-}
-
-pub fn get_and_followed_by<'a, I, F>(
+pub fn get_and_not_followed_by<'a, I, F>(
     item: I,
     followed: F,
 ) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>
@@ -173,11 +231,16 @@ where
     move |original: Tokens<'a>| {
         let (input, result) = item(original)?;
 
-        if let Ok((_, followed)) = followed(input) {
-            return Ok((input, result));
+        if input.len() > 0
+            && result.line == input[0].span().line
+            && result.col + result.fragment.len() == input[0].span().col
+        {
+            if let Ok((_, followed)) = followed(input) {
+                return Err(original);
+            }
         }
 
-        Err(original)
+        Ok((input, result))
     }
 }
 

@@ -79,24 +79,26 @@ fn parse_method_constructor_or_field<'a>(
     input: Tokens<'a>,
     modifiers: Vec<Modifier<'a>>,
 ) -> ParseResult<'a, ClassBodyItem<'a>> {
-    let (input_before_type, type_params) = type_params::parse(input)?;
-    let (input, ident) = identifier(input_before_type)?;
+    let (input, type_params) = type_params::parse(input)?;
+
+    if let Ok((input, ident)) = identifier(input) {
+        if let Ok(_) = symbol('(')(input) {
+            return parse_constructor(input, modifiers, type_params, ident);
+        }
+    }
+
+    let (input_before_name, tpe) = tpe::parse(input)?;
+    let (input, name) = identifier(input_before_name)?;
 
     if let Ok(_) = symbol('(')(input) {
-        parse_constructor(input, modifiers, type_params, ident)
+        parse_method(input, modifiers, type_params, tpe, name)
     } else {
-        let (input_before_name, tpe) = tpe::parse(input_before_type)?;
-        let (input, name) = identifier(input_before_name)?;
-
-        if let Ok(_) = symbol('(')(input) {
-            parse_method(input, modifiers, type_params, tpe, name)
-        } else {
-            parse_field_declarators(input_before_name, modifiers, tpe)
-        }
+        parse_field_declarators(input_before_name, modifiers, tpe)
     }
 }
 
 pub fn parse_item(input: Tokens) -> ParseResult<ClassBodyItem> {
+    let (input, _) = many0(symbol(';'))(input)?;
     let (input, modifiers) = modifiers::parse(input)?;
 
     if let Ok((input, _)) = class::parse_prefix(input) {
@@ -121,6 +123,7 @@ pub fn parse_items(input: Tokens) -> ParseResult<Vec<ClassBodyItem>> {
 pub fn parse(input: Tokens) -> ParseResult<ClassBody> {
     let (input, _) = symbol('{')(input)?;
     let (input, items) = parse_items(input)?;
+    let (input, _) = many0(symbol(';'))(input)?;
     let (input, _) = symbol('}')(input)?;
 
     Ok((input, ClassBody { items }))
@@ -131,7 +134,7 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Annotation, AnnotationBody, Block, Class, ClassBody, ClassBodyItem, Constructor, Enum,
-        FieldDeclarators, Interface, Method, PrimitiveType, Type, VariableDeclarator,
+        FieldDeclarators, Interface, Method, PrimitiveType, Type, VariableDeclarator, Void,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -167,7 +170,9 @@ mod tests {
                     items: vec![
                         ClassBodyItem::Method(Method {
                             modifiers: vec![],
-                            return_type: primitive(2, 3, "void"),
+                            return_type: Type::Void(Void {
+                                span: span(2, 3, "void")
+                            }),
                             name: span(2, 8, "method"),
                             type_params: vec![],
                             params: vec![],
@@ -198,6 +203,7 @@ mod tests {
                             name: span(6, 3, "Constructor"),
                             type_params: vec![],
                             params: vec![],
+                            throws: vec![],
                             block: Block { stmts: vec![] },
                         }),
                         ClassBodyItem::Interface(Interface {

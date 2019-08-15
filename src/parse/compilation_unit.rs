@@ -201,7 +201,7 @@ class Test {}
     }
 
     #[test]
-    fn parse_missing_class() {
-        assert_eq!(parse(&code("package dev.lilit;")), Err(&[] as Tokens))
+    fn parse_package_info() {
+        assert_eq!(parse(&code("package dev.lilit;")), Err(&[] as Tokens,))
     }
 }

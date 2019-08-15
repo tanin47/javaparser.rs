@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, opt, separated_list, symbol, word};
+use parse::combinator::{identifier, keyword, opt, separated_list, symbol};
 use parse::def::{class, class_body, enum_constant, modifiers};
 use parse::tree::{ClassBody, Enum, Modifier};
 use parse::{ParseResult, Tokens};
@@ -27,6 +27,7 @@ pub fn parse_tail<'a>(
     };
 
     let (input, _) = symbol('}')(input)?;
+    let (input, _) = opt(symbol(';'))(input)?;
 
     Ok((
         input,
@@ -41,7 +42,7 @@ pub fn parse_tail<'a>(
 }
 
 pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
-    word("enum")(input)
+    keyword("enum")(input)
 }
 
 #[cfg(test)]
@@ -69,7 +70,11 @@ mod tests {
                 CompilationUnitItem::Enum(Enum {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "private")

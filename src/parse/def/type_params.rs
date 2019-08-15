@@ -1,10 +1,10 @@
-use parse::combinator::{identifier, separated_list, separated_nonempty_list, symbol, word};
+use parse::combinator::{identifier, keyword, separated_list, separated_nonempty_list, symbol};
 use parse::tpe::class;
 use parse::tree::{ClassType, TypeParam};
 use parse::{ParseResult, Tokens};
 
 pub fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
-    if let Ok((input, _)) = word("extends")(input) {
+    if let Ok((input, _)) = keyword("extends")(input) {
         separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
     } else {
         Ok((input, vec![]))

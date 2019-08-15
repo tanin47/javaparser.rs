@@ -1,27 +1,17 @@
 use either::Either;
-use parse::combinator::identifier;
+use parse::combinator::{any_keyword, identifier};
 use parse::tpe::primitive;
 use parse::tree::{Keyword, Name};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn is_reserved(input: Span) -> bool {
-    input.fragment == "instanceof"
-        || input.fragment == "true"
-        || input.fragment == "false"
-        || input.fragment == "new"
-        || input.fragment == "null"
-        || input.fragment == "class"
-        || primitive::valid(input.fragment)
-}
-
 pub fn parse(input: Tokens) -> ParseResult<Either<Keyword, Name>> {
-    let (input, name) = identifier(input)?;
-
-    if is_reserved(name) {
+    if let Ok((input, name)) = identifier(input) {
+        Ok((input, Either::Right(Name { name })))
+    } else if let Ok((input, name)) = any_keyword(input) {
         Ok((input, Either::Left(Keyword { name })))
     } else {
-        Ok((input, Either::Right(Name { name })))
+        Err(input)
     }
 }
 

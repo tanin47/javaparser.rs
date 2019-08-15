@@ -3,6 +3,9 @@ name = "javaparser"
 version = "0.1.0"
 authors = ["Tanin Na Nakorn"]
 
+[dev-dependencies]
+walkdir = "2"
+
 [dependencies]
 either = "1.5.2"
 

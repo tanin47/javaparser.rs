@@ -1,4 +1,4 @@
-use parse::combinator::{opt, symbol, word};
+use parse::combinator::{keyword, opt, symbol};
 use parse::expr::atom::array_initializer;
 use parse::tree::{ArrayType, Expr, NewArray, Type};
 use parse::{expr, tpe, ParseResult, Tokens};

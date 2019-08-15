@@ -1,18 +1,18 @@
-use parse::combinator::{separated_list, separated_nonempty_list, symbol, word};
-use parse::tpe::class;
-use parse::tree::{ClassType, Type, TypeArg, WildcardType};
+use parse::combinator::{keyword, separated_list, separated_nonempty_list, symbol};
+use parse::tpe::{class, primitive, reference};
+use parse::tree::{ClassType, ReferenceType, Type, TypeArg, WildcardType};
 use parse::{ParseResult, Tokens};
 
-pub fn parse_wildcard_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
-    let (input, _) = word("extends")(input)?;
+pub fn parse_wildcard_extends(input: Tokens) -> ParseResult<Vec<ReferenceType>> {
+    let (input, _) = keyword("extends")(input)?;
 
-    separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
+    separated_nonempty_list(symbol('&'), reference::parse)(input)
 }
 
-pub fn parse_wildcard_super(input: Tokens) -> ParseResult<ClassType> {
-    let (input, _) = word("super")(input)?;
+pub fn parse_wildcard_super(input: Tokens) -> ParseResult<ReferenceType> {
+    let (input, _) = keyword("super")(input)?;
 
-    class::parse_no_array(input)
+    reference::parse(input)
 }
 
 pub fn parse_wildcard(input: Tokens) -> ParseResult<TypeArg> {
@@ -39,13 +39,19 @@ pub fn parse_wildcard(input: Tokens) -> ParseResult<TypeArg> {
     ))
 }
 
-pub fn parse_non_wildcard(original: Tokens) -> ParseResult<TypeArg> {
-    let (input, tpe) = class::parse(original)?;
+pub fn parse_non_wildcard(input: Tokens) -> ParseResult<TypeArg> {
+    let (input, tpe) = if let Ok(ok) = primitive::parse(input) {
+        ok
+    } else if let Ok(ok) = class::parse(input) {
+        ok
+    } else {
+        return Err(input);
+    };
 
     match tpe {
         Type::Class(tpe) => Ok((input, TypeArg::Class(tpe))),
         Type::Array(tpe) => Ok((input, TypeArg::Array(tpe))),
-        _ => Err(original),
+        _ => Err(input),
     }
 }
 
@@ -77,7 +83,9 @@ pub fn parse(input: Tokens) -> ParseResult<Option<Vec<TypeArg>>> {
 #[cfg(test)]
 mod tests {
     use super::parse;
-    use parse::tree::{ArrayType, ClassType, Type, TypeArg, WildcardType};
+    use parse::tree::{
+        ArrayType, ClassType, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType,
+    };
     use parse::Tokens;
     use test_common::{code, span};
 
@@ -112,11 +120,11 @@ mod tests {
                     TypeArg::Wildcard(WildcardType {
                         name: span(1, 16, "?"),
                         super_opt: None,
-                        extends: vec![ClassType {
+                        extends: vec![ReferenceType::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 26, "C"),
                             type_args_opt: None
-                        }]
+                        })]
                     })
                 ])
             ))
@@ -128,18 +136,19 @@ mod tests {
         assert_eq!(
             parse(&code(
                 r#"
-<? super C>
+<? super int[]>
             "#
             )),
             Ok((
                 &[] as Tokens,
                 Some(vec![TypeArg::Wildcard(WildcardType {
                     name: span(1, 2, "?"),
-                    super_opt: Some(ClassType {
-                        prefix_opt: None,
-                        name: span(1, 10, "C"),
-                        type_args_opt: None
-                    },),
+                    super_opt: Some(ReferenceType::Array(ArrayType {
+                        tpe: Box::new(Type::Primitive(PrimitiveType {
+                            name: span(1, 10, "int")
+                        })),
+                        size_opt: None
+                    })),
                     extends: vec![]
                 })])
             ))
@@ -151,7 +160,7 @@ mod tests {
         assert_eq!(
             parse(&code(
                 r#"
-<? extends C & S>
+<? extends boolean[] & S>
             "#
             )),
             Ok((
@@ -160,16 +169,17 @@ mod tests {
                     name: span(1, 2, "?"),
                     super_opt: None,
                     extends: vec![
-                        ClassType {
+                        ReferenceType::Array(ArrayType {
+                            tpe: Box::new(Type::Primitive(PrimitiveType {
+                                name: span(1, 12, "boolean")
+                            })),
+                            size_opt: None
+                        }),
+                        ReferenceType::Class(ClassType {
                             prefix_opt: None,
-                            name: span(1, 12, "C"),
+                            name: span(1, 24, "S"),
                             type_args_opt: None
-                        },
-                        ClassType {
-                            prefix_opt: None,
-                            name: span(1, 16, "S"),
-                            type_args_opt: None
-                        },
+                        }),
                     ]
                 })])
             ))

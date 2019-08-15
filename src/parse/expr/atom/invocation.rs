@@ -1,6 +1,8 @@
+use either::Either;
 use parse::combinator::{identifier, separated_list, symbol};
+use parse::expr::atom::name;
 use parse::tpe::type_args;
-use parse::tree::{Expr, MethodCall, TypeArg};
+use parse::tree::{Expr, Keyword, MethodCall, Name, SuperConstructorCall, TypeArg};
 use parse::{expr, ParseResult, Tokens};
 use tokenize::span::Span;
 
@@ -14,35 +16,52 @@ pub fn parse_args(input: Tokens) -> ParseResult<Vec<Expr>> {
 
 pub fn parse_tail<'a>(
     input: Tokens<'a>,
-    prefix_opt: Option<Box<Expr<'a>>>,
-    name: Span<'a>,
+    prefix_opt: Option<Expr<'a>>,
+    keyword_or_name: Either<Keyword<'a>, Name<'a>>,
     type_args_opt: Option<Vec<TypeArg<'a>>>,
-) -> ParseResult<'a, MethodCall<'a>> {
+) -> ParseResult<'a, Expr<'a>> {
     let (input, args) = parse_args(input)?;
 
-    Ok((
-        input,
-        MethodCall {
-            prefix_opt,
-            name,
-            type_args_opt,
-            args,
-        },
-    ))
+    match keyword_or_name {
+        Either::Left(keyword) => {
+            if keyword.name.fragment == "super" {
+                if let Some(Expr::This(this)) = prefix_opt {
+                    return Ok((
+                        input,
+                        Expr::SuperConstructorCall(SuperConstructorCall {
+                            prefix_opt: Some(this),
+                            name: keyword.name,
+                            type_args_opt,
+                            args,
+                        }),
+                    ));
+                }
+            }
+
+            Err(input)
+        }
+        Either::Right(name) => Ok((
+            input,
+            Expr::MethodCall(MethodCall {
+                prefix_opt: prefix_opt.map(Box::new),
+                name: name.name,
+                type_args_opt,
+                args,
+            }),
+        )),
+    }
 }
 
-pub fn parse(is_next: bool) -> impl Fn(Tokens) -> ParseResult<MethodCall> {
-    move |input: Tokens| {
-        let (input, type_args_opt) = if is_next {
-            type_args::parse(input)?
-        } else {
-            (input, None)
-        };
+pub fn parse<'a>(input: Tokens<'a>, prefix_opt: Option<Expr<'a>>) -> ParseResult<'a, Expr<'a>> {
+    let (input, type_args_opt) = if prefix_opt.is_some() {
+        type_args::parse(input)?
+    } else {
+        (input, None)
+    };
 
-        let (input, name) = identifier(input)?;
+    let (input, keyword_or_name) = name::parse(input)?;
 
-        parse_tail(input, None, name, type_args_opt)
-    }
+    parse_tail(input, prefix_opt, keyword_or_name, type_args_opt)
 }
 
 #[cfg(test)]
@@ -55,19 +74,22 @@ mod tests {
     #[test]
     fn test_bare() {
         assert_eq!(
-            parse(false)(&code(
-                r#"
+            parse(
+                &code(
+                    r#"
 method()
             "#
-            )),
+                ),
+                None
+            ),
             Ok((
                 &[] as Tokens,
-                MethodCall {
+                Expr::MethodCall(MethodCall {
                     prefix_opt: None,
                     name: span(1, 1, "method"),
                     type_args_opt: None,
                     args: vec![],
-                }
+                })
             ))
         );
     }
@@ -75,14 +97,17 @@ method()
     #[test]
     fn test_with_args() {
         assert_eq!(
-            parse(false)(&code(
-                r#"
+            parse(
+                &code(
+                    r#"
 method(1, "a")
             "#
-            )),
+                ),
+                None
+            ),
             Ok((
                 &[] as Tokens,
-                MethodCall {
+                Expr::MethodCall(MethodCall {
                     prefix_opt: None,
                     name: span(1, 1, "method"),
                     type_args_opt: None,
@@ -94,7 +119,7 @@ method(1, "a")
                             value: span(1, 11, "\"a\"")
                         }),
                     ],
-                }
+                })
             ))
         );
     }
@@ -102,14 +127,17 @@ method(1, "a")
     #[test]
     fn test_lambda() {
         assert_eq!(
-            parse(false)(&code(
-                r#"
+            parse(
+                &code(
+                    r#"
 method(1, (x) -> 2)
             "#
-            )),
+                ),
+                None
+            ),
             Ok((
                 &[] as Tokens,
-                MethodCall {
+                Expr::MethodCall(MethodCall {
                     prefix_opt: None,
                     name: span(1, 1, "method"),
                     type_args_opt: None,
@@ -130,7 +158,7 @@ method(1, (x) -> 2)
                             block_opt: None
                         }),
                     ],
-                }
+                })
             ))
         );
     }

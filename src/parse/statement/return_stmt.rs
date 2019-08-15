@@ -1,9 +1,9 @@
-use parse::combinator::{symbol, word};
+use parse::combinator::{keyword, symbol};
 use parse::tree::{ReturnStmt, Statement};
 use parse::{expr, ParseResult, Tokens};
 
 pub fn parse(input: Tokens) -> ParseResult<Statement> {
-    let (input, _) = word("return")(input)?;
+    let (input, _) = keyword("return")(input)?;
 
     let (input, expr_opt) = match symbol(';')(input) {
         Ok((input, _)) => (input, None),

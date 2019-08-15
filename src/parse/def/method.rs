@@ -1,12 +1,13 @@
-use parse::combinator::{separated_list, separated_nonempty_list, symbol, word};
+use parse::combinator::{keyword, opt, separated_list, separated_nonempty_list, symbol};
 use parse::def::param;
 use parse::statement::block;
+use parse::tpe::array;
 use parse::tree::{ClassType, Method, Modifier, Type, TypeParam};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
-    if let Ok((input, _)) = word("throws")(input) {
+pub fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
+    if let Ok((input, _)) = keyword("throws")(input) {
         separated_nonempty_list(symbol(','), tpe::class::parse_no_array)(input)
     } else {
         Ok((input, vec![]))
@@ -24,12 +25,15 @@ pub fn parse<'a>(
     let (input, params) = separated_list(symbol(','), param::parse)(input)?;
     let (input, _) = symbol(')')(input)?;
 
+    let (input, return_type) = array::parse_tail(input, return_type)?;
+
     let (input, throws) = parse_throws(input)?;
 
     let (input, block_opt) = if let Ok((input, _)) = symbol(';')(input) {
         (input, None)
     } else {
         let (input, block) = block::parse_block(input)?;
+        let (input, _) = opt(symbol(';'))(input)?;
         (input, Some(block))
     };
 
@@ -51,8 +55,9 @@ pub fn parse<'a>(
 mod tests {
     use parse::def::class_body;
     use parse::tree::{
-        Annotated, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated, Method,
-        Modifier, Param, ReturnStmt, Statement, Type, TypeArg, TypeParam,
+        Annotated, ArrayType, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated,
+        Method, Modifier, Param, PrimitiveType, ReturnStmt, Statement, Type, TypeArg, TypeParam,
+        Void,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -70,13 +75,19 @@ mod tests {
                 ClassBodyItem::Method(Method {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "abstract")
                         })
                     ],
-                    return_type: primitive(1, 16, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 16, "void")
+                    }),
                     name: span(1, 21, "method"),
                     type_params: vec![],
                     params: vec![],
@@ -99,6 +110,34 @@ mod tests {
     }
 
     #[test]
+    fn test_array_tail() {
+        assert_eq!(
+            class_body::parse_item(&code(
+                r#"
+int method()[] {}
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                ClassBodyItem::Method(Method {
+                    modifiers: vec![],
+                    return_type: Type::Array(ArrayType {
+                        tpe: Box::new(Type::Primitive(PrimitiveType {
+                            name: span(1, 1, "int")
+                        })),
+                        size_opt: None
+                    }),
+                    name: span(1, 5, "method"),
+                    type_params: vec![],
+                    params: vec![],
+                    throws: vec![],
+                    block_opt: Some(Block { stmts: vec![] }),
+                })
+            ))
+        );
+    }
+
+    #[test]
     fn test_method() {
         assert_eq!(
             class_body::parse_item(&code(
@@ -112,7 +151,9 @@ private void method() {}
                     modifiers: vec![Modifier::Keyword(Keyword {
                         name: span(1, 1, "private")
                     })],
-                    return_type: primitive(1, 9, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 9, "void")
+                    }),
                     name: span(1, 14, "method"),
                     type_params: vec![],
                     params: vec![],
@@ -135,7 +176,9 @@ private void method() {}
                 &[] as Tokens,
                 ClassBodyItem::Method(Method {
                     modifiers: vec![],
-                    return_type: primitive(1, 5, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 5, "void")
+                    }),
                     name: span(1, 10, "method"),
                     type_params: vec![TypeParam {
                         name: span(1, 2, "A"),
@@ -182,7 +225,9 @@ private void method() {}
                 &[] as Tokens,
                 ClassBodyItem::Method(Method {
                     modifiers: vec![],
-                    return_type: primitive(1, 18, "void"),
+                    return_type: Type::Void(Void {
+                        span: span(1, 18, "void")
+                    }),
                     name: span(1, 23, "method"),
                     type_params: vec![
                         TypeParam {

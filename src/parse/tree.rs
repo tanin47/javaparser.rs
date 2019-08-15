@@ -42,25 +42,37 @@ pub enum Annotated<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct NormalAnnotated<'a> {
-    pub name: Span<'a>,
+    pub class: ClassType<'a>,
     pub params: Vec<AnnotatedParam<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct MarkerAnnotated<'a> {
-    pub name: Span<'a>,
+    pub class: ClassType<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SingleAnnotated<'a> {
-    pub name: Span<'a>,
-    pub expr: Expr<'a>,
+    pub class: ClassType<'a>,
+    pub value: AnnotatedValue<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct AnnotatedParam<'a> {
     pub name: Span<'a>,
-    pub expr: Expr<'a>,
+    pub value: AnnotatedValue<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum AnnotatedValue<'a> {
+    Expr(Expr<'a>),
+    Annotated(Box<Annotated<'a>>),
+    Array(AnnotatedValueArray<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct AnnotatedValueArray<'a> {
+    pub items: Vec<AnnotatedValue<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -193,8 +205,8 @@ pub enum TypeArg<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct WildcardType<'a> {
     pub name: Span<'a>,
-    pub extends: Vec<ClassType<'a>>,
-    pub super_opt: Option<ClassType<'a>>,
+    pub extends: Vec<ReferenceType<'a>>,
+    pub super_opt: Option<ReferenceType<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -235,6 +247,7 @@ pub struct Constructor<'a> {
     pub type_params: Vec<TypeParam<'a>>,
     pub name: Span<'a>,
     pub params: Vec<Param<'a>>,
+    pub throws: Vec<ClassType<'a>>,
     pub block: Block<'a>,
 }
 
@@ -251,17 +264,65 @@ pub struct Method<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement<'a> {
+    Assert(Assert<'a>),
     Block(Block<'a>),
+    Break(Break<'a>),
+    Class(Class<'a>),
+    Continue(Continue<'a>),
+    Empty,
+    DoWhile(DoWhile<'a>),
     Expr(Expr<'a>),
     ForLoop(ForLoop<'a>),
     Foreach(Foreach<'a>),
     IfElse(IfElse<'a>),
+    Labeled(Labeled<'a>),
     Return(ReturnStmt<'a>),
+    Switch(Switch<'a>),
     Synchronized(Synchronized<'a>),
     Throw(Throw<'a>),
     Try(Try<'a>),
     WhileLoop(WhileLoop<'a>),
     VariableDeclarators(VariableDeclarators<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Assert<'a> {
+    pub expr: Expr<'a>,
+    pub error_opt: Option<Expr<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Labeled<'a> {
+    pub label: Span<'a>,
+    pub statement: Box<Statement<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Continue<'a> {
+    pub identifier_opt: Option<Span<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Break<'a> {
+    pub identifier_opt: Option<Span<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Switch<'a> {
+    pub expr: Box<Expr<'a>>,
+    pub cases: Vec<Case<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Case<'a> {
+    pub label_opt: Option<Box<Expr<'a>>>,
+    pub stmts: Vec<Statement<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct DoWhile<'a> {
+    pub block: Block<'a>,
+    pub cond: Box<Expr<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -280,6 +341,7 @@ pub struct Try<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Catch<'a> {
+    pub modifiers: Vec<Modifier<'a>>,
     pub param_name: Span<'a>,
     pub class_types: Vec<ClassType<'a>>,
     pub block: Block<'a>,
@@ -352,24 +414,42 @@ pub enum Expr<'a> {
     BinaryOperation(BinaryOperation<'a>),
     Boolean(Boolean<'a>),
     Cast(Cast<'a>),
+    Char(Char<'a>),
     ConstructorReference(ConstructorReference<'a>),
+    Double(Double<'a>),
     FieldAccess(FieldAccess<'a>),
-    ReservedFieldAccess(ReservedFieldAccess<'a>),
+    Float(Float<'a>),
+    Hex(Hex<'a>),
     InstanceOf(InstanceOf<'a>),
     Int(Int<'a>),
-    Long(Long<'a>),
-    Hex(Hex<'a>),
     Lambda(Lambda<'a>),
+    Long(Long<'a>),
     MethodCall(MethodCall<'a>),
     MethodReference(MethodReference<'a>),
     Name(Name<'a>),
     NewArray(NewArray<'a>),
     NewObject(NewObject<'a>),
     Null(Null<'a>),
+    Class(ClassExpr<'a>),
     String(LiteralString<'a>),
-    Char(Char<'a>),
+    Super(Super<'a>),
+    SuperConstructorCall(SuperConstructorCall<'a>),
+    This(This<'a>),
+    ThisConstructorCall(ThisConstructorCall<'a>),
     Ternary(Ternary<'a>),
     UnaryOperation(UnaryOperation<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct This<'a> {
+    pub tpe_opt: Option<Type<'a>>,
+    pub span: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Super<'a> {
+    pub tpe_opt: Option<Type<'a>>,
+    pub span: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -421,6 +501,21 @@ pub struct Name<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct SuperConstructorCall<'a> {
+    pub prefix_opt: Option<This<'a>>,
+    pub type_args_opt: Option<Vec<TypeArg<'a>>>,
+    pub name: Span<'a>,
+    pub args: Vec<Expr<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ThisConstructorCall<'a> {
+    pub type_args_opt: Option<Vec<TypeArg<'a>>>,
+    pub name: Span<'a>,
+    pub args: Vec<Expr<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct MethodCall<'a> {
     pub prefix_opt: Option<Box<Expr<'a>>>,
     pub name: Span<'a>,
@@ -448,6 +543,7 @@ pub struct ArrayInitializer<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct NewObject<'a> {
+    pub prefix_opt: Option<Box<Expr<'a>>>,
     pub tpe: ClassType<'a>,
     pub constructor_type_args_opt: Option<Vec<TypeArg<'a>>>,
     pub args: Vec<Expr<'a>>,
@@ -456,6 +552,16 @@ pub struct NewObject<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Hex<'a> {
+    pub value: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Double<'a> {
+    pub value: Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Float<'a> {
     pub value: Span<'a>,
 }
 
@@ -492,9 +598,9 @@ pub enum Assigned<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ReservedFieldAccess<'a> {
+pub struct ClassExpr<'a> {
     pub tpe: Type<'a>,
-    pub field: Span<'a>,
+    pub span: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -533,6 +639,6 @@ pub struct UnaryOperation<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Cast<'a> {
-    pub tpe: Type<'a>,
+    pub tpes: Vec<Type<'a>>,
     pub expr: Box<Expr<'a>>,
 }

@@ -1,14 +1,15 @@
 use either::Either;
 use parse::combinator::{identifier, symbol, symbol2};
-use parse::tpe::type_args;
-use parse::tree::{Boolean, Expr, MethodCall, Name, Null, Type};
+use parse::tpe::{primitive, type_args};
+use parse::tree::{Boolean, Expr, Keyword, MethodCall, Name, Null, Super, This, Type};
 use parse::{tpe, ParseResult, Tokens};
 
 pub mod array_access;
 pub mod array_initializer;
+pub mod constructor_call;
+pub mod invocation;
 pub mod lambda;
 pub mod literal_char;
-pub mod method_call;
 pub mod name;
 pub mod new_array;
 pub mod new_object;
@@ -25,7 +26,9 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
         Ok(ok)
     } else if let Ok(ok) = array_initializer::parse(input) {
         Ok(ok)
-    } else if let Ok(ok) = parse_prefix_identifier(input) {
+    } else if let Ok(ok) = constructor_call::parse(input) {
+        Ok(ok)
+    } else if let Ok(ok) = parse_prefix_keyword_or_identifier(input) {
         Ok(ok)
     } else if let Ok(ok) = parse_lambda_or_parenthesized(input) {
         Ok(ok)
@@ -43,14 +46,14 @@ fn parse_lambda_or_parenthesized(original: Tokens) -> ParseResult<Expr> {
         }
     }
 
+    if let Ok(_) = primitive::parse(input) {
+        return lambda::parse(original);
+    }
+
     let (input, ident) = match identifier(input) {
         Ok(ok) => ok,
         Err(_) => return parenthesized::parse(original),
     };
-
-    if tpe::primitive::valid(ident.fragment) {
-        return lambda::parse(original);
-    }
 
     // a single unknown type param name
     if let Ok((input, _)) = symbol(')')(input) {
@@ -81,24 +84,23 @@ fn parse_lambda_or_parenthesized(original: Tokens) -> ParseResult<Expr> {
 
 fn parse_new_object_or_array(input: Tokens) -> ParseResult<Expr> {
     if let Ok((input, Some(type_args))) = type_args::parse(input) {
-        return new_object::parse_tail2(input, Some(type_args));
+        return new_object::parse_tail2(None, input, Some(type_args));
     }
 
     let (input, tpe) = tpe::parse_no_array(input)?;
-    // TODO: handle this.
     let copied = tpe.clone();
 
     if let Ok((input, expr)) = new_array::parse_tail(input, tpe) {
         Ok((input, expr))
     } else {
         match copied {
-            Type::Class(class) => new_object::parse_tail3(input, None, class),
+            Type::Class(class) => new_object::parse_tail3(None, input, None, class),
             _ => Err(input),
         }
     }
 }
 
-pub fn parse_prefix_identifier(original: Tokens) -> ParseResult<Expr> {
+fn parse_prefix_keyword_or_identifier(original: Tokens) -> ParseResult<Expr> {
     let (input, keyword_or_name) = name::parse(original)?;
 
     match keyword_or_name {
@@ -116,12 +118,26 @@ pub fn parse_prefix_identifier(original: Tokens) -> ParseResult<Expr> {
                 }),
             )),
             "new" => parse_new_object_or_array(input),
+            "this" => Ok((
+                input,
+                Expr::This(This {
+                    tpe_opt: None,
+                    span: keyword.name,
+                }),
+            )),
+            "super" => Ok((
+                input,
+                Expr::Super(Super {
+                    tpe_opt: None,
+                    span: keyword.name,
+                }),
+            )),
             _ => Err(input),
         },
         Either::Right(name) => {
             if let Ok(_) = symbol2('-', '>')(input) {
                 lambda::parse(original)
-            } else if let Ok((input, args)) = method_call::parse_args(input) {
+            } else if let Ok((input, args)) = invocation::parse_args(input) {
                 Ok((
                     input,
                     Expr::MethodCall(MethodCall {

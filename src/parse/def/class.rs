@@ -1,4 +1,4 @@
-use parse::combinator::{identifier, separated_nonempty_list, symbol, word};
+use parse::combinator::{identifier, keyword, opt, separated_nonempty_list, symbol};
 use parse::def::{class_body, type_params};
 use parse::tpe::class;
 use parse::tree::{Class, ClassBody, ClassType, Modifier};
@@ -6,7 +6,7 @@ use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
 pub fn parse_implements(input: Tokens) -> ParseResult<Vec<ClassType>> {
-    if let Ok((input, _)) = word("implements")(input) {
+    if let Ok((input, _)) = keyword("implements")(input) {
         let (input, classes) = separated_nonempty_list(symbol(','), class::parse_no_array)(input)?;
         Ok((input, classes))
     } else {
@@ -15,7 +15,7 @@ pub fn parse_implements(input: Tokens) -> ParseResult<Vec<ClassType>> {
 }
 
 fn parse_extend(input: Tokens) -> ParseResult<Option<ClassType>> {
-    if let Ok((input, _)) = word("extends")(input) {
+    if let Ok((input, _)) = keyword("extends")(input) {
         let (input, class) = class::parse_no_array(input)?;
         Ok((input, Some(class)))
     } else {
@@ -33,6 +33,7 @@ pub fn parse_tail<'a>(
     let (input, implements) = parse_implements(input)?;
 
     let (input, body) = class_body::parse(input)?;
+    let (input, _) = opt(symbol(';'))(input)?;
 
     Ok((
         input,
@@ -48,7 +49,7 @@ pub fn parse_tail<'a>(
 }
 
 pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
-    word("class")(input)
+    keyword("class")(input)
 }
 
 #[cfg(test)]
@@ -73,7 +74,11 @@ mod tests {
                 CompilationUnitItem::Class(Class {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "private")

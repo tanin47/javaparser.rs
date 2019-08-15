@@ -1,11 +1,11 @@
-use parse::combinator::{symbol, word};
+use parse::combinator::{keyword, symbol};
 use parse::tpe::array;
 use parse::tree::{AnnotationParam, Expr, Modifier, Type};
 use parse::{expr, ParseResult, Tokens};
 use tokenize::span::Span;
 
 fn parse_default(input: Tokens) -> ParseResult<Option<Expr>> {
-    match word("default")(input) {
+    match keyword("default")(input) {
         Ok((input, _)) => {
             let (input, default) = expr::parse(input)?;
             Ok((input, Some(default)))
@@ -43,7 +43,7 @@ pub fn parse<'a>(
 mod tests {
     use parse::def::annotation_body;
     use parse::tree::{
-        Annotated, AnnotationBodyItem, AnnotationParam, ArrayType, Expr, Int, Keyword,
+        Annotated, AnnotationBodyItem, AnnotationParam, ArrayType, ClassType, Expr, Int, Keyword,
         MarkerAnnotated, Modifier, Type,
     };
     use parse::Tokens;
@@ -62,7 +62,11 @@ mod tests {
                 AnnotationBodyItem::Param(AnnotationParam {
                     modifiers: vec![
                         Modifier::Annotated(Annotated::Marker(MarkerAnnotated {
-                            name: span(1, 2, "Anno")
+                            class: ClassType {
+                                prefix_opt: None,
+                                name: span(1, 2, "Anno"),
+                                type_args_opt: None
+                            }
                         })),
                         Modifier::Keyword(Keyword {
                             name: span(1, 7, "public")

@@ -1,5 +1,9 @@
+use std::io::Write;
 use std::ops::Index;
-use tokenize::combinator::{take, take_while};
+use std::{io, slice};
+use tokenize::combinator::{
+    concat, take, take_bit, take_hex_number, take_number, take_one_if_case_insensitive, take_while,
+};
 use tokenize::span::CharAt;
 use tokenize::span::Span;
 use tokenize::token::Token;
@@ -47,9 +51,11 @@ fn tokenize(input: Span) -> Result<(Span, Option<Token>), Span> {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = hex(input) {
         Ok((input, Some(token)))
-    } else if let Ok((input, token)) = int_or_long(input) {
+    } else if let Ok((input, token)) = bit(input) {
         Ok((input, Some(token)))
-    } else if let Ok((input, token)) = word(input) {
+    } else if let Ok((input, token)) = int_or_long_or_double_or_float(input) {
+        Ok((input, Some(token)))
+    } else if let Ok((input, token)) = keyword_or_identifier(input) {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = symbol(input) {
         Ok((input, Some(token)))
@@ -74,12 +80,31 @@ fn string(input: Span) -> Result<(Span, Token), Span> {
         return Err(input);
     }
 
-    let (s, after) = take_while(
-        |index, s| !(index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '"'),
-        input,
-    );
+    let mut escaped = false;
+    let mut size = 1;
 
-    Ok((after, Token::String(s)))
+    for index in 1..input.fragment.len() {
+        let c = input.fragment.char_at(index);
+
+        size += 1;
+
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        if c == '"' {
+            break;
+        }
+
+        if c == '\\' {
+            escaped = true;
+        }
+    }
+
+    let (string, after) = take(size, input);
+
+    Ok((after, Token::String(string)))
 }
 
 fn literal_char(input: Span) -> Result<(Span, Token), Span> {
@@ -89,55 +114,150 @@ fn literal_char(input: Span) -> Result<(Span, Token), Span> {
     }
 
     let (literal_char, after) = take_while(
-        |index, s| !(index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '\''),
+        |index, s| {
+            let end_cond =
+                index >= 2 && s.char_at(index - 2) != '\\' && s.char_at(index - 1) == '\'';
+            let end_cond_2 = index >= 3
+                && s.char_at(index - 3) == '\\'
+                && s.char_at(index - 2) == '\\'
+                && s.char_at(index - 1) == '\'';
+
+            !(end_cond || end_cond_2)
+        },
         input,
     );
 
     Ok((after, Token::Char(literal_char)))
 }
 
+fn hex_p<'a>(num: Span<'a>, original: Span<'a>) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    let (must_be_p, input) = take_one_if_case_insensitive("P", original);
+
+    if must_be_p.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let (maybe_sign, input) = take_one_if_case_insensitive("-+", input);
+    let (exponent, input) = take_number(input);
+
+    if exponent.fragment.is_empty() {
+        return Err(input);
+    }
+
+    let (ending, input) = take_one_if_case_insensitive("FD", input);
+
+    let num = concat(&[num, must_be_p, maybe_sign, exponent, ending]);
+
+    if ending.fragment.char_at(0).to_ascii_uppercase() == 'F' {
+        Ok((input, Token::Float(num)))
+    } else {
+        Ok((input, Token::Double(num)))
+    }
+}
+
+fn hex_decimal<'a>(num: Span<'a>, original: Span<'a>) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    let (maybe_p_or_dot, input) = take_one_if_case_insensitive("P.", original);
+
+    if maybe_p_or_dot.fragment.is_empty() {
+        return Ok((input, Token::Int(num)));
+    }
+
+    if maybe_p_or_dot.fragment.char_at(0) != '.' {
+        return hex_p(num, original);
+    }
+
+    let must_be_dot = maybe_p_or_dot;
+    assert_eq!(must_be_dot.fragment, ".");
+
+    let (decimal, input) = take_hex_number(input);
+
+    if num.fragment.is_empty() && decimal.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let num = concat(&[num, must_be_dot, decimal]);
+
+    hex_p(num, input)
+}
+
 fn hex(original: Span) -> Result<(Span, Token), Span> {
     if original.fragment.len() >= 2
         && original.fragment.char_at(0) == '0'
-        && original.fragment.char_at(1) == 'x'
+        && original.fragment.char_at(1).to_ascii_uppercase() == 'X'
     {
     } else {
         return Err(original);
     }
 
     let (prefix, input) = take(2, original);
+    let (hex, input) = take_hex_number(input);
 
-    let (hex, input) = take_while(
-        |index, s| {
-            let c = s.char_at(index);
-            c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
-        },
-        input,
-    );
+    let (maybe_l, input) = take_one_if_case_insensitive("L", input);
+    let num = concat(&[prefix, hex, maybe_l]);
 
-    Ok((
-        input,
-        Token::Hex(Span {
-            line: prefix.line,
-            col: prefix.col,
-            fragment: &original.fragment[0..(prefix.fragment.len() + hex.fragment.len())],
-        }),
-    ))
+    if maybe_l.fragment.is_empty() {
+        hex_decimal(num, input)
+    } else {
+        if hex.fragment.is_empty() {
+            return Err(original);
+        }
+
+        Ok((input, Token::Long(num)))
+    }
+}
+
+fn bit(original: Span) -> Result<(Span, Token), Span> {
+    if original.fragment.len() >= 2
+        && original.fragment.char_at(0) == '0'
+        && original.fragment.char_at(1).to_ascii_uppercase() == 'B'
+    {
+    } else {
+        return Err(original);
+    }
+
+    let (prefix, input) = take(2, original);
+    let (bits, input) = take_bit(input);
+
+    let (maybe_l, input) = take_one_if_case_insensitive("L", input);
+    let num = concat(&[prefix, bits, maybe_l]);
+
+    if maybe_l.fragment.is_empty() {
+        Ok((input, Token::Int(num)))
+    } else {
+        Ok((input, Token::Long(num)))
+    }
 }
 
 fn is_identifier(index: usize, s: &str) -> bool {
     let c = s.char_at(index);
-    c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_'
+    c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_' || c == '$'
 }
 
-fn word(original: Span) -> Result<(Span, Token), Span> {
-    let (word, input) = take_while(is_identifier, original);
+fn is_keyword(s: &str) -> bool {
+    match s {
+        "abstract" | "assert" | "boolean" | "break" | "byte" | "case" | "catch" | "char"
+        | "class" | "const" | "continue" | "default" | "do" | "double" | "else" | "enum"
+        | "extends" | "final" | "finally" | "float" | "for" | "goto" | "if" | "implements"
+        | "import" | "instanceof" | "int" | "interface" | "long" | "native" | "new" | "package"
+        | "private" | "protected" | "public" | "return" | "short" | "static" | "strictfp"
+        | "super" | "switch" | "synchronized" | "this" | "throw" | "throws" | "transient"
+        | "try" | "void" | "volatile" | "while" | "true" | "false" | "null" => true,
+        _ => false,
+    }
+}
 
-    if word.fragment.is_empty() {
+fn keyword_or_identifier(original: Span) -> Result<(Span, Token), Span> {
+    let (ident, input) = take_while(is_identifier, original);
+
+    if ident.fragment.is_empty() {
         return Err(original);
     }
 
-    Ok((input, Token::Word(word)))
+    if is_keyword(ident.fragment) {
+        Ok((input, Token::Keyword(ident)))
+    } else {
+        Ok((input, Token::Identifier(ident)))
+    }
 }
 
 fn symbol(input: Span) -> Result<(Span, Token), Span> {
@@ -148,32 +268,126 @@ fn symbol(input: Span) -> Result<(Span, Token), Span> {
     Ok((input, Token::Symbol(symbol)))
 }
 
-fn int_or_long(original: Span) -> Result<(Span, Token), Span> {
-    let (number, input) = take_while(
-        |index, s| {
-            let c = s.char_at(index);
-            c >= '0' && c <= '9'
+fn float_or_double_end<'a>(
+    number: Span<'a>,
+    original: Span<'a>,
+    include_dot_or_e: bool,
+) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    if number.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let (symbol, input) = take(1, original);
+
+    let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
+    if last_char == 'D' {
+        Ok((
+            input,
+            Token::Double(Span {
+                line: number.line,
+                col: number.col,
+                fragment: unsafe {
+                    std::str::from_utf8_unchecked(slice::from_raw_parts(
+                        number.fragment.as_ptr(),
+                        number.fragment.len() + symbol.fragment.len(),
+                    ))
+                },
+            }),
+        ))
+    } else if last_char == 'F' {
+        Ok((
+            input,
+            Token::Float(Span {
+                line: number.line,
+                col: number.col,
+                fragment: unsafe {
+                    std::str::from_utf8_unchecked(slice::from_raw_parts(
+                        number.fragment.as_ptr(),
+                        number.fragment.len() + symbol.fragment.len(),
+                    ))
+                },
+            }),
+        ))
+    } else if include_dot_or_e {
+        Ok((original, Token::Double(number)))
+    } else {
+        Err(original)
+    }
+}
+
+fn float_or_double_e<'a>(
+    num: Span<'a>,
+    original: Span<'a>,
+    include_dot: bool,
+) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    let (maybe_e, input) = take_one_if_case_insensitive("E", original);
+
+    if maybe_e.fragment.is_empty() {
+        return float_or_double_end(num, original, include_dot);
+    }
+
+    if num.fragment.is_empty() {
+        return Err(input);
+    }
+
+    let (maybe_operator, input) = take_one_if_case_insensitive("+-", input);
+    let (second_number, input) = take_number(input);
+
+    let num = concat(&[num, maybe_e, maybe_operator, second_number]);
+
+    float_or_double_end(num, input, true)
+}
+
+fn float_or_double_dot<'a>(
+    first_number: Span<'a>,
+    original: Span<'a>,
+) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    let (symbol, input) = take(1, original);
+    let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
+
+    if last_char != '.' {
+        return float_or_double_e(first_number, original, false);
+    }
+
+    let (second_number, input) = take_number(input);
+
+    if first_number.fragment.is_empty() && second_number.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let num = Span {
+        line: first_number.line,
+        col: first_number.col,
+        fragment: unsafe {
+            std::str::from_utf8_unchecked(slice::from_raw_parts(
+                first_number.fragment.as_ptr(),
+                first_number.fragment.len() + symbol.fragment.len() + second_number.fragment.len(),
+            ))
         },
-        original,
-    );
+    };
+
+    float_or_double_e(num, input, true)
+}
+
+fn int_or_long_or_double_or_float(original: Span) -> Result<(Span, Token), Span> {
+    let (number, input) = take_number(original);
+
+    if let Ok(ok) = float_or_double_dot(number, input) {
+        return Ok(ok);
+    }
 
     if number.fragment.is_empty() {
         return Err(original);
     }
 
-    let last_char = input.fragment.char_at(0);
-    if last_char == 'l' || last_char == 'L' {
-        let (_, input) = take(1, input);
-        Ok((
-            input,
-            Token::Long(Span {
-                line: number.line,
-                col: number.col,
-                fragment: &original.fragment[0..(number.fragment.len() + 1)],
-            }),
-        ))
+    let (maybe_l, input) = take_one_if_case_insensitive("L", input);
+
+    let num = concat(&[number, maybe_l]);
+
+    if maybe_l.fragment.is_empty() {
+        Ok((input, Token::Int(num)))
     } else {
-        Ok((input, Token::Int(number)))
+        Ok((input, Token::Long(num)))
     }
 }
 
@@ -236,15 +450,111 @@ mod tests {
     }
 
     #[test]
+    fn test_unicode() {
+        assert_eq!(
+            apply(
+                r#"
+"打包选项"
+"#
+                .trim()
+            ),
+            Ok(vec![Token::String(span(1, 1, "\"打包选项\""))])
+        )
+    }
+
+    #[test]
+    fn test_empty_string() {
+        assert_eq!(
+            apply(
+                r#"
+"" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\"")),
+                Token::Symbol(span(1, 4, "+"))
+            ])
+        )
+    }
+
+    #[test]
     fn test_string() {
         assert_eq!(
             apply(
                 r#"
-"ab\"c"
+"ab\"c" +
 "#
                 .trim()
             ),
-            Ok(vec![Token::String(span(1, 1, "\"ab\\\"c\""))])
+            Ok(vec![
+                Token::String(span(1, 1, "\"ab\\\"c\"")),
+                Token::Symbol(span(1, 9, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_escaped_backslash_string() {
+        assert_eq!(
+            apply(
+                r#"
+"\"" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\\\"\"")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_escaped_backslash_string_2() {
+        assert_eq!(
+            apply(
+                r#"
+"\\" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\\\\\"")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_escaped_backslash_string_3() {
+        assert_eq!(
+            apply(
+                r#"
+"\\\"" +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::String(span(1, 1, "\"\\\\\\\"\"")),
+                Token::Symbol(span(1, 8, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_empty_char() {
+        assert_eq!(
+            apply(
+                r#"
+'' +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Char(span(1, 1, "''")),
+                Token::Symbol(span(1, 4, "+"))
+            ])
         )
     }
 
@@ -253,11 +563,14 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-'a'
+'a' +
 "#
                 .trim()
             ),
-            Ok(vec![Token::Char(span(1, 1, "'a'"))])
+            Ok(vec![
+                Token::Char(span(1, 1, "'a'")),
+                Token::Symbol(span(1, 5, "+"))
+            ])
         )
     }
 
@@ -266,11 +579,46 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-'\''
+'\'' +
 "#
                 .trim()
             ),
-            Ok(vec![Token::Char(span(1, 1, "'\\''"))])
+            Ok(vec![
+                Token::Char(span(1, 1, "'\\''")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_escaped_backslash_char() {
+        assert_eq!(
+            apply(
+                r#"
+'\\' +
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Char(span(1, 1, "'\\\\'")),
+                Token::Symbol(span(1, 6, "+"))
+            ])
+        )
+    }
+
+    #[test]
+    fn test_bit() {
+        assert_eq!(
+            apply(
+                r#"
+0b001 0b1L
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Int(span(1, 1, "0b001")),
+                Token::Long(span(1, 7, "0b1L")),
+            ])
         )
     }
 
@@ -279,11 +627,20 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-0x0123456789abcdefABCDEF
+0x0123456789abcdefABCDEF 0x02L 0x2p+3 0x2p-3d 0xap2f 0x1.0p2d 0x.1p2 0x.ap2f
 "#
                 .trim()
             ),
-            Ok(vec![Token::Hex(span(1, 1, "0x0123456789abcdefABCDEF"))])
+            Ok(vec![
+                Token::Int(span(1, 1, "0x0123456789abcdefABCDEF")),
+                Token::Long(span(1, 26, "0x02L")),
+                Token::Double(span(1, 32, "0x2p+3")),
+                Token::Double(span(1, 39, "0x2p-3d")),
+                Token::Float(span(1, 47, "0xap2f")),
+                Token::Double(span(1, 54, "0x1.0p2d")),
+                Token::Double(span(1, 63, "0x.1p2")),
+                Token::Float(span(1, 70, "0x.ap2f")),
+            ])
         )
     }
 
@@ -314,15 +671,61 @@ mod tests {
     }
 
     #[test]
+    fn test_double() {
+        assert_eq!(
+            apply(
+                r#"
+1.0 1. .1 1.0d 1.D .1D 2d 1e-2 1e+3d 5.3e4d e2
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Double(span(1, 1, "1.0")),
+                Token::Double(span(1, 5, "1.")),
+                Token::Double(span(1, 8, ".1")),
+                Token::Double(span(1, 11, "1.0d")),
+                Token::Double(span(1, 16, "1.D")),
+                Token::Double(span(1, 20, ".1D")),
+                Token::Double(span(1, 24, "2d")),
+                Token::Double(span(1, 27, "1e-2")),
+                Token::Double(span(1, 32, "1e+3d")),
+                Token::Double(span(1, 38, "5.3e4d")),
+                Token::Identifier(span(1, 45, "e2")),
+            ])
+        )
+    }
+
+    #[test]
+    fn test_float() {
+        assert_eq!(
+            apply(
+                r#"
+1.0f 1f 1.F .1f 1e2F 1.3e-2F 12e+1f
+"#
+                .trim()
+            ),
+            Ok(vec![
+                Token::Float(span(1, 1, "1.0f")),
+                Token::Float(span(1, 6, "1f")),
+                Token::Float(span(1, 9, "1.F")),
+                Token::Float(span(1, 13, ".1f")),
+                Token::Float(span(1, 17, "1e2F")),
+                Token::Float(span(1, 22, "1.3e-2F")),
+                Token::Float(span(1, 30, "12e+1f")),
+            ])
+        )
+    }
+
+    #[test]
     fn test_word() {
         assert_eq!(
             apply(
                 r#"
-a_b1B
+a_b$1B
 "#
                 .trim()
             ),
-            Ok(vec![Token::Word(span(1, 1, "a_b1B"))])
+            Ok(vec![Token::Identifier(span(1, 1, "a_b$1B"))])
         )
     }
 
@@ -355,12 +758,12 @@ void method() {
                 .trim()
             ),
             Ok(vec![
-                Token::Word(span(1, 1, "void")),
-                Token::Word(span(1, 6, "method")),
+                Token::Keyword(span(1, 1, "void")),
+                Token::Identifier(span(1, 6, "method")),
                 Token::Symbol(span(1, 12, "(")),
                 Token::Symbol(span(1, 13, ")")),
                 Token::Symbol(span(1, 15, "{")),
-                Token::Word(span(3, 5, "a")),
+                Token::Identifier(span(3, 5, "a")),
                 Token::Symbol(span(3, 6, "+")),
                 Token::Symbol(span(3, 7, "+")),
                 Token::Symbol(span(3, 8, ";")),
