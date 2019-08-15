@@ -4,7 +4,6 @@ Java parser written in Rust
 [![CircleCI](https://circleci.com/gh/tanin47/javaparser.rs.svg?style=svg)](https://circleci.com/gh/tanin47/javaparser.rs)
 
 Our hand-written Java parser supports Java 8 to 12. 
-You can read about why we've decided to write a parser manually [here].
 
 Initially, [Lilit](https://lilit.dev)'s semantics engine was built with Scala/Java. 
 But, quickly enough, we have reached the limit in terms of memory footprint and computation time.
@@ -14,6 +13,11 @@ We've chosen Rust because:
 
 1. Rust can operate on string slices, and we can avoid making a lot of copies of strings.
 2. Memory overhead on an object is low.
+
+Status
+-------
+
+* Parse all Java files in OpenJDK8 successfully
 
 
 Develop
