@@ -17,7 +17,8 @@ We've chosen Rust because:
 Status
 -------
 
-* Parse all Java files in OpenJDK8 successfully
+* Parse all Java files in OpenJDK 8 and 12 successfully
+* It doesn't detect `var` in Java 10 yet.
 
 
 Develop
@@ -41,7 +42,9 @@ Benchmark test
 Real-world test
 ----------------
 
-Our real-world test parses all Java files under the specified directory (recursively). Note that it doesn't parse `package-info.java`.
+Our real-world test parses all Java files under the specified directory (recursively). 
+
+Note that it doesn't parse `package-info.java` and `module-info.java`.
 
 1. Change the directory location in `./tests/parse/real_world_test.rs`.
 2. `cargo test real_world --release -- --nocapture --ignored`

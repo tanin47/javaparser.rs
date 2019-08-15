@@ -334,9 +334,16 @@ pub struct WhileLoop<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Try<'a> {
     pub try: Block<'a>,
-    pub resources: Vec<StandaloneVariableDeclarator<'a>>,
+    pub resources: Vec<TryResource<'a>>,
     pub catches: Vec<Catch<'a>>,
     pub finally_opt: Option<Block<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TryResource<'a> {
+    Name(Name<'a>),
+    Declarator(StandaloneVariableDeclarator<'a>),
+    FieldAccess(FieldAccess<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -502,7 +509,7 @@ pub struct Name<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SuperConstructorCall<'a> {
-    pub prefix_opt: Option<This<'a>>,
+    pub prefix_opt: Option<Box<Expr<'a>>>,
     pub type_args_opt: Option<Vec<TypeArg<'a>>>,
     pub name: Span<'a>,
     pub args: Vec<Expr<'a>>,

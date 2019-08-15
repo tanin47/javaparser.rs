@@ -14,18 +14,22 @@ fn test() {
     let mut slowest_path = String::new();
     let mut failures = vec![];
     let mut successes = vec![];
-    for entry in WalkDir::new("/home/tanin/projects/jdk-8u201-linux-x64/jdk-8u201-source")
+    for entry in WalkDir::new("/home/tanin/projects/jdk12u-390566f1850a/src")
         .follow_links(true)
         .into_iter()
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
+        if path.is_dir() {
+            continue;
+        }
+
         let filename = path.file_name().unwrap().to_str().unwrap();
         if !filename.ends_with(".java") {
             continue;
         }
 
-        if filename == "package-info.java" {
+        if filename == "package-info.java" || filename == "module-info.java" {
             continue;
         }
 

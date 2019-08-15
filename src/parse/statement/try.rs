@@ -1,8 +1,8 @@
 use parse::combinator::{identifier, keyword, many0, opt, separated_nonempty_list, symbol};
 use parse::def::modifiers;
 use parse::statement::{block, variable_declarators};
-use parse::tree::{Catch, StandaloneVariableDeclarator, Statement, Try};
-use parse::{tpe, ParseResult, Tokens};
+use parse::tree::{Catch, Expr, StandaloneVariableDeclarator, Statement, Try, TryResource};
+use parse::{expr, tpe, ParseResult, Tokens};
 
 fn parse_catch(input: Tokens) -> ParseResult<Catch> {
     let (input, _) = keyword("catch")(input)?;
@@ -26,13 +26,27 @@ fn parse_catch(input: Tokens) -> ParseResult<Catch> {
     ))
 }
 
-fn parse_resources(input: Tokens) -> ParseResult<Vec<StandaloneVariableDeclarator>> {
+// TODO: This can be optimized to do bottom-up parsing.
+fn parse_resource(input: Tokens) -> ParseResult<TryResource> {
+    if let Ok((input, declarator)) = variable_declarators::parse_standalone(input) {
+        return Ok((input, TryResource::Declarator(declarator)));
+    } else if let Ok((input, expr)) = expr::parse(input) {
+        match expr {
+            Expr::Name(name) => return Ok((input, TryResource::Name(name))),
+            Expr::FieldAccess(field) => return Ok((input, TryResource::FieldAccess(field))),
+            _ => (),
+        }
+    }
+
+    Err(input)
+}
+
+fn parse_resources(input: Tokens) -> ParseResult<Vec<TryResource>> {
     let (input, _) = match symbol('(')(input) {
         Ok(ok) => ok,
         Err(_) => return Ok((input, vec![])),
     };
-    let (input, resources) =
-        separated_nonempty_list(symbol(';'), variable_declarators::parse_standalone)(input)?;
+    let (input, resources) = separated_nonempty_list(symbol(';'), parse_resource)(input)?;
     let (input, _) = opt(symbol(';'))(input)?;
     let (input, _) = symbol(')')(input)?;
 
@@ -68,11 +82,45 @@ pub fn parse(input: Tokens) -> ParseResult<Statement> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        Block, Catch, ClassType, Expr, Int, Keyword, MethodCall, Modifier, Name, PrimitiveType,
-        StandaloneVariableDeclarator, Statement, Throw, Try, Type, UnaryOperation,
+        Block, Catch, ClassType, Expr, FieldAccess, Int, Keyword, MethodCall, Modifier, Name,
+        PrimitiveType, StandaloneVariableDeclarator, Statement, Throw, Try, TryResource, Type,
+        UnaryOperation,
     };
     use parse::Tokens;
     use test_common::{code, span};
+
+    #[test]
+    fn test_only_try() {
+        assert_eq!(
+            parse(&code(
+                r#"
+try (in; a.b) {
+}
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                Statement::Try(Try {
+                    try: Block { stmts: vec![] },
+                    resources: vec![
+                        TryResource::Name(Name {
+                            name: span(1, 6, "in")
+                        }),
+                        TryResource::FieldAccess(FieldAccess {
+                            expr: Box::new(Expr::Name(Name {
+                                name: span(1, 10, "a")
+                            })),
+                            field: Name {
+                                name: span(1, 12, "b")
+                            }
+                        }),
+                    ],
+                    catches: vec![],
+                    finally_opt: None
+                })
+            ))
+        );
+    }
 
     #[test]
     fn test_multiple_catches() {
@@ -106,7 +154,7 @@ try (
                         }))]
                     },
                     resources: vec![
-                        StandaloneVariableDeclarator {
+                        TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(2, 3, "int")
@@ -115,8 +163,8 @@ try (
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(2, 11, "1")
                             }))
-                        },
-                        StandaloneVariableDeclarator {
+                        }),
+                        TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(3, 3, "int")
@@ -125,7 +173,7 @@ try (
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(3, 11, "2")
                             }))
-                        },
+                        }),
                     ],
                     catches: vec![
                         Catch {

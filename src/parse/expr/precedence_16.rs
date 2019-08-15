@@ -154,6 +154,28 @@ a.new Test()
     }
 
     #[test]
+    fn test_name_super_constructor_call() {
+        assert_eq!(
+            parse(&code(
+                r#"
+test.super()
+            "#
+            )),
+            Ok((
+                &[] as Tokens,
+                Expr::SuperConstructorCall(SuperConstructorCall {
+                    prefix_opt: Some(Box::new(Expr::Name(Name {
+                        name: span(1, 1, "test")
+                    }))),
+                    type_args_opt: None,
+                    name: span(1, 6, "super"),
+                    args: vec![]
+                })
+            ))
+        );
+    }
+
+    #[test]
     fn test_super_constructor_call() {
         assert_eq!(
             parse(&code(
@@ -164,7 +186,7 @@ Parent.Test.this.super()
             Ok((
                 &[] as Tokens,
                 Expr::SuperConstructorCall(SuperConstructorCall {
-                    prefix_opt: Some(This {
+                    prefix_opt: Some(Box::new(Expr::This(This {
                         tpe_opt: Some(Type::Class(ClassType {
                             prefix_opt: Some(Box::new(ClassType {
                                 prefix_opt: None,
@@ -175,7 +197,7 @@ Parent.Test.this.super()
                             type_args_opt: None
                         })),
                         span: span(1, 13, "this")
-                    }),
+                    }))),
                     type_args_opt: None,
                     name: span(1, 18, "super"),
                     args: vec![]
