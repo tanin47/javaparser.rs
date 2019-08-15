@@ -5,6 +5,7 @@ use parse::{ParseResult, Tokens};
 pub mod array;
 pub mod class;
 pub mod primitive;
+pub mod reference;
 pub mod type_args;
 pub mod void;
 

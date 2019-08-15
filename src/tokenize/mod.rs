@@ -1,7 +1,9 @@
 use std::io::Write;
 use std::ops::Index;
 use std::{io, slice};
-use tokenize::combinator::{take, take_while};
+use tokenize::combinator::{
+    concat, take, take_bit, take_hex_number, take_number, take_one_if_case_insensitive, take_while,
+};
 use tokenize::span::CharAt;
 use tokenize::span::Span;
 use tokenize::token::Token;
@@ -48,6 +50,8 @@ fn tokenize(input: Span) -> Result<(Span, Option<Token>), Span> {
     } else if let Ok((input, token)) = literal_char(input) {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = hex(input) {
+        Ok((input, Some(token)))
+    } else if let Ok((input, token)) = bit(input) {
         Ok((input, Some(token)))
     } else if let Ok((input, token)) = int_or_long_or_double_or_float(input) {
         Ok((input, Some(token)))
@@ -126,6 +130,56 @@ fn literal_char(input: Span) -> Result<(Span, Token), Span> {
     Ok((after, Token::Char(literal_char)))
 }
 
+fn hex_p<'a>(num: Span<'a>, original: Span<'a>) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    let (must_be_p, input) = take_one_if_case_insensitive("P", original);
+
+    if must_be_p.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let (maybe_sign, input) = take_one_if_case_insensitive("-+", input);
+    let (exponent, input) = take_number(input);
+
+    if exponent.fragment.is_empty() {
+        return Err(input);
+    }
+
+    let (ending, input) = take_one_if_case_insensitive("FD", input);
+
+    let num = concat(&[num, must_be_p, maybe_sign, exponent, ending]);
+
+    if ending.fragment.char_at(0).to_ascii_uppercase() == 'F' {
+        Ok((input, Token::Float(num)))
+    } else {
+        Ok((input, Token::Double(num)))
+    }
+}
+
+fn hex_decimal<'a>(num: Span<'a>, original: Span<'a>) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
+    let (maybe_p_or_dot, input) = take_one_if_case_insensitive("P.", original);
+
+    if maybe_p_or_dot.fragment.is_empty() {
+        return Ok((input, Token::Int(num)));
+    }
+
+    if maybe_p_or_dot.fragment.char_at(0) != '.' {
+        return hex_p(num, original);
+    }
+
+    let must_be_dot = maybe_p_or_dot;
+    assert_eq!(must_be_dot.fragment, ".");
+
+    let (decimal, input) = take_hex_number(input);
+
+    if num.fragment.is_empty() && decimal.fragment.is_empty() {
+        return Err(original);
+    }
+
+    let num = concat(&[num, must_be_dot, decimal]);
+
+    hex_p(num, input)
+}
+
 fn hex(original: Span) -> Result<(Span, Token), Span> {
     if original.fragment.len() >= 2
         && original.fragment.char_at(0) == '0'
@@ -136,35 +190,41 @@ fn hex(original: Span) -> Result<(Span, Token), Span> {
     }
 
     let (prefix, input) = take(2, original);
+    let (hex, input) = take_hex_number(input);
 
-    let (hex, input) = take_while(
-        |index, s| {
-            let c = s.char_at(index);
-            c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
-        },
-        input,
-    );
+    let (maybe_l, input) = take_one_if_case_insensitive("L", input);
+    let num = concat(&[prefix, hex, maybe_l]);
 
-    let (maybe_l, input_after_l) = take(1, input);
-
-    if maybe_l.fragment.char_at(0) == 'L' {
-        Ok((
-            input_after_l,
-            Token::Hex(Span {
-                line: prefix.line,
-                col: prefix.col,
-                fragment: &original.fragment[0..(prefix.fragment.len() + hex.fragment.len() + 1)],
-            }),
-        ))
+    if maybe_l.fragment.is_empty() {
+        hex_decimal(num, input)
     } else {
-        Ok((
-            input,
-            Token::Hex(Span {
-                line: prefix.line,
-                col: prefix.col,
-                fragment: &original.fragment[0..(prefix.fragment.len() + hex.fragment.len())],
-            }),
-        ))
+        if hex.fragment.is_empty() {
+            return Err(original);
+        }
+
+        Ok((input, Token::Long(num)))
+    }
+}
+
+fn bit(original: Span) -> Result<(Span, Token), Span> {
+    if original.fragment.len() >= 2
+        && original.fragment.char_at(0) == '0'
+        && original.fragment.char_at(1).to_ascii_uppercase() == 'B'
+    {
+    } else {
+        return Err(original);
+    }
+
+    let (prefix, input) = take(2, original);
+    let (bits, input) = take_bit(input);
+
+    let (maybe_l, input) = take_one_if_case_insensitive("L", input);
+    let num = concat(&[prefix, bits, maybe_l]);
+
+    if maybe_l.fragment.is_empty() {
+        Ok((input, Token::Int(num)))
+    } else {
+        Ok((input, Token::Long(num)))
     }
 }
 
@@ -206,18 +266,6 @@ fn symbol(input: Span) -> Result<(Span, Token), Span> {
     let (symbol, input) = take(1, input);
 
     Ok((input, Token::Symbol(symbol)))
-}
-
-fn number(original: Span) -> Result<(Span, Span), Span> {
-    let (number, input) = take_while(
-        |index, s| {
-            let c = s.char_at(index);
-            (c >= '0' && c <= '9') || (c == '_' && index > 0)
-        },
-        original,
-    );
-
-    Ok((number, input))
 }
 
 fn float_or_double_end<'a>(
@@ -272,10 +320,9 @@ fn float_or_double_e<'a>(
     original: Span<'a>,
     include_dot: bool,
 ) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
-    let (symbol, input) = take(1, original);
-    let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
+    let (maybe_e, input) = take_one_if_case_insensitive("E", original);
 
-    if last_char != 'E' {
+    if maybe_e.fragment.is_empty() {
         return float_or_double_end(num, original, include_dot);
     }
 
@@ -283,32 +330,10 @@ fn float_or_double_e<'a>(
         return Err(input);
     }
 
-    let (maybe_minus, input) = if input.fragment.char_at(0) == '-' {
-        take(1, input)
-    } else {
-        (
-            Span {
-                line: input.line,
-                col: input.col,
-                fragment: "",
-            },
-            input,
-        )
-    };
-    let (second_number, input) = number(input)?;
-    let num = Span {
-        line: num.line,
-        col: num.col,
-        fragment: unsafe {
-            std::str::from_utf8_unchecked(slice::from_raw_parts(
-                num.fragment.as_ptr(),
-                num.fragment.len()
-                    + symbol.fragment.len()
-                    + maybe_minus.fragment.len()
-                    + second_number.fragment.len(),
-            ))
-        },
-    };
+    let (maybe_operator, input) = take_one_if_case_insensitive("+-", input);
+    let (second_number, input) = take_number(input);
+
+    let num = concat(&[num, maybe_e, maybe_operator, second_number]);
 
     float_or_double_end(num, input, true)
 }
@@ -324,7 +349,7 @@ fn float_or_double_dot<'a>(
         return float_or_double_e(first_number, original, false);
     }
 
-    let (second_number, input) = number(input)?;
+    let (second_number, input) = take_number(input);
 
     if first_number.fragment.is_empty() && second_number.fragment.is_empty() {
         return Err(original);
@@ -345,7 +370,7 @@ fn float_or_double_dot<'a>(
 }
 
 fn int_or_long_or_double_or_float(original: Span) -> Result<(Span, Token), Span> {
-    let (number, input) = number(original)?;
+    let (number, input) = take_number(original);
 
     if let Ok(ok) = float_or_double_dot(number, input) {
         return Ok(ok);
@@ -355,19 +380,14 @@ fn int_or_long_or_double_or_float(original: Span) -> Result<(Span, Token), Span>
         return Err(original);
     }
 
-    let last_char = input.fragment.char_at(0).to_ascii_uppercase();
-    if last_char == 'L' {
-        let (_, input) = take(1, input);
-        Ok((
-            input,
-            Token::Long(Span {
-                line: number.line,
-                col: number.col,
-                fragment: &original.fragment[0..(number.fragment.len() + 1)],
-            }),
-        ))
+    let (maybe_l, input) = take_one_if_case_insensitive("L", input);
+
+    let num = concat(&[number, maybe_l]);
+
+    if maybe_l.fragment.is_empty() {
+        Ok((input, Token::Int(num)))
     } else {
-        Ok((input, Token::Int(number)))
+        Ok((input, Token::Long(num)))
     }
 }
 
@@ -587,28 +607,40 @@ mod tests {
     }
 
     #[test]
-    fn test_hex() {
+    fn test_bit() {
         assert_eq!(
             apply(
                 r#"
-0x0123456789abcdefABCDEF
+0b001 0b1L
 "#
                 .trim()
             ),
-            Ok(vec![Token::Hex(span(1, 1, "0x0123456789abcdefABCDEF"))])
+            Ok(vec![
+                Token::Int(span(1, 1, "0b001")),
+                Token::Long(span(1, 7, "0b1L")),
+            ])
         )
     }
 
     #[test]
-    fn test_hex_with_l() {
+    fn test_hex() {
         assert_eq!(
             apply(
                 r#"
-0X0123456789abcdefABCDEFL
+0x0123456789abcdefABCDEF 0x02L 0x2p+3 0x2p-3d 0xap2f 0x1.0p2d 0x.1p2 0x.ap2f
 "#
                 .trim()
             ),
-            Ok(vec![Token::Hex(span(1, 1, "0X0123456789abcdefABCDEFL"))])
+            Ok(vec![
+                Token::Int(span(1, 1, "0x0123456789abcdefABCDEF")),
+                Token::Long(span(1, 26, "0x02L")),
+                Token::Double(span(1, 32, "0x2p+3")),
+                Token::Double(span(1, 39, "0x2p-3d")),
+                Token::Float(span(1, 47, "0xap2f")),
+                Token::Double(span(1, 54, "0x1.0p2d")),
+                Token::Double(span(1, 63, "0x.1p2")),
+                Token::Float(span(1, 70, "0x.ap2f")),
+            ])
         )
     }
 
@@ -643,7 +675,7 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-1.0 1. .1 1.0d 1.D .1D 2d 1e-2 1e3d 5.3e4d e2
+1.0 1. .1 1.0d 1.D .1D 2d 1e-2 1e+3d 5.3e4d e2
 "#
                 .trim()
             ),
@@ -656,9 +688,9 @@ mod tests {
                 Token::Double(span(1, 20, ".1D")),
                 Token::Double(span(1, 24, "2d")),
                 Token::Double(span(1, 27, "1e-2")),
-                Token::Double(span(1, 32, "1e3d")),
-                Token::Double(span(1, 37, "5.3e4d")),
-                Token::Identifier(span(1, 44, "e2")),
+                Token::Double(span(1, 32, "1e+3d")),
+                Token::Double(span(1, 38, "5.3e4d")),
+                Token::Identifier(span(1, 45, "e2")),
             ])
         )
     }
@@ -668,7 +700,7 @@ mod tests {
         assert_eq!(
             apply(
                 r#"
-1.0f 1f 1.F .1f 1e2F 1.3e-2F 
+1.0f 1f 1.F .1f 1e2F 1.3e-2F 12e+1f
 "#
                 .trim()
             ),
@@ -679,6 +711,7 @@ mod tests {
                 Token::Float(span(1, 13, ".1f")),
                 Token::Float(span(1, 17, "1e2F")),
                 Token::Float(span(1, 22, "1.3e-2F")),
+                Token::Float(span(1, 30, "12e+1f")),
             ])
         )
     }

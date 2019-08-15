@@ -6,7 +6,6 @@ pub enum Token<'a> {
     Comment(Span<'a>),
     Double(Span<'a>),
     Float(Span<'a>),
-    Hex(Span<'a>),
     Int(Span<'a>),
     Long(Span<'a>),
     String(Span<'a>),
@@ -26,7 +25,6 @@ impl<'a> Token<'a> {
             Token::Float(s) => s,
             Token::Char(s) => s,
             Token::Long(s) => s,
-            Token::Hex(s) => s,
             Token::String(s) => s,
             Token::Comment(s) => s,
         };
