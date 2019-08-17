@@ -5,6 +5,7 @@ extern crate core;
 extern crate either;
 extern crate proc_macro;
 
+pub mod analyze;
 pub mod parse;
 pub mod tokenize;
 

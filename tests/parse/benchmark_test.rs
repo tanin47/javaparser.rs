@@ -1,6 +1,6 @@
 use javaparser::{parse, tokenize};
-use std::fs;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use std::{fs, thread};
 
 #[test]
 #[ignore]
@@ -9,7 +9,7 @@ fn benchmark() {
     let tokens = tokenize::apply(&content).ok().unwrap();
 
     let mut results = vec![];
-    for i in 0..100 {
+    for i in 0..10 {
         let start = Instant::now();
         let _ = tokenize::apply(&content).ok().unwrap();
         let result = parse::apply(&tokens);
@@ -25,4 +25,6 @@ fn benchmark() {
     }
 
     println!("size: {}", results.len());
+
+    thread::sleep(Duration::from_millis(10000000));
 }
