@@ -36,7 +36,7 @@ We have acceptance test in `./tests/syntax/acceptance_test.rs`, which tests the 
 Benchmark test
 ---------------
 
-`cargo test benchmark --release -- --nocapture --ignored`. Parsing `./tests/fixtures/LocalCache.java` takes ~9ms. [Javaparser](https://github.com/javaparser/javaparser) written in Java takes ~60ms.
+`cargo test benchmark --release -- --nocapture --ignored`
 
 
 Real-world test
