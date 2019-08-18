@@ -1,5 +1,5 @@
 use analyze::build::tpe;
-use analyze::referenceable::TypeParam;
+use analyze::definition::TypeParam;
 use parse;
 
 pub fn build<'a>(type_param: &'a parse::tree::TypeParam<'a>) -> TypeParam<'a> {

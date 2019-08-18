@@ -1,5 +1,5 @@
 use analyze::build::{modifier, tpe};
-use analyze::referenceable::{Field, FieldGroup};
+use analyze::definition::{Field, FieldGroup};
 use parse;
 
 pub fn build<'a>(field: &'a parse::tree::VariableDeclarator<'a>) -> Field<'a> {
@@ -12,9 +12,7 @@ pub fn build<'a>(field: &'a parse::tree::VariableDeclarator<'a>) -> Field<'a> {
 #[cfg(test)]
 mod tests {
     use analyze::build::apply;
-    use analyze::referenceable::{
-        Class, Field, FieldGroup, Method, Modifier, Param, Root, TypeParam,
-    };
+    use analyze::definition::{Class, Field, FieldGroup, Method, Modifier, Param, Root, TypeParam};
     use analyze::tpe::{ArrayType, ClassType, Prefix, PrimitiveType, Type};
     use std::cell::Cell;
     use test_common::{code, parse, span};

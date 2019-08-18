@@ -11,7 +11,7 @@ pub struct Root<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Package<'a> {
     pub import_path: String,
-    pub name: &'a Span<'a>,
+    pub name: String,
     pub subpackages: Vec<Package<'a>>,
     pub classes: Vec<Class<'a>>,
     pub interfaces: Vec<Interface<'a>>,
@@ -21,6 +21,7 @@ pub struct Package<'a> {
 pub struct Class<'a> {
     pub import_path: String,
     pub name: &'a Span<'a>,
+    // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'a>>,
     pub extend_opt: Option<ClassType<'a>>,
     pub implements: Vec<ClassType<'a>>,

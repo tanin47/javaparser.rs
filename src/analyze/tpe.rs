@@ -1,4 +1,4 @@
-use analyze::referenceable::Class;
+use analyze::definition::Class;
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use tokenize::span::Span;

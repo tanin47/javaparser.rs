@@ -1,4 +1,4 @@
-use analyze::referenceable::Modifier;
+use analyze::definition::Modifier;
 use parse;
 use parse::tree::Keyword;
 
