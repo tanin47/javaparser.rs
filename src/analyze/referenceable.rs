@@ -1,4 +1,4 @@
-use analyze::tpe::Type;
+use analyze::tpe::{ClassType, ReferenceType, Type};
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -21,6 +21,9 @@ pub struct Package<'a> {
 pub struct Class<'a> {
     pub import_path: String,
     pub name: &'a Span<'a>,
+    pub type_params: Vec<TypeParam<'a>>,
+    pub extend_opt: Option<ClassType<'a>>,
+    pub implements: Vec<ClassType<'a>>,
     pub constructors: Vec<Constructor<'a>>,
     pub methods: Vec<Method<'a>>,
     pub field_groups: Vec<FieldGroup<'a>>,
@@ -46,6 +49,7 @@ pub struct Constructor<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Method<'a> {
     pub modifiers: Vec<Modifier>,
+    pub type_params: Vec<TypeParam<'a>>,
     pub return_type: Type<'a>,
     pub name: &'a Span<'a>,
     pub params: Vec<Param<'a>>,
@@ -55,6 +59,12 @@ pub struct Method<'a> {
 pub struct Param<'a> {
     pub tpe: Type<'a>,
     pub name: &'a Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct TypeParam<'a> {
+    pub name: &'a Span<'a>,
+    pub extends: Vec<ClassType<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -75,10 +85,12 @@ pub enum Modifier {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FieldGroup<'a> {
+    pub modifiers: Vec<Modifier>,
     pub items: Vec<Field<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Field<'a> {
+    pub tpe: Type<'a>,
     pub name: &'a Span<'a>,
 }

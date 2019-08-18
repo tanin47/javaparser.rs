@@ -44,7 +44,7 @@ mod tests {
     use analyze::referenceable::{
         Class, Constructor, Field, FieldGroup, Interface, Method, Package, Root,
     };
-    use analyze::tpe::Type;
+    use analyze::tpe::{PrimitiveType, Type};
     use test_common::{code, parse, span};
 
     #[test]
@@ -54,7 +54,7 @@ mod tests {
                 r#"
 interface Test {
     void method() {}
-    int a, b;
+    int a;
     class InnerClass {}
 }
         "#,
@@ -68,28 +68,29 @@ interface Test {
                     classes: vec![Class {
                         import_path: "Test.InnerClass".to_owned(),
                         name: &span(4, 11, "InnerClass"),
+                        type_params: vec![],
+                        extend_opt: None,
                         classes: vec![],
                         interfaces: vec![],
                         constructors: vec![],
                         methods: vec![],
-                        field_groups: vec![]
+                        field_groups: vec![],
+                        implements: vec![]
                     }],
                     interfaces: vec![],
                     methods: vec![Method {
                         modifiers: vec![],
                         return_type: Type::Void,
                         name: &span(2, 10, "method"),
+                        type_params: vec![],
                         params: vec![]
                     }],
                     field_groups: vec![FieldGroup {
-                        items: vec![
-                            Field {
-                                name: &span(3, 9, "a")
-                            },
-                            Field {
-                                name: &span(3, 12, "b")
-                            },
-                        ]
+                        modifiers: vec![],
+                        items: vec![Field {
+                            tpe: Type::Primitive(PrimitiveType::Int),
+                            name: &span(3, 9, "a")
+                        },]
                     }]
                 }],
             }

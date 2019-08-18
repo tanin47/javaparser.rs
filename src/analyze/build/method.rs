@@ -1,16 +1,22 @@
-use analyze::build::{modifier, param, tpe};
+use analyze::build::{modifier, param, tpe, type_param};
 use analyze::referenceable::Method;
 use parse;
 
 pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
+    let mut type_params = vec![];
     let mut params = vec![];
 
     for p in &method.params {
         params.push(param::build(p));
     }
 
+    for t in &method.type_params {
+        type_params.push(type_param::build(t));
+    }
+
     Method {
         modifiers: modifier::build(&method.modifiers),
+        type_params,
         return_type: tpe::build(&method.return_type),
         name: &method.name,
         params,
@@ -20,7 +26,7 @@ pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
 #[cfg(test)]
 mod tests {
     use analyze::build::apply;
-    use analyze::referenceable::{Class, Method, Modifier, Param, Root};
+    use analyze::referenceable::{Class, Method, Modifier, Param, Root, TypeParam};
     use analyze::tpe::{ClassType, Prefix, PrimitiveType, Type};
     use std::cell::Cell;
     use test_common::{code, parse, span};
@@ -32,7 +38,7 @@ mod tests {
                 r#"
 class Test {
     public void method(int a) {}
-    boolean method2() {}
+    <T> boolean method2(T t) {}
     Parent.Test method3() {}
 }
         "#,
@@ -43,6 +49,8 @@ class Test {
                 classes: vec![Class {
                     import_path: "Test".to_owned(),
                     name: &span(1, 7, "Test"),
+                    type_params: vec![],
+                    extend_opt: None,
                     classes: vec![],
                     interfaces: vec![],
                     constructors: vec![],
@@ -51,6 +59,7 @@ class Test {
                             modifiers: vec![Modifier::Public],
                             return_type: Type::Void,
                             name: &span(2, 17, "method"),
+                            type_params: vec![],
                             params: vec![Param {
                                 tpe: Type::Primitive(PrimitiveType::Int),
                                 name: &span(2, 28, "a")
@@ -58,9 +67,21 @@ class Test {
                         },
                         Method {
                             modifiers: vec![],
+                            type_params: vec![TypeParam {
+                                name: &span(3, 6, "T"),
+                                extends: vec![]
+                            }],
                             return_type: Type::Primitive(PrimitiveType::Boolean),
-                            name: &span(3, 13, "method2"),
-                            params: vec![]
+                            name: &span(3, 17, "method2"),
+                            params: vec![Param {
+                                tpe: Type::Class(ClassType {
+                                    prefix_opt: None,
+                                    name: "T",
+                                    type_args: vec![],
+                                    def_opt: Cell::new(None)
+                                }),
+                                name: &span(3, 27, "t")
+                            }]
                         },
                         Method {
                             modifiers: vec![],
@@ -68,16 +89,20 @@ class Test {
                                 prefix_opt: Some(Box::new(Prefix::Class(ClassType {
                                     prefix_opt: None,
                                     name: "Parent",
+                                    type_args: vec![],
                                     def_opt: Cell::new(None)
                                 }))),
                                 name: "Test",
+                                type_args: vec![],
                                 def_opt: Cell::new(None)
                             }),
                             name: &span(4, 17, "method3"),
+                            type_params: vec![],
                             params: vec![]
                         },
                     ],
-                    field_groups: vec![]
+                    field_groups: vec![],
+                    implements: vec![]
                 }],
             }
         )

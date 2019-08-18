@@ -12,6 +12,12 @@ pub enum Type<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum ReferenceType<'a> {
+    Array(ArrayType<'a>),
+    Class(ClassType<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum PrimitiveType {
     Boolean,
     Byte,
@@ -32,7 +38,22 @@ pub struct ArrayType<'a> {
 pub struct ClassType<'a> {
     pub prefix_opt: Option<Box<Prefix<'a>>>,
     pub name: &'a str,
+    pub type_args: Vec<TypeArg<'a>>,
     pub def_opt: Cell<Option<*const Class<'a>>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TypeArg<'a> {
+    Class(ClassType<'a>),
+    Array(ArrayType<'a>),
+    Wildcard(WildcardType<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct WildcardType<'a> {
+    pub name: &'a Span<'a>,
+    pub super_opt: Option<Box<ReferenceType<'a>>>,
+    pub extends: Vec<ReferenceType<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -84,6 +84,9 @@ class Test {}
                 classes: vec![Class {
                     import_path: "Test".to_owned(),
                     name: &span(1, 7, "Test"),
+                    type_params: vec![],
+                    extend_opt: None,
+                    implements: vec![],
                     constructors: vec![],
                     methods: vec![],
                     field_groups: vec![],
@@ -115,6 +118,9 @@ class Test {}
                         classes: vec![Class {
                             import_path: "dev.lilit.Test".to_owned(),
                             name: &span(3, 7, "Test"),
+                            type_params: vec![],
+                            extend_opt: None,
+                            implements: vec![],
                             constructors: vec![],
                             methods: vec![],
                             field_groups: vec![],
