@@ -43,7 +43,7 @@ pub fn parse_tail<'a>(
             type_params,
             extend_opt,
             implements,
-            body: ClassBody { items: vec![] },
+            body,
         },
     ))
 }

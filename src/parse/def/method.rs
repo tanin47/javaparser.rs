@@ -56,8 +56,8 @@ mod tests {
     use parse::def::class_body;
     use parse::tree::{
         Annotated, ArrayType, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated,
-        Method, Modifier, Param, PrimitiveType, ReturnStmt, Statement, Type, TypeArg, TypeParam,
-        Void,
+        Method, Modifier, Param, PrimitiveType, ReferenceType, ReturnStmt, Statement, Type,
+        TypeArg, TypeParam, Void,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
