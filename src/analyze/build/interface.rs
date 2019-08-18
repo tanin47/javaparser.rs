@@ -1,37 +1,37 @@
 use analyze::build::scope::Scope;
-use analyze::build::{constructor, field_group, interface, method};
-use analyze::referenceable::Class;
+use analyze::build::{class, constructor, field_group, method};
+use analyze::referenceable::{Class, Interface};
 use parse;
 use parse::tree::ClassBodyItem;
 
-pub fn build<'a, 'b>(class: &'a parse::tree::Class<'a>, scope: &'b mut Scope) -> Class<'a>
+pub fn build<'a, 'b>(
+    interface: &'a parse::tree::Interface<'a>,
+    scope: &'b mut Scope,
+) -> Interface<'a>
 where
     'a: 'b,
 {
-    scope.wrap(class.name.fragment, |scope| {
-        let mut constructors = vec![];
+    scope.wrap(interface.name.fragment, |scope| {
         let mut classes = vec![];
         let mut interfaces = vec![];
         let mut methods = vec![];
         let mut field_groups = vec![];
 
-        for item in &class.body.items {
+        for item in &interface.body.items {
             match item {
-                ClassBodyItem::Constructor(c) => constructors.push(constructor::build(c)),
                 ClassBodyItem::Method(m) => methods.push(method::build(m)),
                 ClassBodyItem::FieldDeclarators(f) => field_groups.push(field_group::build(f)),
-                ClassBodyItem::Class(c) => classes.push(build(c, scope)),
-                ClassBodyItem::Interface(i) => interfaces.push(interface::build(i, scope)),
+                ClassBodyItem::Class(c) => classes.push(class::build(c, scope)),
+                ClassBodyItem::Interface(i) => interfaces.push(build(i, scope)),
                 _ => (),
             };
         }
 
-        Class {
+        Interface {
             import_path: scope.get_import_path(),
-            name: &class.name,
+            name: &interface.name,
             classes,
             interfaces,
-            constructors,
             methods,
             field_groups,
         }
@@ -41,7 +41,9 @@ where
 #[cfg(test)]
 mod tests {
     use analyze::build::apply;
-    use analyze::referenceable::{Class, Constructor, Field, FieldGroup, Method, Package, Root};
+    use analyze::referenceable::{
+        Class, Constructor, Field, FieldGroup, Interface, Method, Package, Root,
+    };
     use test_common::{code, parse, span};
 
     #[test]
@@ -49,8 +51,7 @@ mod tests {
         assert_eq!(
             apply(&parse(&code(
                 r#"
-class Test {
-    Test() {}
+interface Test {
     void method() {}
     int a, b;
     class InnerClass {}
@@ -59,13 +60,13 @@ class Test {
             ))),
             Root {
                 subpackages: vec![],
-                interfaces: vec![],
-                classes: vec![Class {
+                classes: vec![],
+                interfaces: vec![Interface {
                     import_path: "Test".to_owned(),
-                    name: &span(1, 7, "Test"),
+                    name: &span(1, 11, "Test"),
                     classes: vec![Class {
                         import_path: "Test.InnerClass".to_owned(),
-                        name: &span(5, 11, "InnerClass"),
+                        name: &span(4, 11, "InnerClass"),
                         classes: vec![],
                         interfaces: vec![],
                         constructors: vec![],
@@ -73,19 +74,16 @@ class Test {
                         field_groups: vec![]
                     }],
                     interfaces: vec![],
-                    constructors: vec![Constructor {
-                        name: &span(2, 5, "Test")
-                    }],
                     methods: vec![Method {
-                        name: &span(3, 10, "method")
+                        name: &span(2, 10, "method")
                     }],
                     field_groups: vec![FieldGroup {
                         items: vec![
                             Field {
-                                name: &span(4, 9, "a")
+                                name: &span(3, 9, "a")
                             },
                             Field {
-                                name: &span(4, 12, "b")
+                                name: &span(3, 12, "b")
                             },
                         ]
                     }]
