@@ -45,6 +45,7 @@ mod tests {
         Class, Constructor, Field, FieldGroup, Interface, Method, Package, Root,
     };
     use analyze::tpe::{PrimitiveType, Type};
+    use std::cell::RefCell;
     use test_common::{code, parse, span};
 
     #[test]
@@ -80,7 +81,7 @@ interface Test {
                     interfaces: vec![],
                     methods: vec![Method {
                         modifiers: vec![],
-                        return_type: Type::Void,
+                        return_type: RefCell::new(Type::Void),
                         name: &span(2, 10, "method"),
                         type_params: vec![],
                         params: vec![]

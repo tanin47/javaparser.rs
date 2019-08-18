@@ -1,4 +1,4 @@
-use analyze::definition::Class;
+use analyze::definition::{Class, Package};
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use tokenize::span::Span;
@@ -59,6 +59,7 @@ pub struct WildcardType<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct PackagePrefix<'a> {
     pub name: &'a str,
+    pub def: *const Package<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

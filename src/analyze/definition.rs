@@ -1,4 +1,6 @@
+use analyze::resolve::scope::EnclosingType;
 use analyze::tpe::{ClassType, ReferenceType, Type};
+use std::cell::RefCell;
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -8,6 +10,31 @@ pub struct Root<'a> {
     pub interfaces: Vec<Interface<'a>>,
 }
 
+impl<'a> Root<'a> {
+    pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
+        for class in &self.classes {
+            if class.name.fragment == name {
+                return Some(EnclosingType::Class(class));
+            }
+        }
+        for package in &self.subpackages {
+            if package.name.as_str() == name {
+                return Some(EnclosingType::Package(package));
+            }
+        }
+
+        None
+    }
+
+    pub fn find_package(&self, name: &str) -> Option<*const Package<'a>> {
+        match self.find(name) {
+            Some(EnclosingType::Package(package)) => Some(package),
+            Some(EnclosingType::Class(_)) => panic!(),
+            None => None,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Package<'a> {
     pub import_path: String,
@@ -15,6 +42,23 @@ pub struct Package<'a> {
     pub subpackages: Vec<Package<'a>>,
     pub classes: Vec<Class<'a>>,
     pub interfaces: Vec<Interface<'a>>,
+}
+
+impl<'a> Package<'a> {
+    pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
+        for class in &self.classes {
+            if class.name.fragment == name {
+                return Some(EnclosingType::Class(class));
+            }
+        }
+        for package in &self.subpackages {
+            if package.name.as_str() == name {
+                return Some(EnclosingType::Package(package));
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -30,6 +74,18 @@ pub struct Class<'a> {
     pub field_groups: Vec<FieldGroup<'a>>,
     pub classes: Vec<Class<'a>>,
     pub interfaces: Vec<Interface<'a>>,
+}
+
+impl<'a> Class<'a> {
+    pub fn find<'b>(&self, name: &str) -> Option<*const Class<'a>> {
+        for class in &self.classes {
+            if class.name.fragment == name {
+                return Some(class);
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -51,7 +107,7 @@ pub struct Constructor<'a> {
 pub struct Method<'a> {
     pub modifiers: Vec<Modifier>,
     pub type_params: Vec<TypeParam<'a>>,
-    pub return_type: Type<'a>,
+    pub return_type: RefCell<Type<'a>>,
     pub name: &'a Span<'a>,
     pub params: Vec<Param<'a>>,
 }

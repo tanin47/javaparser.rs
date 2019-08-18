@@ -61,7 +61,7 @@ mod tests {
         Class, Constructor, Field, FieldGroup, Method, Package, Root, TypeParam,
     };
     use analyze::tpe::{ClassType, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType};
-    use std::cell::Cell;
+    use std::cell::{Cell, RefCell};
     use test_common::{code, parse, span};
 
     #[test]
@@ -120,7 +120,7 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                     }],
                     methods: vec![Method {
                         modifiers: vec![],
-                        return_type: Type::Void,
+                        return_type: RefCell::new(Type::Void),
                         name: &span(3, 10, "method"),
                         type_params: vec![],
                         params: vec![]

@@ -1,6 +1,7 @@
 use analyze::build::{modifier, param, tpe, type_param};
 use analyze::definition::Method;
 use parse;
+use std::cell::RefCell;
 
 pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
     let mut type_params = vec![];
@@ -17,7 +18,7 @@ pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
     Method {
         modifiers: modifier::build(&method.modifiers),
         type_params,
-        return_type: tpe::build(&method.return_type),
+        return_type: RefCell::new(tpe::build(&method.return_type)),
         name: &method.name,
         params,
     }
@@ -28,7 +29,7 @@ mod tests {
     use analyze::build::apply;
     use analyze::definition::{Class, Method, Modifier, Param, Root, TypeParam};
     use analyze::tpe::{ClassType, Prefix, PrimitiveType, Type};
-    use std::cell::Cell;
+    use std::cell::{Cell, RefCell};
     use test_common::{code, parse, span};
 
     #[test]
@@ -57,7 +58,7 @@ class Test {
                     methods: vec![
                         Method {
                             modifiers: vec![Modifier::Public],
-                            return_type: Type::Void,
+                            return_type: RefCell::new(Type::Void),
                             name: &span(2, 17, "method"),
                             type_params: vec![],
                             params: vec![Param {
@@ -71,7 +72,7 @@ class Test {
                                 name: &span(3, 6, "T"),
                                 extends: vec![]
                             }],
-                            return_type: Type::Primitive(PrimitiveType::Boolean),
+                            return_type: RefCell::new(Type::Primitive(PrimitiveType::Boolean)),
                             name: &span(3, 17, "method2"),
                             params: vec![Param {
                                 tpe: Type::Class(ClassType {
@@ -85,7 +86,7 @@ class Test {
                         },
                         Method {
                             modifiers: vec![],
-                            return_type: Type::Class(ClassType {
+                            return_type: RefCell::new(Type::Class(ClassType {
                                 prefix_opt: Some(Box::new(Prefix::Class(ClassType {
                                     prefix_opt: None,
                                     name: "Parent",
@@ -95,7 +96,7 @@ class Test {
                                 name: "Test",
                                 type_args: vec![],
                                 def_opt: Cell::new(None)
-                            }),
+                            })),
                             name: &span(4, 17, "method3"),
                             type_params: vec![],
                             params: vec![]

@@ -2,7 +2,7 @@ use analyze::tpe::{
     ArrayType, ClassType, Prefix, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType,
 };
 use parse;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 pub fn build<'a>(tpe: &'a parse::tree::Type<'a>) -> Type<'a> {
     match tpe {
