@@ -44,6 +44,7 @@ mod tests {
     use analyze::referenceable::{
         Class, Constructor, Field, FieldGroup, Interface, Method, Package, Root,
     };
+    use analyze::tpe::Type;
     use test_common::{code, parse, span};
 
     #[test]
@@ -75,7 +76,10 @@ interface Test {
                     }],
                     interfaces: vec![],
                     methods: vec![Method {
-                        name: &span(2, 10, "method")
+                        modifiers: vec![],
+                        return_type: Type::Void,
+                        name: &span(2, 10, "method"),
+                        params: vec![]
                     }],
                     field_groups: vec![FieldGroup {
                         items: vec![

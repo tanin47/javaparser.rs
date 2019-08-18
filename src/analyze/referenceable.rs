@@ -1,3 +1,4 @@
+use analyze::tpe::Type;
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -44,7 +45,32 @@ pub struct Constructor<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Method<'a> {
+    pub modifiers: Vec<Modifier>,
+    pub return_type: Type<'a>,
     pub name: &'a Span<'a>,
+    pub params: Vec<Param<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Param<'a> {
+    pub tpe: Type<'a>,
+    pub name: &'a Span<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Modifier {
+    Abstract,
+    Default,
+    Final,
+    Native,
+    Private,
+    Protected,
+    Public,
+    Static,
+    Strictfp,
+    Synchronized,
+    Transient,
+    Volatile,
 }
 
 #[derive(Debug, PartialEq, Clone)]

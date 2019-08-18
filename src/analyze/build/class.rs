@@ -42,6 +42,7 @@ where
 mod tests {
     use analyze::build::apply;
     use analyze::referenceable::{Class, Constructor, Field, FieldGroup, Method, Package, Root};
+    use analyze::tpe::Type;
     use test_common::{code, parse, span};
 
     #[test]
@@ -77,7 +78,10 @@ class Test {
                         name: &span(2, 5, "Test")
                     }],
                     methods: vec![Method {
-                        name: &span(3, 10, "method")
+                        modifiers: vec![],
+                        return_type: Type::Void,
+                        name: &span(3, 10, "method"),
+                        params: vec![]
                     }],
                     field_groups: vec![FieldGroup {
                         items: vec![
