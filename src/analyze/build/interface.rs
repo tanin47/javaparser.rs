@@ -1,6 +1,6 @@
 use analyze::build::scope::Scope;
 use analyze::build::{class, constructor, field_group, method};
-use analyze::referenceable::{Class, Interface};
+use analyze::definition::{Class, Interface};
 use parse;
 use parse::tree::ClassBodyItem;
 
@@ -41,7 +41,7 @@ where
 #[cfg(test)]
 mod tests {
     use analyze::build::apply;
-    use analyze::referenceable::{
+    use analyze::definition::{
         Class, Constructor, Field, FieldGroup, Interface, Method, Package, Root,
     };
     use analyze::tpe::{PrimitiveType, Type};

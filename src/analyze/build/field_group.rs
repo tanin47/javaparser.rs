@@ -1,5 +1,5 @@
 use analyze::build::{field, modifier};
-use analyze::referenceable::FieldGroup;
+use analyze::definition::FieldGroup;
 use parse;
 
 pub fn build<'a>(field_declarators: &'a parse::tree::FieldDeclarators<'a>) -> FieldGroup<'a> {

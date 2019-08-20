@@ -1,6 +1,6 @@
 use analyze::build::scope::Scope;
 use analyze::build::{class, interface, package};
-use analyze::referenceable::{Class, Interface, Package, Root};
+use analyze::definition::{Class, Interface, Package, Root};
 use either::Either;
 use parse;
 use parse::tree::CompilationUnitItem;
@@ -67,7 +67,7 @@ where
 #[cfg(test)]
 mod tests {
     use analyze::build::apply;
-    use analyze::referenceable::{Class, Package, Root};
+    use analyze::definition::{Class, Package, Root};
     use test_common::{code, parse, span};
 
     #[test]
@@ -110,10 +110,10 @@ class Test {}
             Root {
                 subpackages: vec![Package {
                     import_path: "dev".to_owned(),
-                    name: &span(1, 9, "dev"),
+                    name: "dev".to_owned(),
                     subpackages: vec![Package {
                         import_path: "dev.lilit".to_owned(),
-                        name: &span(1, 13, "lilit"),
+                        name: "lilit".to_owned(),
                         subpackages: vec![],
                         classes: vec![Class {
                             import_path: "dev.lilit.Test".to_owned(),

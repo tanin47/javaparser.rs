@@ -1,7 +1,7 @@
 use analyze::build::class;
 use analyze::build::compilation_unit::build_items;
 use analyze::build::scope::Scope;
-use analyze::referenceable::{Class, Package};
+use analyze::definition::{Class, Package};
 use parse;
 use parse::tree::CompilationUnitItem;
 use tokenize::span::Span;
@@ -30,7 +30,7 @@ where
             let (classes, interfaces) = build_items(items, scope);
             Package {
                 import_path: scope.get_import_path(),
-                name: &components[0],
+                name: components[0].fragment.to_owned(),
                 subpackages: vec![],
                 classes,
                 interfaces,
@@ -38,7 +38,7 @@ where
         } else {
             Package {
                 import_path: scope.get_import_path(),
-                name: &components[0],
+                name: components[0].fragment.to_owned(),
                 subpackages: vec![build_nested(&components[1..], items, scope)],
                 classes: vec![],
                 interfaces: vec![],

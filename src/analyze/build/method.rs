@@ -1,5 +1,5 @@
 use analyze::build::{modifier, param, tpe, type_param};
-use analyze::referenceable::Method;
+use analyze::definition::Method;
 use parse;
 
 pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
@@ -26,7 +26,7 @@ pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
 #[cfg(test)]
 mod tests {
     use analyze::build::apply;
-    use analyze::referenceable::{Class, Method, Modifier, Param, Root, TypeParam};
+    use analyze::definition::{Class, Method, Modifier, Param, Root, TypeParam};
     use analyze::tpe::{ClassType, Prefix, PrimitiveType, Type};
     use std::cell::Cell;
     use test_common::{code, parse, span};
