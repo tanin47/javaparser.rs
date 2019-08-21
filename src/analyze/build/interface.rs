@@ -59,7 +59,8 @@ interface Test {
     class InnerClass {}
 }
         "#,
-            ))),
+            )))
+            .0,
             Root {
                 subpackages: vec![],
                 classes: vec![],

@@ -43,7 +43,8 @@ class Test {
     Parent.Test method3() {}
 }
         "#,
-            ))),
+            )))
+            .0,
             Root {
                 subpackages: vec![],
                 interfaces: vec![],

@@ -26,7 +26,8 @@ class Test {
     public int a, b[];
 }
         "#,
-            ))),
+            )))
+            .0,
             Root {
                 subpackages: vec![],
                 interfaces: vec![],

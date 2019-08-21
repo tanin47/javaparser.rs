@@ -76,7 +76,8 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
     class InnerClass {}
 }
         "#,
-            ))),
+            )))
+            .0,
             Root {
                 subpackages: vec![],
                 interfaces: vec![],

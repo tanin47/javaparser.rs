@@ -36,6 +36,25 @@ impl<'a> Root<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct CompilationUnit<'a> {
+    pub imports: Vec<Import>,
+    pub package_opt: Option<PackageDecl>,
+    pub classes: Vec<*const Class<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Import {
+    pub components: Vec<String>,
+    pub is_wildcard: bool,
+    pub is_static: bool,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct PackageDecl {
+    pub components: Vec<String>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Package<'a> {
     pub import_path: String,
     pub name: String,

@@ -1,11 +1,11 @@
 use analyze::build::scope::Scope;
 use analyze::build::{class, interface, package};
-use analyze::definition::{Class, Interface, Package, Root};
+use analyze::definition::{Class, CompilationUnit, Import, Interface, Package, PackageDecl, Root};
 use either::Either;
 use parse;
 use parse::tree::CompilationUnitItem;
 
-pub fn build<'a>(unit: &'a parse::tree::CompilationUnit<'a>) -> Root<'a> {
+pub fn build<'a>(unit: &'a parse::tree::CompilationUnit<'a>) -> (Root<'a>, CompilationUnit<'a>) {
     let mut scope = Scope { paths: vec![] };
 
     let (subpackages, (classes, interfaces)) = match &unit.package_opt {
@@ -15,11 +15,78 @@ pub fn build<'a>(unit: &'a parse::tree::CompilationUnit<'a>) -> Root<'a> {
         ),
         None => (vec![], build_items(&unit.items, &mut scope)),
     };
-    Root {
+
+    let root = Root {
         subpackages,
         classes,
         interfaces,
+    };
+    let unit = CompilationUnit {
+        imports: build_imports(&unit.imports),
+        package_opt: match &unit.package_opt {
+            Some(p) => Some(build_package(p)),
+            None => None,
+        },
+        classes: collect_classes(&root),
+    };
+
+    (root, unit)
+}
+
+fn collect_classes<'def, 'b>(root: &'b Root<'def>) -> Vec<*const Class<'def>> {
+    let mut class_pointers = vec![];
+    for c in &root.classes {
+        class_pointers.push(c as *const Class<'def>);
     }
+
+    for package in &root.subpackages {
+        collect_classes_from_package(package, &mut class_pointers);
+    }
+
+    class_pointers
+}
+
+fn collect_classes_from_package<'def, 'r, 'vec>(
+    package: &'r Package<'def>,
+    class_pointers: &'vec mut Vec<*const Class<'def>>,
+) {
+    for subpackage in &package.subpackages {
+        collect_classes_from_package(subpackage, class_pointers);
+    }
+
+    for class in &package.classes {
+        class_pointers.push(class as *const Class<'def>);
+    }
+}
+
+fn build_package(package: &parse::tree::Package) -> PackageDecl {
+    let mut components = vec![];
+
+    for c in &package.components {
+        components.push(c.fragment.to_owned());
+    }
+
+    PackageDecl { components }
+}
+
+fn build_imports(imports: &Vec<parse::tree::Import>) -> Vec<Import> {
+    let mut new_imports = vec![];
+
+    for import in imports {
+        let mut components = vec![];
+
+        for c in &import.components {
+            components.push(c.fragment.to_owned())
+        }
+
+        new_imports.push(Import {
+            components,
+            is_wildcard: import.is_wildcard,
+            is_static: import.is_static,
+        })
+    }
+
+    new_imports
 }
 
 pub fn build_items<'a, 'b>(
@@ -77,7 +144,8 @@ mod tests {
                 r#"
 class Test {}
         "#,
-            ))),
+            )))
+            .0,
             Root {
                 subpackages: vec![],
                 interfaces: vec![],
@@ -106,7 +174,8 @@ package dev.lilit;
 
 class Test {}
         "#,
-            ))),
+            )))
+            .0,
             Root {
                 subpackages: vec![Package {
                     import_path: "dev".to_owned(),
