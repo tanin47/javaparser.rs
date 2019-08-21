@@ -1,6 +1,5 @@
-use analyze::build::class;
-use analyze::build::compilation_unit::build_items;
 use analyze::build::scope::Scope;
+use analyze::build::{class, compilation_unit};
 use analyze::definition::{Class, Package};
 use parse;
 use parse::tree::CompilationUnitItem;
@@ -8,18 +7,18 @@ use tokenize::span::Span;
 
 pub fn build<'a, 'b>(
     package: &'a parse::tree::Package<'a>,
-    items: &'a [CompilationUnitItem<'a>],
+    unit: &'a parse::tree::CompilationUnit<'a>,
     scope: &'b mut Scope,
 ) -> Package<'a>
 where
     'a: 'b,
 {
-    build_nested(&package.components, items, scope)
+    build_nested(&package.components, unit, scope)
 }
 
 fn build_nested<'a, 'b>(
     components: &'a [Span],
-    items: &'a [CompilationUnitItem<'a>],
+    unit: &'a parse::tree::CompilationUnit<'a>,
     scope: &'b mut Scope,
 ) -> Package<'a>
 where
@@ -27,21 +26,19 @@ where
 {
     scope.wrap(components[0].fragment, |scope| {
         if components.len() == 1 {
-            let (classes, interfaces) = build_items(items, scope);
+            let unit = compilation_unit::build_unit(unit, scope);
             Package {
                 import_path: scope.get_import_path(),
                 name: components[0].fragment.to_owned(),
                 subpackages: vec![],
-                classes,
-                interfaces,
+                units: vec![unit],
             }
         } else {
             Package {
                 import_path: scope.get_import_path(),
                 name: components[0].fragment.to_owned(),
-                subpackages: vec![build_nested(&components[1..], items, scope)],
-                classes: vec![],
-                interfaces: vec![],
+                subpackages: vec![build_nested(&components[1..], unit, scope)],
+                units: vec![],
             }
         }
     })

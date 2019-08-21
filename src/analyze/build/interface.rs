@@ -38,64 +38,64 @@ where
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use analyze::build::apply;
-    use analyze::definition::{
-        Class, Constructor, Field, FieldGroup, Interface, Method, Package, Root,
-    };
-    use analyze::tpe::{PrimitiveType, Type};
-    use std::cell::RefCell;
-    use test_common::{code, parse, span};
-
-    #[test]
-    fn test() {
-        assert_eq!(
-            apply(&parse(&code(
-                r#"
-interface Test {
-    void method() {}
-    int a;
-    class InnerClass {}
-}
-        "#,
-            )))
-            .0,
-            Root {
-                subpackages: vec![],
-                classes: vec![],
-                interfaces: vec![Interface {
-                    import_path: "Test".to_owned(),
-                    name: &span(1, 11, "Test"),
-                    classes: vec![Class {
-                        import_path: "Test.InnerClass".to_owned(),
-                        name: &span(4, 11, "InnerClass"),
-                        type_params: vec![],
-                        extend_opt: None,
-                        classes: vec![],
-                        interfaces: vec![],
-                        constructors: vec![],
-                        methods: vec![],
-                        field_groups: vec![],
-                        implements: vec![]
-                    }],
-                    interfaces: vec![],
-                    methods: vec![Method {
-                        modifiers: vec![],
-                        return_type: RefCell::new(Type::Void),
-                        name: &span(2, 10, "method"),
-                        type_params: vec![],
-                        params: vec![]
-                    }],
-                    field_groups: vec![FieldGroup {
-                        modifiers: vec![],
-                        items: vec![Field {
-                            tpe: Type::Primitive(PrimitiveType::Int),
-                            name: &span(3, 9, "a")
-                        },]
-                    }]
-                }],
-            }
-        )
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use analyze::build::apply;
+//    use analyze::definition::{
+//        Class, Constructor, Field, FieldGroup, Interface, Method, Package, Root,
+//    };
+//    use analyze::tpe::{PrimitiveType, Type};
+//    use std::cell::RefCell;
+//    use test_common::{code, parse, span};
+//
+//    #[test]
+//    fn test() {
+//        assert_eq!(
+//            apply(&parse(&code(
+//                r#"
+//interface Test {
+//    void method() {}
+//    int a;
+//    class InnerClass {}
+//}
+//        "#,
+//            )))
+//            .0,
+//            Root {
+//                subpackages: vec![],
+//                classes: vec![],
+//                interfaces: vec![Interface {
+//                    import_path: "Test".to_owned(),
+//                    name: &span(1, 11, "Test"),
+//                    classes: vec![Class {
+//                        import_path: "Test.InnerClass".to_owned(),
+//                        name: &span(4, 11, "InnerClass"),
+//                        type_params: vec![],
+//                        extend_opt: None,
+//                        classes: vec![],
+//                        interfaces: vec![],
+//                        constructors: vec![],
+//                        methods: vec![],
+//                        field_groups: vec![],
+//                        implements: vec![]
+//                    }],
+//                    interfaces: vec![],
+//                    methods: vec![Method {
+//                        modifiers: vec![],
+//                        return_type: RefCell::new(Type::Void),
+//                        name: &span(2, 10, "method"),
+//                        type_params: vec![],
+//                        params: vec![]
+//                    }],
+//                    field_groups: vec![FieldGroup {
+//                        modifiers: vec![],
+//                        items: vec![Field {
+//                            tpe: Type::Primitive(PrimitiveType::Int),
+//                            name: &span(3, 9, "a")
+//                        },]
+//                    }]
+//                }],
+//            }
+//        )
+//    }
+//}

@@ -11,21 +11,25 @@ where
     pub wildcard_imports: Vec<WildcardImport<'def>>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct SpecificImport<'def> {
     pub class: *const Class<'def>,
     pub is_static: bool,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct WildcardImport<'def> {
     pub enclosing: EnclosingType<'def>,
     pub is_static: bool,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum Level<'def> {
     EnclosingType(EnclosingType<'def>),
     Local,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum EnclosingType<'def> {
     Package(*const Package<'def>),
     Class(*const Class<'def>),
@@ -50,15 +54,9 @@ impl<'def> EnclosingType<'def> {
 }
 
 impl<'def, 'r> Scope<'def, 'r> {
-    pub fn enter_package(&mut self, name: &str) {
-        let package = self.resolve_package(name).unwrap();
-        self.levels
-            .push(Level::EnclosingType(EnclosingType::Package(package)));
-    }
-
     pub fn add_import(&mut self, import: &analyze::definition::Import) {
         let mut imported: EnclosingType = if let Some(first) = import.components.first() {
-            self.resolve_type_at_root(first.as_str()).unwrap()
+            self.root.find(first.as_str()).unwrap()
         } else {
             return;
         };
@@ -90,6 +88,16 @@ impl<'def, 'r> Scope<'def, 'r> {
         };
     }
 
+    pub fn wrap_package<F>(&mut self, package: &'r Package<'def>, func: F)
+    where
+        F: Fn(&mut Scope<'def, 'r>) -> (),
+    {
+        self.levels
+            .push(Level::EnclosingType(EnclosingType::Package(package)));
+        func(self);
+        self.levels.pop();
+    }
+
     pub fn wrap_class<F>(&mut self, class: &'r Class<'def>, func: F)
     where
         F: Fn(&mut Scope<'def, 'r>) -> (),
@@ -110,11 +118,7 @@ impl<'def, 'r> Scope<'def, 'r> {
     }
 
     pub fn resolve_package(&self, name: &str) -> Option<*const Package<'def>> {
-        if let Some(EnclosingType::Package(package)) = self.resolve_type_at_root(name) {
-            return Some(package);
-        }
-
-        None
+        self.root.find_package(name)
     }
 
     pub fn resolve_type(&self, name: &str) -> Option<EnclosingType<'def>> {
@@ -137,13 +141,24 @@ impl<'def, 'r> Scope<'def, 'r> {
             };
         }
 
+        if let Some(result) = self.resolve_type_with_specific_import(name) {
+            return Some(result);
+        }
+
+        self.root.find(name)
+    }
+
+    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
+        println!("{:#?}", self.specific_imports);
         for import in &self.specific_imports {
+            println!("{:#?}", name);
+            println!("{:#?}", unsafe { (*import.class).name.fragment });
             if unsafe { (*import.class).name.fragment } == name {
                 return Some(EnclosingType::Class(import.class));
             }
         }
 
-        self.resolve_type_at_root(name)
+        None
     }
 
     pub fn resolve_type_at(
@@ -153,15 +168,8 @@ impl<'def, 'r> Scope<'def, 'r> {
     ) -> Option<EnclosingType<'def>> {
         match current {
             EnclosingType::Package(package) => {
-                for class in unsafe { &(**package).classes } {
-                    if class.name.fragment == name {
-                        return Some(EnclosingType::Class(class));
-                    }
-                }
-                for package in unsafe { &(**package).subpackages } {
-                    if package.name.as_str() == name {
-                        return Some(EnclosingType::Package(package));
-                    }
+                if let Some(found) = unsafe { &(**package) }.find(name) {
+                    return Some(found);
                 }
             }
             EnclosingType::Class(class) => {
@@ -172,21 +180,6 @@ impl<'def, 'r> Scope<'def, 'r> {
                 }
             }
         };
-
-        None
-    }
-
-    pub fn resolve_type_at_root(&self, name: &str) -> Option<EnclosingType<'def>> {
-        for class in &self.root.classes {
-            if class.name.fragment == name {
-                return Some(EnclosingType::Class(class));
-            }
-        }
-        for package in &self.root.subpackages {
-            if package.name.as_str() == name {
-                return Some(EnclosingType::Package(package));
-            }
-        }
 
         None
     }

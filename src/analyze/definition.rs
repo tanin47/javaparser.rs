@@ -6,14 +6,13 @@ use tokenize::span::Span;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Root<'a> {
     pub subpackages: Vec<Package<'a>>,
-    pub classes: Vec<Class<'a>>,
-    pub interfaces: Vec<Interface<'a>>,
+    pub units: Vec<CompilationUnit<'a>>,
 }
 
 impl<'a> Root<'a> {
     pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
-        for class in &self.classes {
-            if class.name.fragment == name {
+        for unit in &self.units {
+            if let Some(class) = unit.find(name) {
                 return Some(EnclosingType::Class(class));
             }
         }
@@ -38,8 +37,29 @@ impl<'a> Root<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct CompilationUnit<'a> {
     pub imports: Vec<Import>,
-    pub package_opt: Option<PackageDecl>,
-    pub classes: Vec<*const Class<'a>>,
+    pub main: Decl<'a>,
+    pub others: Vec<Decl<'a>>,
+}
+
+impl<'a> CompilationUnit<'a> {
+    pub fn find(&self, name: &str) -> Option<*const Class<'a>> {
+        match &self.main {
+            Decl::Class(class) => {
+                if class.name.fragment == name {
+                    return Some(class as *const Class<'a>);
+                }
+            }
+            _ => (),
+        }
+
+        None
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Decl<'a> {
+    Class(Class<'a>),
+    Interface(Interface<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -59,14 +79,13 @@ pub struct Package<'a> {
     pub import_path: String,
     pub name: String,
     pub subpackages: Vec<Package<'a>>,
-    pub classes: Vec<Class<'a>>,
-    pub interfaces: Vec<Interface<'a>>,
+    pub units: Vec<CompilationUnit<'a>>,
 }
 
 impl<'a> Package<'a> {
     pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
-        for class in &self.classes {
-            if class.name.fragment == name {
+        for unit in &self.units {
+            if let Some(class) = unit.find(name) {
                 return Some(EnclosingType::Class(class));
             }
         }
