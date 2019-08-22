@@ -8,5 +8,6 @@ walkdir = "2"
 
 [dependencies]
 either = "1.5.2"
+num_cpus = "1.0"
 
 

@@ -3,6 +3,7 @@ use analyze::build::{constructor, field_group, interface, method, tpe, type_para
 use analyze::definition::Class;
 use parse;
 use parse::tree::ClassBodyItem;
+use std::cell::RefCell;
 
 pub fn build<'a, 'b>(class: &'a parse::tree::Class<'a>, scope: &'b mut Scope) -> Class<'a>
 where
@@ -40,10 +41,10 @@ where
             import_path: scope.get_import_path(),
             name: &class.name,
             type_params,
-            extend_opt: match &class.extend_opt {
+            extend_opt: RefCell::new(match &class.extend_opt {
                 Some(extend) => Some(tpe::build_class(extend)),
                 None => None,
-            },
+            }),
             classes,
             interfaces,
             constructors,

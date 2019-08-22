@@ -1,6 +1,7 @@
 use analyze;
 use analyze::definition::{Class, Package, Root};
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'def, 'r>
 where
     'def: 'r,
@@ -88,29 +89,23 @@ impl<'def, 'r> Scope<'def, 'r> {
         };
     }
 
-    pub fn wrap_package<F>(&mut self, package: &'r Package<'def>, func: F)
-    where
-        F: Fn(&mut Scope<'def, 'r>) -> (),
-    {
+    pub fn enter_package(&mut self, package: &'r Package<'def>) {
         self.levels
             .push(Level::EnclosingType(EnclosingType::Package(package)));
-        func(self);
+    }
+
+    pub fn leave(&mut self) {
         self.levels.pop();
     }
 
-    pub fn wrap_class<F>(&mut self, class: &'r Class<'def>, func: F)
-    where
-        F: Fn(&mut Scope<'def, 'r>) -> (),
-    {
+    pub fn enter_class<F>(&mut self, class: &'r Class<'def>, mut func: F) {
         self.levels
             .push(Level::EnclosingType(EnclosingType::Class(class)));
-        func(self);
-        self.levels.pop();
     }
 
-    pub fn wrap_local<F>(&mut self, func: F)
+    pub fn wrap_local<F>(&mut self, mut func: F)
     where
-        F: Fn(&mut Scope<'def, 'r>) -> (),
+        F: FnMut(&mut Scope<'def, 'r>) -> (),
     {
         self.levels.push(Level::Local);
         func(self);
@@ -149,10 +144,7 @@ impl<'def, 'r> Scope<'def, 'r> {
     }
 
     pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
-        println!("{:#?}", self.specific_imports);
         for import in &self.specific_imports {
-            println!("{:#?}", name);
-            println!("{:#?}", unsafe { (*import.class).name.fragment });
             if unsafe { (*import.class).name.fragment } == name {
                 return Some(EnclosingType::Class(import.class));
             }

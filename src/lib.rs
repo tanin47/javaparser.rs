@@ -3,6 +3,7 @@
 
 extern crate core;
 extern crate either;
+extern crate num_cpus;
 extern crate proc_macro;
 
 pub mod analyze;

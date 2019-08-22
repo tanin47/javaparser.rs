@@ -105,7 +105,7 @@ pub struct Class<'a> {
     pub name: &'a Span<'a>,
     // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'a>>,
-    pub extend_opt: Option<ClassType<'a>>,
+    pub extend_opt: RefCell<Option<ClassType<'a>>>,
     pub implements: Vec<ClassType<'a>>,
     pub constructors: Vec<Constructor<'a>>,
     pub methods: Vec<Method<'a>>,
