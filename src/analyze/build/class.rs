@@ -1,6 +1,6 @@
 use analyze::build::scope::Scope;
 use analyze::build::{constructor, field_group, interface, method, tpe, type_param};
-use analyze::definition::Class;
+use analyze::definition::{Class, Decl};
 use parse;
 use parse::tree::ClassBodyItem;
 use std::cell::RefCell;
@@ -11,8 +11,7 @@ where
 {
     scope.wrap(class.name.fragment, |scope| {
         let mut constructors = vec![];
-        let mut classes = vec![];
-        let mut interfaces = vec![];
+        let mut decls = vec![];
         let mut methods = vec![];
         let mut field_groups = vec![];
         let mut type_params = vec![];
@@ -23,8 +22,10 @@ where
                 ClassBodyItem::Constructor(c) => constructors.push(constructor::build(c)),
                 ClassBodyItem::Method(m) => methods.push(method::build(m)),
                 ClassBodyItem::FieldDeclarators(f) => field_groups.push(field_group::build(f)),
-                ClassBodyItem::Class(c) => classes.push(build(c, scope)),
-                ClassBodyItem::Interface(i) => interfaces.push(interface::build(i, scope)),
+                ClassBodyItem::Class(c) => decls.push(Decl::Class(build(c, scope))),
+                ClassBodyItem::Interface(i) => {
+                    decls.push(Decl::Interface(interface::build(i, scope)))
+                }
                 _ => (),
             };
         }
@@ -45,8 +46,7 @@ where
                 Some(extend) => Some(tpe::build_class(extend)),
                 None => None,
             }),
-            classes,
-            interfaces,
+            decls,
             constructors,
             methods,
             field_groups,

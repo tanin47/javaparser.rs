@@ -110,15 +110,16 @@ pub struct Class<'a> {
     pub constructors: Vec<Constructor<'a>>,
     pub methods: Vec<Method<'a>>,
     pub field_groups: Vec<FieldGroup<'a>>,
-    pub classes: Vec<Class<'a>>,
-    pub interfaces: Vec<Interface<'a>>,
+    pub decls: Vec<Decl<'a>>,
 }
 
 impl<'a> Class<'a> {
     pub fn find<'b>(&self, name: &str) -> Option<*const Class<'a>> {
-        for class in &self.classes {
-            if class.name.fragment == name {
-                return Some(class);
+        for decl in &self.decls {
+            if let Decl::Class(class) = decl {
+                if class.name.fragment == name {
+                    return Some(class);
+                }
             }
         }
 
@@ -132,8 +133,7 @@ pub struct Interface<'a> {
     pub name: &'a Span<'a>,
     pub methods: Vec<Method<'a>>,
     pub field_groups: Vec<FieldGroup<'a>>,
-    pub classes: Vec<Class<'a>>,
-    pub interfaces: Vec<Interface<'a>>,
+    pub decls: Vec<Decl<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

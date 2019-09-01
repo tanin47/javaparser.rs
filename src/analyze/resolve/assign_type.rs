@@ -6,12 +6,17 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::ops::Deref;
-use std::sync::atomic::AtomicU32;
 
 pub fn apply(root: &mut Root) {
     println!("Build a graph");
     let mut grapher = Grapher::new(&root);
     grapher.collect();
+
+    // We can have a sync queue.
+    // We have multiple workers that pops the queue and add nodes to the queue.
+    // Multiple workers run on their own separate threads.
+
+    // It ends when all the workers finish and the queue is empty.
 
     //    println!("Use {} cores", num_cpus::get());
     //    for package in &root.subpackages {
@@ -66,11 +71,11 @@ fn apply_class<'def, 'def_ref, 'scope_ref>(
     class: &'def_ref Class<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
-    scope.wrap_class(class, |scope| {
-        for method in &class.methods {
-            apply_method(method, scope);
-        }
-    });
+    scope.enter_class(class);
+    for method in &class.methods {
+        apply_method(method, scope);
+    }
+    scope.leave();
 }
 
 fn apply_method<'def, 'def_ref, 'scope_ref>(

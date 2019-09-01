@@ -1,5 +1,5 @@
 use analyze;
-use analyze::definition::{Class, Package, Root};
+use analyze::definition::{Class, Decl, Package, Root};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'def, 'r>
@@ -98,7 +98,7 @@ impl<'def, 'r> Scope<'def, 'r> {
         self.levels.pop();
     }
 
-    pub fn enter_class<F>(&mut self, class: &'r Class<'def>, mut func: F) {
+    pub fn enter_class(&mut self, class: &'r Class<'def>) {
         self.levels
             .push(Level::EnclosingType(EnclosingType::Class(class)));
     }
@@ -165,9 +165,11 @@ impl<'def, 'r> Scope<'def, 'r> {
                 }
             }
             EnclosingType::Class(class) => {
-                for subclass in unsafe { &(**class).classes } {
-                    if subclass.name.fragment == name {
-                        return Some(EnclosingType::Class(subclass));
+                for decl in unsafe { &(**class).decls } {
+                    if let Decl::Class(subclass) = decl {
+                        if subclass.name.fragment == name {
+                            return Some(EnclosingType::Class(subclass));
+                        }
                     }
                 }
             }

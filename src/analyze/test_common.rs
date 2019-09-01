@@ -13,7 +13,6 @@ pub fn mock_class<'a>(name: &'a Span<'a>) -> Class<'a> {
         constructors: vec![],
         methods: vec![],
         field_groups: vec![],
-        classes: vec![],
-        interfaces: vec![],
+        decls: vec![],
     }
 }

@@ -8,7 +8,9 @@ use std::marker::PhantomData;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node<'def> {
     pub class: *const Class<'def>,
-    pub dependents: Vec<*const Class<'def>>,
+    pub dependents: HashSet<*const Class<'def>>,
+    pub dependencies: HashSet<*const Class<'def>>,
+    pub fulfilled: HashSet<*const Class<'def>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -33,6 +35,13 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
                 wildcard_imports: vec![],
             },
             root,
+        }
+    }
+
+    pub fn get(&self, class: *const Class<'def>) -> Option<&Node<'def>> {
+        match self.map.get(&class) {
+            Some(&index) => Some(self.nodes.get(index).unwrap()),
+            None => None,
         }
     }
 
@@ -62,21 +71,29 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             self.scope.add_import(import)
         }
 
-        self.collect_decl(&unit.main);
+        self.collect_decl(&unit.main, None);
 
         for other in &unit.others {
-            self.collect_decl(other);
+            self.collect_decl(other, None);
         }
     }
 
-    pub fn collect_decl<'scope_ref>(&mut self, decl: &'def_ref Decl<'def>) {
+    pub fn collect_decl<'scope_ref, 'node_ref>(
+        &mut self,
+        decl: &'def_ref Decl<'def>,
+        parent_node_opt: Option<*mut Node<'def>>,
+    ) {
         match decl {
-            Decl::Class(class) => self.collect_class(class),
+            Decl::Class(class) => self.collect_class(class, parent_node_opt),
             _ => (),
         };
     }
 
-    pub fn collect_class<'scope_ref>(&mut self, class: &'def_ref Class<'def>) {
+    pub fn collect_class<'scope_ref, 'node_ref>(
+        &mut self,
+        class: &'def_ref Class<'def>,
+        parent_node_opt: Option<*mut Node<'def>>,
+    ) {
         let extend_node_opt = {
             let resolved_opt = match class.extend_opt.borrow().as_ref() {
                 Some(extend) => assign_type::resolve_class_type(extend, &self.scope),
@@ -90,28 +107,44 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             }
         };
 
-        let node = match self.map.get(&(class as *const Class<'def>)) {
-            Some(index) => self.nodes.get(*index).unwrap(),
+        let node_ptr = match self.map.get(&(class as *const Class<'def>)) {
+            Some(index) => self.nodes.get_mut(*index).unwrap() as *mut Node<'def>,
             None => {
                 let node = Node {
                     class: class as *const Class<'def>,
-                    dependents: vec![],
+                    dependents: HashSet::new(),
+                    dependencies: HashSet::new(),
+                    fulfilled: HashSet::new(),
                 };
-                self.insert_node(node)
+                self.insert_node(node, parent_node_opt.is_some()) as *mut Node<'def>
             }
         };
+        for decl in &class.decls {
+            self.collect_decl(decl, Some(node_ptr));
+        }
 
+        let node = unsafe { &mut (*node_ptr) };
         if let Some(extend_node) = extend_node_opt {
             let extend_node = unsafe { &mut (*extend_node) };
+            node.dependencies
+                .insert(extend_node.class as *const Class<'def>);
             extend_node
                 .dependents
-                .push(node.class as *const Class<'def>);
-            self.update_pool(extend_node);
+                .insert(node.class as *const Class<'def>);
+        }
+
+        if let Some(parent_node) = parent_node_opt {
+            let parent_node = unsafe { &mut (*parent_node) };
+            node.dependencies
+                .insert(parent_node.class as *const Class<'def>);
+            parent_node
+                .dependents
+                .insert(node.class as *const Class<'def>);
         }
     }
 
-    fn insert_node(&mut self, node: Node<'def>) -> &mut Node<'def> {
-        self.update_pool(&node);
+    fn insert_node(&mut self, node: Node<'def>, has_outer: bool) -> &mut Node<'def> {
+        self.update_pool(&node, has_outer);
         let key = node.class;
         let index = self.nodes.len();
         self.nodes.push(node);
@@ -119,8 +152,14 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
         self.nodes.get_mut(index).unwrap()
     }
 
-    fn update_pool(&mut self, node: &Node<'def>) {
-        if node.dependents.is_empty() {
+    fn update_pool(&mut self, node: &Node<'def>, has_outer: bool) {
+        let has_super_class = unsafe { &(*node.class) }
+            .extend_opt
+            .borrow()
+            .as_ref()
+            .is_some();
+
+        if !has_super_class && !has_outer {
             self.pool.insert(node.class);
         } else {
             self.pool.remove(&node.class);
@@ -139,17 +178,19 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             };
 
         if let Some(class) = class_type.def_opt.get() {
-            if let Some(index) = self.map.get(&(class as *const Class<'def>)) {
-                return Some(self.nodes.get_mut(*index).unwrap() as *mut Node<'def>);
+            if let Some(&index) = self.map.get(&(class as *const Class<'def>)) {
+                return Some(self.nodes.get_mut(index).unwrap() as *mut Node<'def>);
             }
         }
 
         resolved.def_opt.get().map(|class| {
             let node = Node {
                 class,
-                dependents: vec![],
+                dependents: HashSet::new(),
+                dependencies: HashSet::new(),
+                fulfilled: HashSet::new(),
             };
-            self.insert_node(node) as *mut Node<'def>
+            self.insert_node(node, false) as *mut Node<'def>
         })
     }
 }
@@ -162,6 +203,8 @@ mod tests {
     use analyze::resolve::merge;
     use analyze::tpe::{ClassType, PackagePrefix, Prefix, Type};
     use std::cell::{Cell, RefCell};
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
     use test_common::{code, parse, span};
 
     #[test]
@@ -175,7 +218,9 @@ class Test3 extends Test2 {}
         let raw2 = r#"
 package dev;
 
-class Test {}
+class Test {
+  class Inner {}
+}
         "#
         .to_owned();
         let raw3 = r#"
@@ -199,6 +244,37 @@ class Test2 extends Test {}
         let mut grapher = Grapher::new(&root);
         grapher.collect();
 
-        println!("{:#?}", grapher);
+        let test = root.find("dev").unwrap().find_class("Test").unwrap();
+        let inner = root
+            .find("dev")
+            .unwrap()
+            .find("Test")
+            .unwrap()
+            .find_class("Inner")
+            .unwrap();
+        let test2 = root.find("dev").unwrap().find_class("Test2").unwrap();
+        let test3 = root.find("dev").unwrap().find_class("Test3").unwrap();
+        assert_eq!(grapher.pool, HashSet::from_iter(vec![test]));
+        assert_eq!(
+            grapher.get(test).unwrap().dependents,
+            HashSet::from_iter(vec![test2, inner])
+        );
+        assert_eq!(
+            grapher.get(test2).unwrap().dependents,
+            HashSet::from_iter(vec![test3])
+        );
+
+        assert_eq!(
+            grapher.get(inner).unwrap().dependencies,
+            HashSet::from_iter(vec![test])
+        );
+        assert_eq!(
+            grapher.get(test2).unwrap().dependencies,
+            HashSet::from_iter(vec![test])
+        );
+        assert_eq!(
+            grapher.get(test3).unwrap().dependencies,
+            HashSet::from_iter(vec![test2])
+        );
     }
 }

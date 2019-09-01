@@ -1,6 +1,6 @@
 use analyze::build::scope::Scope;
 use analyze::build::{class, constructor, field_group, method};
-use analyze::definition::{Class, Interface};
+use analyze::definition::{Class, Decl, Interface};
 use parse;
 use parse::tree::ClassBodyItem;
 
@@ -12,8 +12,7 @@ where
     'a: 'b,
 {
     scope.wrap(interface.name.fragment, |scope| {
-        let mut classes = vec![];
-        let mut interfaces = vec![];
+        let mut decls = vec![];
         let mut methods = vec![];
         let mut field_groups = vec![];
 
@@ -21,8 +20,8 @@ where
             match item {
                 ClassBodyItem::Method(m) => methods.push(method::build(m)),
                 ClassBodyItem::FieldDeclarators(f) => field_groups.push(field_group::build(f)),
-                ClassBodyItem::Class(c) => classes.push(class::build(c, scope)),
-                ClassBodyItem::Interface(i) => interfaces.push(build(i, scope)),
+                ClassBodyItem::Class(c) => decls.push(Decl::Class(class::build(c, scope))),
+                ClassBodyItem::Interface(i) => decls.push(Decl::Interface(build(i, scope))),
                 _ => (),
             };
         }
@@ -30,8 +29,7 @@ where
         Interface {
             import_path: scope.get_import_path(),
             name: &interface.name,
-            classes,
-            interfaces,
+            decls,
             methods,
             field_groups,
         }
