@@ -112,6 +112,8 @@ pub struct Class<'a> {
     pub field_groups: Vec<FieldGroup<'a>>,
     pub decls: Vec<Decl<'a>>,
 }
+unsafe impl<'a> Sync for Class<'a> {}
+unsafe impl<'a> Send for Class<'a> {}
 
 impl<'a> Class<'a> {
     pub fn find<'b>(&self, name: &str) -> Option<*const Class<'a>> {
@@ -149,6 +151,7 @@ pub struct Method<'a> {
     pub name: &'a Span<'a>,
     pub params: Vec<Param<'a>>,
 }
+unsafe impl<'a> Sync for Method<'a> {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Param<'a> {
@@ -189,3 +192,4 @@ pub struct Field<'a> {
     pub tpe: Type<'a>,
     pub name: &'a Span<'a>,
 }
+unsafe impl<'a> Sync for Field<'a> {}

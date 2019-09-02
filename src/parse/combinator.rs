@@ -178,7 +178,7 @@ pub fn keyword<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a
 
         if let Token::Keyword(span) = &input[0] {
             if span.fragment == s {
-                return Ok((&input[1..], *span));;
+                return Ok((&input[1..], *span));
             }
         }
 

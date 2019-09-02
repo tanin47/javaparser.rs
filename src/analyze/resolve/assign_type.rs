@@ -1,16 +1,60 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Method, Package, Root};
-use analyze::resolve::grapher::Grapher;
+use analyze::resolve::grapher::{Grapher, Node};
 use analyze::resolve::scope::{EnclosingType, Scope};
 use analyze::tpe::{ClassType, PackagePrefix, Prefix, Type};
+use crossbeam_queue::SegQueue;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
-use std::ops::Deref;
+use std::ops::{Add, Deref};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 pub fn apply(root: &mut Root) {
-    println!("Build a graph");
-    let mut grapher = Grapher::new(&root);
+    let mut grapher = Grapher::new(root);
     grapher.collect();
+
+    let queue = SegQueue::new();
+
+    for &node_index in grapher.pool.iter() {
+        queue.push(grapher.nodes.get(node_index).unwrap());
+    }
+
+    let mut threads = vec![];
+
+    let finished = Mutex::new(0);
+
+    for i in 0..(num_cpus::get() - 1) {
+        let builder = thread::Builder::new();
+        threads.push(
+            unsafe {
+                builder.spawn_unchecked(|| {
+                    println!("Worker spawned.");
+                    loop {
+                        if *finished.lock().unwrap().deref() == grapher.nodes.len() {
+                            break;
+                        }
+                        match queue.pop() {
+                            Ok(node) => {
+                                work(node, &grapher, &queue);
+                                let mut counter = finished.lock().unwrap();
+                                *counter += 1;
+                            }
+                            Err(_) => thread::sleep(Duration::from_millis(10)),
+                        };
+                    }
+
+                    println!("Worker finished.");
+                })
+            }
+            .unwrap(),
+        )
+    }
+
+    for thread in threads {
+        thread.join();
+    }
 
     // We can have a sync queue.
     // We have multiple workers that pops the queue and add nodes to the queue.
@@ -26,6 +70,33 @@ pub fn apply(root: &mut Root) {
     //    for unit in &root.units {
     //        apply_unit(unit, &mut scope);
     //    }
+}
+
+fn work<'def, 'queue_ref, 'grapher_ref, 'def_ref>(
+    node: &'grapher_ref Node<'def>,
+    grapher: &'grapher_ref Grapher<'def, 'def_ref>,
+    queue: &'queue_ref SegQueue<&'grapher_ref Node<'def>>,
+) {
+    println!("Work {:?}", unsafe { &(*node.class) }.name);
+    thread::sleep(Duration::from_millis(1000));
+
+    println!("Dependent count: {}", node.dependents.len());
+    for &dependent_index in &node.dependents {
+        let dependent = grapher.nodes.get(dependent_index).unwrap();
+        println!("Dependent {:?}", unsafe { &(*dependent.class) }.name);
+
+        let mut fulfilled = dependent.fulfilled.lock().unwrap();
+        fulfilled.insert(dependent_index);
+
+        if fulfilled.len() == dependent.dependencies.len() {
+            println!(
+                "Add {:?} to {:?}",
+                unsafe { &(*node.class) }.name,
+                unsafe { &(*dependent.class) }.name,
+            );
+            queue.push(dependent);
+        }
+    }
 }
 
 //fn apply_package<'def, 'def_ref, 'scope_ref>(

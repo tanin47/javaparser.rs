@@ -23,12 +23,14 @@ pub struct WildcardImport<'def> {
     pub enclosing: EnclosingType<'def>,
     pub is_static: bool,
 }
+unsafe impl<'def> Send for WildcardImport<'def> {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Level<'def> {
     EnclosingType(EnclosingType<'def>),
     Local,
 }
+unsafe impl<'def> Send for Level<'def> {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EnclosingType<'def> {

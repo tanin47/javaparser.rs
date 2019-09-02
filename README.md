@@ -21,13 +21,18 @@ Status
 * It doesn't detect `var` in Java 10 yet.
 
 
+Why we need Rust nightly?
+--------------------------
+
+Because we are using `spawn_unchecked` when spawning a thread.
+
 Develop
 --------
 
-1. `cargo run` in order to run `src/main.rs`
-2. `cargo test` in order to run all tests.
-3. `cargo test -- --nocapture` in order to run all tests with STDOUT
-4. Profile: `cargo profiler callgrind`
+1. `cargo +nightly run` in order to run `src/main.rs`
+2. `cargo +nightly test` in order to run all tests.
+3. `cargo +nightly test -- --nocapture` in order to run all tests with STDOUT
+4. Profile: `cargo +nightly profiler callgrind`
 
 We have acceptance test in `./tests/syntax/acceptance_test.rs`, which tests the parser against real-world Java files in 
 `./test/fixtures/*.java`.

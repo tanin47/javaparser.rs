@@ -67,3 +67,5 @@ pub enum Prefix<'a> {
     Package(PackagePrefix<'a>),
     Class(ClassType<'a>),
 }
+
+unsafe impl<'a> Sync for Prefix<'a> {}
