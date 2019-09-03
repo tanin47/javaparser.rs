@@ -1,5 +1,5 @@
 use analyze::tpe::{
-    ArrayType, ClassType, Prefix, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType,
+    ArrayType, ClassType, EnclosingType, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType,
 };
 use parse;
 use std::cell::{Cell, RefCell};
@@ -52,7 +52,7 @@ pub fn build_class<'a>(class: &'a parse::tree::ClassType<'a>) -> ClassType<'a> {
 
     ClassType {
         prefix_opt: match &class.prefix_opt {
-            Some(p) => Some(Box::new(Prefix::Class(build_class(p)))),
+            Some(p) => Some(Box::new(EnclosingType::Class(build_class(p)))),
             None => None,
         },
         name: class.name.fragment,

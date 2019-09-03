@@ -1,4 +1,4 @@
-use analyze::resolve::scope::EnclosingType;
+use analyze::resolve::scope::EnclosingTypeDef;
 use analyze::tpe::{ClassType, ReferenceType, Type};
 use std::cell::{Cell, RefCell};
 use tokenize::span::Span;
@@ -10,15 +10,15 @@ pub struct Root<'a> {
 }
 
 impl<'a> Root<'a> {
-    pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
+    pub fn find(&self, name: &str) -> Option<EnclosingTypeDef<'a>> {
         for unit in &self.units {
             if let Some(class) = unit.find(name) {
-                return Some(EnclosingType::Class(class));
+                return Some(EnclosingTypeDef::Class(class));
             }
         }
         for package in &self.subpackages {
             if package.name.as_str() == name {
-                return Some(EnclosingType::Package(package));
+                return Some(EnclosingTypeDef::Package(package));
             }
         }
 
@@ -27,8 +27,8 @@ impl<'a> Root<'a> {
 
     pub fn find_package(&self, name: &str) -> Option<&Package<'a>> {
         match self.find(name) {
-            Some(EnclosingType::Package(package)) => Some(unsafe { &(*package) }),
-            Some(EnclosingType::Class(_)) => panic!(),
+            Some(EnclosingTypeDef::Package(package)) => Some(unsafe { &(*package) }),
+            Some(EnclosingTypeDef::Class(_)) => panic!(),
             None => None,
         }
     }
@@ -83,13 +83,13 @@ pub struct Package<'a> {
 }
 
 impl<'a> Package<'a> {
-    pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
+    pub fn find(&self, name: &str) -> Option<EnclosingTypeDef<'a>> {
         if let Some(class) = self.find_class(name) {
-            return Some(EnclosingType::Class(class));
+            return Some(EnclosingTypeDef::Class(class));
         }
         for package in &self.subpackages {
             if package.name.as_str() == name {
-                return Some(EnclosingType::Package(package));
+                return Some(EnclosingTypeDef::Package(package));
             }
         }
 

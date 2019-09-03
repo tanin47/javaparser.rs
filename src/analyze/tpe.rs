@@ -36,7 +36,7 @@ pub struct ArrayType<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ClassType<'a> {
-    pub prefix_opt: Option<Box<Prefix<'a>>>,
+    pub prefix_opt: Option<Box<EnclosingType<'a>>>,
     pub name: &'a str,
     pub type_args: Vec<TypeArg<'a>>,
     pub def_opt: Cell<Option<*const Class<'a>>>,
@@ -63,9 +63,9 @@ pub struct PackagePrefix<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Prefix<'a> {
+pub enum EnclosingType<'a> {
     Package(PackagePrefix<'a>),
     Class(ClassType<'a>),
 }
 
-unsafe impl<'a> Sync for Prefix<'a> {}
+unsafe impl<'a> Sync for EnclosingType<'a> {}

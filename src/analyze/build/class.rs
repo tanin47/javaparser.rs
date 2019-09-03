@@ -1,7 +1,7 @@
 use analyze::build::scope::Scope;
 use analyze::build::{constructor, field_group, interface, method, tpe, type_param};
 use analyze::definition::{Class, Decl};
-use analyze::resolve::scope::EnclosingType;
+use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
 use parse::tree::ClassBodyItem;
 use std::cell::{Cell, RefCell};

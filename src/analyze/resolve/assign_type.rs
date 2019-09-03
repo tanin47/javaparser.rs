@@ -1,7 +1,7 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root};
 use analyze::resolve::grapher::{Grapher, Node};
-use analyze::resolve::scope::{EnclosingType, Scope};
-use analyze::tpe::{ClassType, PackagePrefix, Prefix, Type};
+use analyze::resolve::scope::{EnclosingTypeDef, Scope};
+use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
 use crossbeam_queue::SegQueue;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -182,10 +182,12 @@ pub fn resolve_class_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     let (result_opt, prefix_opt) = if let Some(prefix) = &class_type.prefix_opt {
         let new_prefix_opt = resolve_prefix(&prefix, scope);
         let result_opt = match &new_prefix_opt {
-            Some(Prefix::Package(package)) => unsafe { (*package.def).find(class_type.name) },
-            Some(Prefix::Class(class)) => match class.def_opt.get() {
+            Some(EnclosingType::Package(package)) => unsafe {
+                (*package.def).find(class_type.name)
+            },
+            Some(EnclosingType::Class(class)) => match class.def_opt.get() {
                 Some(def) => {
-                    unsafe { (*def).find(class_type.name) }.map(|c| EnclosingType::Class(c))
+                    unsafe { (*def).find(class_type.name) }.map(|c| EnclosingTypeDef::Class(c))
                 }
                 None => None,
             },
@@ -197,33 +199,33 @@ pub fn resolve_class_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     };
 
     match result_opt {
-        Some(EnclosingType::Class(class)) => Some(ClassType {
+        Some(EnclosingTypeDef::Class(class)) => Some(ClassType {
             prefix_opt: prefix_opt.map(Box::new),
             name: class_type.name,
             type_args: vec![],
             def_opt: Cell::new(Some(class)),
         }),
-        Some(EnclosingType::Package(package)) => panic!(),
+        Some(EnclosingTypeDef::Package(package)) => panic!(),
         None => None,
     }
 }
 
 fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
-    prefix: &'type_ref Prefix<'def>,
+    prefix: &'type_ref EnclosingType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
-) -> Option<Prefix<'def>> {
+) -> Option<EnclosingType<'def>> {
     match prefix {
-        Prefix::Package(package) => resolve_package_prefix(package, scope),
-        Prefix::Class(class) => resolve_class_type_prefix(class, scope),
+        EnclosingType::Package(package) => resolve_package_prefix(package, scope),
+        EnclosingType::Class(class) => resolve_class_type_prefix(class, scope),
     }
 }
 
 fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     package: &'type_ref PackagePrefix<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
-) -> Option<Prefix<'def>> {
+) -> Option<EnclosingType<'def>> {
     match scope.resolve_package(package.name) {
-        Some(p) => Some(Prefix::Package(PackagePrefix {
+        Some(p) => Some(EnclosingType::Package(PackagePrefix {
             name: &unsafe { &(*p) }.name,
             def: p as *const Package<'def>,
         })),
@@ -234,15 +236,15 @@ fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
 fn resolve_class_type_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     class_type: &'type_ref ClassType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
-) -> Option<Prefix<'def>> {
+) -> Option<EnclosingType<'def>> {
     match scope.resolve_type(class_type.name) {
-        Some(EnclosingType::Class(class)) => Some(Prefix::Class(ClassType {
+        Some(EnclosingTypeDef::Class(class)) => Some(EnclosingType::Class(ClassType {
             prefix_opt: None,
             name: class_type.name,
             type_args: vec![],
             def_opt: Cell::new(Some(class)),
         })),
-        Some(EnclosingType::Package(package)) => Some(Prefix::Package(PackagePrefix {
+        Some(EnclosingTypeDef::Package(package)) => Some(EnclosingType::Package(PackagePrefix {
             name: unsafe { &(*package).name },
             def: package,
         })),
@@ -254,49 +256,49 @@ fn resolve_class_type_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
 mod tests {
     use super::apply;
     use analyze;
-    use analyze::definition::{Class, CompilationUnit, Decl, Import, Method, Package, Root};
+    use analyze::definition::{Class, Root};
     use analyze::resolve::merge;
-    use analyze::tpe::{ClassType, PackagePrefix, Prefix, Type};
+    use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
+    use parse::tree::{CompilationUnit, CompilationUnitItem};
     use std::cell::{Cell, RefCell};
     use std::convert::AsRef;
     use std::ops::Deref;
     use test_common::{code, parse, span};
+    use tokenize::token::Token;
 
     #[test]
-    fn test_simple() {
-        let raw1 = r#"
+    fn test_extend() {
+        let raws = vec![
+            r#"
 package dev;
 
-class Test3 extends Test2 {}
+class Test {}
         "#
-        .to_owned();
-        let raw2 = r#"
-package dev;
-
-class Test {
-  class Inner {}
-}
-        "#
-        .to_owned();
-        let raw3 = r#"
+            .to_owned(),
+            r#"
 package dev;
 
 class Test2 extends Test {
-  Test3 method() {}
+  Test method() {}
 }
         "#
-        .to_owned();
-        let tokens1 = code(&raw1);
-        let tokens2 = code(&raw2);
-        let tokens3 = code(&raw3);
-        let unit1 = parse(&tokens1);
-        let unit2 = parse(&tokens2);
-        let unit3 = parse(&tokens3);
+            .to_owned(),
+        ];
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
 
-        let root1 = analyze::build::apply(&unit1);
-        let root2 = analyze::build::apply(&unit2);
-        let root3 = analyze::build::apply(&unit3);
-        let mut root = merge::apply(vec![root1, root2, root3]);
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
 
         apply(&mut root);
 
@@ -314,12 +316,84 @@ class Test2 extends Test {
             ret_type.deref(),
             &Type::Class(ClassType {
                 prefix_opt: None,
-                name: "Test3",
+                name: "Test",
                 type_args: vec![],
                 def_opt: Cell::new(Some(
-                    root.find("dev").unwrap().find_class("Test3").unwrap() as *const Class
+                    root.find("dev").unwrap().find_class("Test").unwrap() as *const Class
                 ))
             })
         )
+    }
+
+    #[test]
+    fn test_inner() {
+        let raws = vec![
+            r#"
+package dev;
+
+class Test {
+  class Inner {}
+}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Test2 extends Test {}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Test3 extends Test2 {
+  Inner method() {}
+}
+        "#
+            .to_owned(),
+        ];
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        apply(&mut root);
+
+        let ret_type = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Test3")
+            .unwrap()
+            .find_method("method")
+            .unwrap()
+            .return_type
+            .borrow();
+
+        assert_eq!(
+            ret_type.deref(),
+            &Type::Class(ClassType {
+                prefix_opt: None,
+                name: "Inner",
+                type_args: vec![],
+                def_opt: Cell::new(Some(
+                    root.find("dev")
+                        .unwrap()
+                        .find_class("Test")
+                        .unwrap()
+                        .find("Inner")
+                        .unwrap() as *const Class
+                ))
+            })
+        );
     }
 }

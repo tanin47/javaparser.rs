@@ -1,6 +1,6 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Package, Root};
 use analyze::resolve::assign_type;
-use analyze::resolve::scope::{EnclosingType, Level, Scope};
+use analyze::resolve::scope::{EnclosingTypeDef, Level, Scope};
 use analyze::tpe::ClassType;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -222,7 +222,7 @@ mod tests {
     use analyze::definition::{Class, CompilationUnit, Decl, Import, Method, Package, Root};
     use analyze::resolve::grapher::Grapher;
     use analyze::resolve::merge;
-    use analyze::tpe::{ClassType, PackagePrefix, Prefix, Type};
+    use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
     use std::cell::{Cell, RefCell};
     use std::collections::HashSet;
     use std::iter::FromIterator;

@@ -1,5 +1,6 @@
 use analyze;
 use analyze::definition::{Class, Decl, Package, Root};
+use analyze::tpe::{ClassType, EnclosingType};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'def, 'r>
@@ -20,37 +21,37 @@ pub struct SpecificImport<'def> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct WildcardImport<'def> {
-    pub enclosing: EnclosingType<'def>,
+    pub enclosing: EnclosingTypeDef<'def>,
     pub is_static: bool,
 }
 unsafe impl<'def> Send for WildcardImport<'def> {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Level<'def> {
-    EnclosingType(EnclosingType<'def>),
+    EnclosingType(EnclosingTypeDef<'def>),
     Local,
 }
 unsafe impl<'def> Send for Level<'def> {}
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum EnclosingType<'def> {
+pub enum EnclosingTypeDef<'def> {
     Package(*const Package<'def>),
     Class(*const Class<'def>),
 }
 
-impl<'def> EnclosingType<'def> {
-    pub fn find(&self, name: &str) -> Option<EnclosingType<'def>> {
+impl<'def> EnclosingTypeDef<'def> {
+    pub fn find(&self, name: &str) -> Option<EnclosingTypeDef<'def>> {
         match self {
-            EnclosingType::Package(package) => unsafe { (**package).find(name) },
-            EnclosingType::Class(class) => {
-                unsafe { (**class).find(name) }.map(|r| EnclosingType::Class(r))
+            EnclosingTypeDef::Package(package) => unsafe { (**package).find(name) },
+            EnclosingTypeDef::Class(class) => {
+                unsafe { (**class).find(name) }.map(|r| EnclosingTypeDef::Class(r))
             }
         }
     }
     pub fn find_class(&self, name: &str) -> Option<&Class<'def>> {
         match self.find(name) {
-            Some(EnclosingType::Package(_)) => panic!(),
-            Some(EnclosingType::Class(class)) => Some(unsafe { &*class }),
+            Some(EnclosingTypeDef::Package(_)) => panic!(),
+            Some(EnclosingTypeDef::Class(class)) => Some(unsafe { &*class }),
             None => None,
         }
     }
@@ -58,7 +59,7 @@ impl<'def> EnclosingType<'def> {
 
 impl<'def, 'r> Scope<'def, 'r> {
     pub fn add_import(&mut self, import: &analyze::definition::Import) {
-        let mut imported: EnclosingType = if let Some(first) = import.components.first() {
+        let mut imported: EnclosingTypeDef = if let Some(first) = import.components.first() {
             self.root.find(first.as_str()).unwrap()
         } else {
             return;
@@ -78,7 +79,7 @@ impl<'def, 'r> Scope<'def, 'r> {
                 is_static: import.is_static,
             });
         } else {
-            let class = if let EnclosingType::Class(class) = imported {
+            let class = if let EnclosingTypeDef::Class(class) = imported {
                 class
             } else {
                 return;
@@ -93,7 +94,7 @@ impl<'def, 'r> Scope<'def, 'r> {
 
     pub fn enter_package(&mut self, package: &'r Package<'def>) {
         self.levels
-            .push(Level::EnclosingType(EnclosingType::Package(package)));
+            .push(Level::EnclosingType(EnclosingTypeDef::Package(package)));
     }
 
     pub fn leave(&mut self) {
@@ -102,7 +103,7 @@ impl<'def, 'r> Scope<'def, 'r> {
 
     pub fn enter_class(&mut self, class: &'r Class<'def>) {
         self.levels
-            .push(Level::EnclosingType(EnclosingType::Class(class)));
+            .push(Level::EnclosingType(EnclosingTypeDef::Class(class)));
     }
 
     pub fn wrap_local<F>(&mut self, mut func: F)
@@ -120,7 +121,7 @@ impl<'def, 'r> Scope<'def, 'r> {
             .map(|p| p as *const Package<'def>)
     }
 
-    pub fn resolve_type(&self, name: &str) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type(&self, name: &str) -> Option<EnclosingTypeDef<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
@@ -132,7 +133,7 @@ impl<'def, 'r> Scope<'def, 'r> {
 
                     // We search until the closest package. Java only allows referring to a package using its full path.
                     // There's no such thing as a relative path for package.
-                    if let EnclosingType::Package(_) = enclosing {
+                    if let EnclosingTypeDef::Package(_) = enclosing {
                         break;
                     }
                 }
@@ -147,10 +148,10 @@ impl<'def, 'r> Scope<'def, 'r> {
         self.root.find(name)
     }
 
-    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingTypeDef<'def>> {
         for import in &self.specific_imports {
             if unsafe { (*import.class).name.fragment } == name {
-                return Some(EnclosingType::Class(import.class));
+                return Some(EnclosingTypeDef::Class(import.class));
             }
         }
 
@@ -164,18 +165,57 @@ impl<'def, 'r> Scope<'def, 'r> {
     ) -> Option<EnclosingType<'def>> {
         match current {
             EnclosingType::Package(package) => {
+                if let Some(found) = unsafe { &(*package.def) }.find(name) {
+                    return Some(found);
+                }
+            }
+            EnclosingTypeDef::Class(class) => {
+                let class = unsafe { &(**class) };
+                for decl in &class.decls {
+                    if let Decl::Class(subclass) = decl {
+                        if subclass.name.fragment == name {
+                            return Some(EnclosingTypeDef::Class(subclass));
+                        }
+                    }
+                }
+
+                // Search the inner class of the super classes
+                match class.extend_opt.borrow().as_ref() {
+                    Some(extend_class) => {}
+                    None => (),
+                };
+            }
+        };
+
+        None
+    }
+
+    pub fn resolve_type_def_at(
+        &self,
+        current: &EnclosingTypeDef<'def>,
+        name: &str,
+    ) -> Option<EnclosingTypeDef<'def>> {
+        match current {
+            EnclosingTypeDef::Package(package) => {
                 if let Some(found) = unsafe { &(**package) }.find(name) {
                     return Some(found);
                 }
             }
-            EnclosingType::Class(class) => {
-                for decl in unsafe { &(**class).decls } {
+            EnclosingTypeDef::Class(class) => {
+                let class = unsafe { &(**class) };
+                for decl in &class.decls {
                     if let Decl::Class(subclass) = decl {
                         if subclass.name.fragment == name {
-                            return Some(EnclosingType::Class(subclass));
+                            return Some(EnclosingTypeDef::Class(subclass));
                         }
                     }
                 }
+
+                // Search the inner class of the super classes
+                match class.extend_opt.borrow().as_ref() {
+                    Some(extend_class) => {}
+                    None => (),
+                };
             }
         };
 
