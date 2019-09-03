@@ -47,10 +47,10 @@ impl<'def> EnclosingType<'def> {
             }
         }
     }
-    pub fn find_class(&self, name: &str) -> Option<*const Class<'def>> {
+    pub fn find_class(&self, name: &str) -> Option<&Class<'def>> {
         match self.find(name) {
             Some(EnclosingType::Package(_)) => panic!(),
-            Some(EnclosingType::Class(class)) => Some(class),
+            Some(EnclosingType::Class(class)) => Some(unsafe { &*class }),
             None => None,
         }
     }
@@ -115,7 +115,9 @@ impl<'def, 'r> Scope<'def, 'r> {
     }
 
     pub fn resolve_package(&self, name: &str) -> Option<*const Package<'def>> {
-        self.root.find_package(name)
+        self.root
+            .find_package(name)
+            .map(|p| p as *const Package<'def>)
     }
 
     pub fn resolve_type(&self, name: &str) -> Option<EnclosingType<'def>> {

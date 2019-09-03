@@ -1,26 +1,28 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Package, Root};
 use analyze::resolve::assign_type;
-use analyze::resolve::scope::Scope;
+use analyze::resolve::scope::{EnclosingType, Level, Scope};
 use analyze::tpe::ClassType;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
 #[derive(Debug)]
-pub struct Node<'def> {
+pub struct Node<'def, 'def_ref> {
     pub class: *const Class<'def>,
+    pub scope: RefCell<Option<Scope<'def, 'def_ref>>>,
     pub dependents: HashSet<NodeIndex>,
     pub dependencies: HashSet<NodeIndex>,
     pub fulfilled: Mutex<HashSet<NodeIndex>>,
 }
-unsafe impl<'a> Sync for Node<'a> {}
-unsafe impl<'a> Send for Node<'a> {}
+unsafe impl<'def, 'def_ref> Sync for Node<'def, 'def_ref> {}
+unsafe impl<'def, 'def_ref> Send for Node<'def, 'def_ref> {}
 
 type NodeIndex = usize;
 
 #[derive(Debug)]
 pub struct Grapher<'def, 'def_ref> {
-    pub nodes: Vec<Node<'def>>,
+    pub nodes: Vec<Node<'def, 'def_ref>>,
     pub map: HashMap<*const Class<'def>, NodeIndex>,
     pub pool: HashSet<NodeIndex>,
     pub scope: Scope<'def, 'def_ref>,
@@ -45,19 +47,12 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
         }
     }
 
-    pub fn get(&self, class: *const Class<'def>) -> Option<&Node<'def>> {
+    pub fn get(&self, class: *const Class<'def>) -> Option<&Node<'def, 'def_ref>> {
         match self.map.get(&class) {
             Some(&index) => Some(self.nodes.get(index).unwrap()),
             None => None,
         }
     }
-
-    //    pub fn get_mut(&mut self, class: *const Class<'def>) -> Option<&mut Node<'def>> {
-    //        match self.map.get(&class) {
-    //            Some(&index) => Some(self.nodes.get_mut(index).unwrap()),
-    //            None => None,
-    //        }
-    //    }
 
     pub fn collect(&mut self) {
         for package in &self.root.subpackages {
@@ -126,6 +121,7 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             None => {
                 let node = Node {
                     class: class as *const Class<'def>,
+                    scope: RefCell::new(None),
                     dependents: HashSet::new(),
                     dependencies: HashSet::new(),
                     fulfilled: Mutex::new(HashSet::new()),
@@ -134,7 +130,14 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             }
         };
         for decl in &class.decls {
+            self.scope.enter_class(class);
             self.collect_decl(decl, Some(node_index));
+            self.scope.leave();
+        }
+
+        {
+            let node = self.nodes.get_mut(node_index).unwrap();
+            node.scope.replace(Some(self.scope.clone()));
         }
 
         if let Some(extend_node_index) = extend_node_opt {
@@ -160,8 +163,7 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
         }
     }
 
-    fn insert_node(&mut self, node: Node<'def>, has_outer: bool) -> NodeIndex {
-        println!("Insert {:?}", unsafe { &(*node.class) }.name.fragment);
+    fn insert_node(&mut self, node: Node<'def, 'def_ref>, has_outer: bool) -> NodeIndex {
         let key = node.class;
         let index = self.nodes.len();
         self.update_pool(&node, index, has_outer);
@@ -170,7 +172,7 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
         index
     }
 
-    fn update_pool(&mut self, node: &Node<'def>, index: usize, has_outer: bool) {
+    fn update_pool(&mut self, node: &Node<'def, 'def_ref>, index: usize, has_outer: bool) {
         let has_super_class = unsafe { &(*node.class) }
             .extend_opt
             .borrow()
@@ -204,6 +206,7 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
         resolved.def_opt.get().map(|class| {
             let node = Node {
                 class,
+                scope: RefCell::new(None),
                 dependents: HashSet::new(),
                 dependencies: HashSet::new(),
                 fulfilled: Mutex::new(HashSet::new()),
@@ -262,16 +265,16 @@ class Test2 extends Test {}
         let mut grapher = Grapher::new(&root);
         grapher.collect();
 
-        let test = root.find("dev").unwrap().find_class("Test").unwrap();
+        let test = root.find("dev").unwrap().find_class("Test").unwrap() as *const Class;
         let inner = root
             .find("dev")
             .unwrap()
             .find("Test")
             .unwrap()
             .find_class("Inner")
-            .unwrap();
-        let test2 = root.find("dev").unwrap().find_class("Test2").unwrap();
-        let test3 = root.find("dev").unwrap().find_class("Test3").unwrap();
+            .unwrap() as *const Class;
+        let test2 = root.find("dev").unwrap().find_class("Test2").unwrap() as *const Class;
+        let test3 = root.find("dev").unwrap().find_class("Test3").unwrap() as *const Class;
         assert_eq!(
             grapher.pool,
             HashSet::from_iter(vec![*grapher.map.get(&test).unwrap()])

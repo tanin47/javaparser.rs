@@ -1,9 +1,10 @@
 use analyze::build::scope::Scope;
 use analyze::build::{constructor, field_group, interface, method, tpe, type_param};
 use analyze::definition::{Class, Decl};
+use analyze::resolve::scope::EnclosingType;
 use parse;
 use parse::tree::ClassBodyItem;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 pub fn build<'a, 'b>(class: &'a parse::tree::Class<'a>, scope: &'b mut Scope) -> Class<'a>
 where

@@ -1,10 +1,11 @@
 use analyze::build::{modifier, tpe};
 use analyze::definition::{Field, FieldGroup};
 use parse;
+use std::cell::RefCell;
 
 pub fn build<'a>(field: &'a parse::tree::VariableDeclarator<'a>) -> Field<'a> {
     Field {
-        tpe: tpe::build(&field.tpe),
+        tpe: RefCell::new(tpe::build(&field.tpe)),
         name: &field.name,
     }
 }

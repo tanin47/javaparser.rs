@@ -1,6 +1,6 @@
 use analyze::resolve::scope::EnclosingType;
 use analyze::tpe::{ClassType, ReferenceType, Type};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -25,9 +25,9 @@ impl<'a> Root<'a> {
         None
     }
 
-    pub fn find_package(&self, name: &str) -> Option<*const Package<'a>> {
+    pub fn find_package(&self, name: &str) -> Option<&Package<'a>> {
         match self.find(name) {
-            Some(EnclosingType::Package(package)) => Some(package),
+            Some(EnclosingType::Package(package)) => Some(unsafe { &(*package) }),
             Some(EnclosingType::Class(_)) => panic!(),
             None => None,
         }
@@ -84,14 +84,22 @@ pub struct Package<'a> {
 
 impl<'a> Package<'a> {
     pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
-        for unit in &self.units {
-            if let Some(class) = unit.find(name) {
-                return Some(EnclosingType::Class(class));
-            }
+        if let Some(class) = self.find_class(name) {
+            return Some(EnclosingType::Class(class));
         }
         for package in &self.subpackages {
             if package.name.as_str() == name {
                 return Some(EnclosingType::Package(package));
+            }
+        }
+
+        None
+    }
+
+    pub fn find_class<'b>(&self, name: &str) -> Option<&Class<'a>> {
+        for unit in &self.units {
+            if let Some(class) = unit.find(name) {
+                return Some(unsafe { &(*class) });
             }
         }
 
@@ -122,6 +130,16 @@ impl<'a> Class<'a> {
                 if class.name.fragment == name {
                     return Some(class);
                 }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_method(&self, name: &str) -> Option<&Method<'a>> {
+        for method in &self.methods {
+            if method.name.fragment == name {
+                return Some(method);
             }
         }
 
@@ -189,7 +207,7 @@ pub struct FieldGroup<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Field<'a> {
-    pub tpe: Type<'a>,
+    pub tpe: RefCell<Type<'a>>,
     pub name: &'a Span<'a>,
 }
 unsafe impl<'a> Sync for Field<'a> {}

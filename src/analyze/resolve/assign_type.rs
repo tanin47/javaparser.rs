@@ -1,4 +1,4 @@
-use analyze::definition::{Class, CompilationUnit, Decl, Method, Package, Root};
+use analyze::definition::{Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root};
 use analyze::resolve::grapher::{Grapher, Node};
 use analyze::resolve::scope::{EnclosingType, Scope};
 use analyze::tpe::{ClassType, PackagePrefix, Prefix, Type};
@@ -27,25 +27,13 @@ pub fn apply(root: &mut Root) {
 
     for i in 0..(num_cpus::get() - 1) {
         let builder = thread::Builder::new();
+        let finished = &finished;
+        let grapher = &grapher;
+        let queue = &queue;
         threads.push(
             unsafe {
-                builder.spawn_unchecked(|| {
-                    println!("Worker spawned.");
-                    loop {
-                        if *finished.lock().unwrap().deref() == grapher.nodes.len() {
-                            break;
-                        }
-                        match queue.pop() {
-                            Ok(node) => {
-                                work(node, &grapher, &queue);
-                                let mut counter = finished.lock().unwrap();
-                                *counter += 1;
-                            }
-                            Err(_) => thread::sleep(Duration::from_millis(10)),
-                        };
-                    }
-
-                    println!("Worker finished.");
+                builder.spawn_unchecked(move || {
+                    work(i, finished, grapher, queue);
                 })
             }
             .unwrap(),
@@ -53,78 +41,58 @@ pub fn apply(root: &mut Root) {
     }
 
     for thread in threads {
-        thread.join();
+        match thread.join() {
+            Ok(_) => (),
+            Err(_) => panic!(),
+        }
     }
-
-    // We can have a sync queue.
-    // We have multiple workers that pops the queue and add nodes to the queue.
-    // Multiple workers run on their own separate threads.
-
-    // It ends when all the workers finish and the queue is empty.
-
-    //    println!("Use {} cores", num_cpus::get());
-    //    for package in &root.subpackages {
-    //        apply_package(package, &mut scope);
-    //    }
-    //
-    //    for unit in &root.units {
-    //        apply_unit(unit, &mut scope);
-    //    }
 }
 
-fn work<'def, 'queue_ref, 'grapher_ref, 'def_ref>(
-    node: &'grapher_ref Node<'def>,
+fn work<'def, 'def_ref, 'grapher_ref, 'queue_ref>(
+    thread_index: usize,
+    finished: &Mutex<usize>,
     grapher: &'grapher_ref Grapher<'def, 'def_ref>,
-    queue: &'queue_ref SegQueue<&'grapher_ref Node<'def>>,
+    queue: &'queue_ref SegQueue<&'grapher_ref Node<'def, 'def_ref>>,
 ) {
-    println!("Work {:?}", unsafe { &(*node.class) }.name);
-    thread::sleep(Duration::from_millis(1000));
+    loop {
+        if *finished.lock().unwrap().deref() == grapher.nodes.len() {
+            break;
+        }
+        match queue.pop() {
+            Ok(node) => {
+                println!(
+                    "Worker {} works on {}",
+                    thread_index,
+                    unsafe { &(*node.class) }.name.fragment
+                );
+                apply_node(node, grapher, queue);
+                let mut counter = finished.lock().unwrap();
+                *counter += 1;
+            }
+            Err(_) => thread::sleep(Duration::from_millis(10)),
+        };
+    }
+}
 
-    println!("Dependent count: {}", node.dependents.len());
+fn apply_node<'def, 'queue_ref, 'grapher_ref, 'def_ref>(
+    node: &'grapher_ref Node<'def, 'def_ref>,
+    grapher: &'grapher_ref Grapher<'def, 'def_ref>,
+    queue: &'queue_ref SegQueue<&'grapher_ref Node<'def, 'def_ref>>,
+) {
+    apply_class(
+        unsafe { &(*node.class) },
+        node.scope.borrow_mut().as_mut().unwrap(),
+    );
+
     for &dependent_index in &node.dependents {
         let dependent = grapher.nodes.get(dependent_index).unwrap();
-        println!("Dependent {:?}", unsafe { &(*dependent.class) }.name);
 
         let mut fulfilled = dependent.fulfilled.lock().unwrap();
         fulfilled.insert(dependent_index);
 
         if fulfilled.len() == dependent.dependencies.len() {
-            println!(
-                "Add {:?} to {:?}",
-                unsafe { &(*node.class) }.name,
-                unsafe { &(*dependent.class) }.name,
-            );
             queue.push(dependent);
         }
-    }
-}
-
-//fn apply_package<'def, 'def_ref, 'scope_ref>(
-//    package: &'def_ref Package<'def>,
-//    scope: &'scope_ref mut Scope<'def, 'def_ref>,
-//) {
-//    scope.wrap_package(package, |scope| {
-//        for unit in &package.subpackages {
-//            apply_package(package, scope);
-//        }
-//        for unit in &package.units {
-//            apply_unit(unit, scope);
-//        }
-//    });
-//}
-
-fn apply_unit<'def, 'def_ref, 'scope_ref>(
-    unit: &'def_ref CompilationUnit<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
-) {
-    for import in &unit.imports {
-        scope.add_import(import)
-    }
-
-    apply_decl(&unit.main, scope);
-
-    for other in &unit.others {
-        apply_decl(other, scope);
     }
 }
 
@@ -146,7 +114,38 @@ fn apply_class<'def, 'def_ref, 'scope_ref>(
     for method in &class.methods {
         apply_method(method, scope);
     }
+    for field_group in &class.field_groups {
+        apply_field_group(field_group, scope);
+    }
+    for inner_decl in &class.decls {
+        apply_decl(inner_decl, scope);
+    }
     scope.leave();
+}
+
+fn apply_field_group<'def, 'def_ref, 'scope_ref>(
+    field_group: &'def_ref FieldGroup<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
+    for field in &field_group.items {
+        apply_field(field, scope)
+    }
+}
+
+fn apply_field<'def, 'def_ref, 'scope_ref>(
+    field: &'def_ref Field<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
+    let new_type_opt = {
+        let tpe = field.tpe.borrow();
+        resolve_type(&tpe, scope)
+    };
+    match new_type_opt {
+        Some(new_type) => {
+            field.tpe.replace(new_type);
+        }
+        None => (),
+    };
 }
 
 fn apply_method<'def, 'def_ref, 'scope_ref>(
@@ -224,9 +223,9 @@ fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<Prefix<'def>> {
     match scope.resolve_package(package.name) {
-        Some(package) => Some(Prefix::Package(PackagePrefix {
-            name: unsafe { &(*package).name },
-            def: package,
+        Some(p) => Some(Prefix::Package(PackagePrefix {
+            name: &unsafe { &(*p) }.name,
+            def: p as *const Package<'def>,
         })),
         None => None,
     }
@@ -259,6 +258,8 @@ mod tests {
     use analyze::resolve::merge;
     use analyze::tpe::{ClassType, PackagePrefix, Prefix, Type};
     use std::cell::{Cell, RefCell};
+    use std::convert::AsRef;
+    use std::ops::Deref;
     use test_common::{code, parse, span};
 
     #[test]
@@ -272,13 +273,17 @@ class Test3 extends Test2 {}
         let raw2 = r#"
 package dev;
 
-class Test {}
+class Test {
+  class Inner {}
+}
         "#
         .to_owned();
         let raw3 = r#"
 package dev;
 
-class Test2 extends Test {}
+class Test2 extends Test {
+  Test3 method() {}
+}
         "#
         .to_owned();
         let tokens1 = code(&raw1);
@@ -294,195 +299,27 @@ class Test2 extends Test {}
         let mut root = merge::apply(vec![root1, root2, root3]);
 
         apply(&mut root);
-    }
 
-    //    #[test]
-    //    fn test_simple() {
-    //        let raw1 = r#"
-    //package dev;
-    //
-    //class Test {}
-    //        "#
-    //        .to_owned();
-    //        let raw2 = r#"
-    //package dev;
-    //
-    //class Test2 {
-    //    dev.Test method() {}
-    //}
-    //        "#
-    //        .to_owned();
-    //        let tokens1 = code(&raw1);
-    //        let tokens2 = code(&raw2);
-    //        let unit1 = parse(&tokens1);
-    //        let unit2 = parse(&tokens2);
-    //
-    //        let root1 = analyze::build::apply(&unit1);
-    //        let root2 = analyze::build::apply(&unit2);
-    //        let root = merge::apply(vec![root1, root2]);
-    //
-    //        apply(&root);
-    //
-    //        assert_eq!(
-    //            root,
-    //            Root {
-    //                subpackages: vec![Package {
-    //                    import_path: "dev".to_string(),
-    //                    name: "dev".to_string(),
-    //                    subpackages: vec![],
-    //                    units: vec![
-    //                        CompilationUnit {
-    //                            imports: vec![],
-    //                            main: Decl::Class(Class {
-    //                                import_path: "dev.Test".to_string(),
-    //                                name: &span(3, 7, "Test"),
-    //                                type_params: vec![],
-    //                                extend_opt: None,
-    //                                implements: vec![],
-    //                                constructors: vec![],
-    //                                methods: vec![],
-    //                                field_groups: vec![],
-    //                                classes: vec![],
-    //                                interfaces: vec![],
-    //                            }),
-    //                            others: vec![]
-    //                        },
-    //                        CompilationUnit {
-    //                            imports: vec![],
-    //                            main: Decl::Class(Class {
-    //                                import_path: "dev.Test2".to_string(),
-    //                                name: &span(3, 7, "Test2"),
-    //                                type_params: vec![],
-    //                                extend_opt: None,
-    //                                implements: vec![],
-    //                                constructors: vec![],
-    //                                methods: vec![Method {
-    //                                    modifiers: vec![],
-    //                                    type_params: vec![],
-    //                                    return_type: RefCell::new(Type::Class(ClassType {
-    //                                        prefix_opt: Some(Box::new(Prefix::Package(
-    //                                            PackagePrefix {
-    //                                                name: "dev",
-    //                                                def: root.find_package("dev").unwrap()
-    //                                            }
-    //                                        ))),
-    //                                        name: "Test",
-    //                                        type_args: vec![],
-    //                                        def_opt: Cell::new(Some(
-    //                                            root.find("dev").unwrap().find_class("Test").unwrap()
-    //                                        ))
-    //                                    })),
-    //                                    name: &span(4, 14, "method"),
-    //                                    params: vec![]
-    //                                }],
-    //                                field_groups: vec![],
-    //                                classes: vec![],
-    //                                interfaces: vec![]
-    //                            }),
-    //                            others: vec![]
-    //                        }
-    //                    ],
-    //                }],
-    //                units: vec![]
-    //            }
-    //        )
-    //    }
-    //
-    //    #[test]
-    //    fn test_specific_import() {
-    //        let tokens1 = code(
-    //            r#"
-    //package dev;
-    //
-    //class Test {}
-    //        "#,
-    //        );
-    //        let tokens2 = code(
-    //            r#"
-    //package dev2;
-    //
-    //import dev.Test;
-    //
-    //class Test2 {
-    //    Test method() {}
-    //}
-    //        "#,
-    //        );
-    //        let unit1 = &parse(&tokens1);
-    //        let unit2 = &parse(&tokens2);
-    //
-    //        let root1 = analyze::build::apply(&unit1);
-    //        let root2 = analyze::build::apply(&unit2);
-    //        let root = merge::apply(vec![root1, root2]);
-    //
-    //        apply(&root);
-    //
-    //        assert_eq!(
-    //            root,
-    //            Root {
-    //                subpackages: vec![
-    //                    Package {
-    //                        import_path: "dev".to_string(),
-    //                        name: "dev".to_string(),
-    //                        subpackages: vec![],
-    //                        units: vec![CompilationUnit {
-    //                            imports: vec![],
-    //                            main: Decl::Class(Class {
-    //                                import_path: "dev.Test".to_string(),
-    //                                name: &span(3, 7, "Test"),
-    //                                type_params: vec![],
-    //                                extend_opt: None,
-    //                                implements: vec![],
-    //                                constructors: vec![],
-    //                                methods: vec![],
-    //                                field_groups: vec![],
-    //                                classes: vec![],
-    //                                interfaces: vec![],
-    //                            }),
-    //                            others: vec![]
-    //                        }],
-    //                    },
-    //                    Package {
-    //                        import_path: "dev2".to_string(),
-    //                        name: "dev2".to_string(),
-    //                        subpackages: vec![],
-    //                        units: vec![CompilationUnit {
-    //                            imports: vec![Import {
-    //                                components: vec!["dev".to_owned(), "Test".to_owned()],
-    //                                is_wildcard: false,
-    //                                is_static: false
-    //                            }],
-    //                            main: Decl::Class(Class {
-    //                                import_path: "dev2.Test2".to_string(),
-    //                                name: &span(5, 7, "Test2"),
-    //                                type_params: vec![],
-    //                                extend_opt: None,
-    //                                implements: vec![],
-    //                                constructors: vec![],
-    //                                methods: vec![Method {
-    //                                    modifiers: vec![],
-    //                                    type_params: vec![],
-    //                                    return_type: RefCell::new(Type::Class(ClassType {
-    //                                        prefix_opt: None,
-    //                                        name: "Test",
-    //                                        type_args: vec![],
-    //                                        def_opt: Cell::new(Some(
-    //                                            root.find("dev").unwrap().find_class("Test").unwrap()
-    //                                        ))
-    //                                    })),
-    //                                    name: &span(6, 10, "method"),
-    //                                    params: vec![]
-    //                                }],
-    //                                field_groups: vec![],
-    //                                classes: vec![],
-    //                                interfaces: vec![]
-    //                            }),
-    //                            others: vec![]
-    //                        },],
-    //                    }
-    //                ],
-    //                units: vec![],
-    //            }
-    //        )
-    //    }
+        let ret_type = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Test2")
+            .unwrap()
+            .find_method("method")
+            .unwrap()
+            .return_type
+            .borrow();
+
+        assert_eq!(
+            ret_type.deref(),
+            &Type::Class(ClassType {
+                prefix_opt: None,
+                name: "Test3",
+                type_args: vec![],
+                def_opt: Cell::new(Some(
+                    root.find("dev").unwrap().find_class("Test3").unwrap() as *const Class
+                ))
+            })
+        )
+    }
 }
