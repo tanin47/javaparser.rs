@@ -42,6 +42,37 @@ pub struct ClassType<'a> {
     pub def_opt: Cell<Option<*const Class<'a>>>,
 }
 
+impl<'a> ClassType<'a> {
+    pub fn find_class(&self, name: &str) -> Option<ClassType<'a>> {
+        let class = if let Some(class) = self.def_opt.get() {
+            unsafe { &(*class) }
+        } else {
+            return None;
+        };
+
+        match class.find(name) {
+            Some(found) => {
+                let found = unsafe { &(*found) };
+                // TODO: transfer type args
+                return Some(found.to_type());
+            }
+            None => {
+                match class.extend_opt.borrow().as_ref() {
+                    Some(extend) => {
+                        if let Some(found) = extend.find_class(name) {
+                            // TODO: transfer type args
+                            return Some(found);
+                        }
+                    }
+                    None => (),
+                }
+            }
+        };
+
+        None
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypeArg<'a> {
     Class(ClassType<'a>),
@@ -56,7 +87,7 @@ pub struct WildcardType<'a> {
     pub extends: Vec<ReferenceType<'a>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PackagePrefix<'a> {
     pub name: &'a str,
     pub def: *const Package<'a>,

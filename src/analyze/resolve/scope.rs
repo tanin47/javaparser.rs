@@ -1,6 +1,6 @@
 use analyze;
 use analyze::definition::{Class, Decl, Package, Root};
-use analyze::tpe::{ClassType, EnclosingType};
+use analyze::tpe::{ClassType, EnclosingType, PackagePrefix};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'def, 'r>
@@ -55,6 +55,22 @@ impl<'def> EnclosingTypeDef<'def> {
             None => None,
         }
     }
+
+    pub fn to_type(&self) -> EnclosingType<'def> {
+        match self {
+            EnclosingTypeDef::Package(package) => {
+                let package = unsafe { &(**package) };
+                EnclosingType::Package(PackagePrefix {
+                    name: &package.name,
+                    def: package as *const Package,
+                })
+            }
+            EnclosingTypeDef::Class(class) => {
+                let class = unsafe { &(**class) };
+                EnclosingType::Class(class.to_type())
+            }
+        }
+    }
 }
 
 impl<'def, 'r> Scope<'def, 'r> {
@@ -66,7 +82,7 @@ impl<'def, 'r> Scope<'def, 'r> {
         };
 
         for component in &import.components[1..] {
-            if let Some(enclosing) = self.resolve_type_at(&imported, component) {
+            if let Some(enclosing) = self.resolve_type_def_at(&imported, component) {
                 imported = enclosing;
             } else {
                 return;
@@ -121,7 +137,7 @@ impl<'def, 'r> Scope<'def, 'r> {
             .map(|p| p as *const Package<'def>)
     }
 
-    pub fn resolve_type(&self, name: &str) -> Option<EnclosingTypeDef<'def>> {
+    pub fn resolve_type(&self, name: &str) -> Option<EnclosingType<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
@@ -145,13 +161,14 @@ impl<'def, 'r> Scope<'def, 'r> {
             return Some(result);
         }
 
-        self.root.find(name)
+        self.root.find(name).map(|e| e.to_type())
     }
 
-    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingTypeDef<'def>> {
+    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
         for import in &self.specific_imports {
-            if unsafe { (*import.class).name.fragment } == name {
-                return Some(EnclosingTypeDef::Class(import.class));
+            let class = unsafe { &(*import.class) };
+            if class.name.fragment == name {
+                return Some(EnclosingType::Class(class.to_type()));
             }
         }
 
@@ -160,13 +177,15 @@ impl<'def, 'r> Scope<'def, 'r> {
 
     pub fn resolve_type_at(
         &self,
-        current: &EnclosingType<'def>,
+        current: &EnclosingTypeDef<'def>,
         name: &str,
     ) -> Option<EnclosingType<'def>> {
         match current {
-            EnclosingType::Package(package) => {
-                if let Some(found) = unsafe { &(*package.def) }.find(name) {
-                    return Some(found);
+            EnclosingTypeDef::Package(package) => {
+                let package = unsafe { &(**package) };
+
+                if let Some(enclosing) = package.find(name) {
+                    return Some(enclosing.to_type());
                 }
             }
             EnclosingTypeDef::Class(class) => {
@@ -174,14 +193,18 @@ impl<'def, 'r> Scope<'def, 'r> {
                 for decl in &class.decls {
                     if let Decl::Class(subclass) = decl {
                         if subclass.name.fragment == name {
-                            return Some(EnclosingTypeDef::Class(subclass));
+                            return Some(EnclosingType::Class(subclass.to_type()));
                         }
                     }
                 }
 
                 // Search the inner class of the super classes
                 match class.extend_opt.borrow().as_ref() {
-                    Some(extend_class) => {}
+                    Some(extend_class) => {
+                        if let Some(found) = extend_class.find_class(name) {
+                            return Some(EnclosingType::Class(found));
+                        }
+                    }
                     None => (),
                 };
             }
@@ -210,12 +233,6 @@ impl<'def, 'r> Scope<'def, 'r> {
                         }
                     }
                 }
-
-                // Search the inner class of the super classes
-                match class.extend_opt.borrow().as_ref() {
-                    Some(extend_class) => {}
-                    None => (),
-                };
             }
         };
 

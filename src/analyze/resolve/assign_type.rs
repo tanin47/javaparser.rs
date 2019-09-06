@@ -193,19 +193,14 @@ pub fn resolve_class_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
             },
             None => None,
         };
-        (result_opt, new_prefix_opt)
+        (result_opt.map(|e| e.to_type()), new_prefix_opt)
     } else {
         (scope.resolve_type(class_type.name), None)
     };
 
     match result_opt {
-        Some(EnclosingTypeDef::Class(class)) => Some(ClassType {
-            prefix_opt: prefix_opt.map(Box::new),
-            name: class_type.name,
-            type_args: vec![],
-            def_opt: Cell::new(Some(class)),
-        }),
-        Some(EnclosingTypeDef::Package(package)) => panic!(),
+        Some(EnclosingType::Class(class)) => Some(class),
+        Some(EnclosingType::Package(package)) => panic!(),
         None => None,
     }
 }
@@ -216,7 +211,7 @@ fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
 ) -> Option<EnclosingType<'def>> {
     match prefix {
         EnclosingType::Package(package) => resolve_package_prefix(package, scope),
-        EnclosingType::Class(class) => resolve_class_type_prefix(class, scope),
+        EnclosingType::Class(class) => scope.resolve_type(class.name),
     }
 }
 
@@ -228,25 +223,6 @@ fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
         Some(p) => Some(EnclosingType::Package(PackagePrefix {
             name: &unsafe { &(*p) }.name,
             def: p as *const Package<'def>,
-        })),
-        None => None,
-    }
-}
-
-fn resolve_class_type_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
-    class_type: &'type_ref ClassType<'def>,
-    scope: &'scope_ref Scope<'def, 'def_ref>,
-) -> Option<EnclosingType<'def>> {
-    match scope.resolve_type(class_type.name) {
-        Some(EnclosingTypeDef::Class(class)) => Some(EnclosingType::Class(ClassType {
-            prefix_opt: None,
-            name: class_type.name,
-            type_args: vec![],
-            def_opt: Cell::new(Some(class)),
-        })),
-        Some(EnclosingTypeDef::Package(package)) => Some(EnclosingType::Package(PackagePrefix {
-            name: unsafe { &(*package).name },
-            def: package,
         })),
         None => None,
     }

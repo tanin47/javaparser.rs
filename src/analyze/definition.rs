@@ -145,6 +145,15 @@ impl<'a> Class<'a> {
 
         None
     }
+
+    pub fn to_type(&self) -> ClassType<'a> {
+        ClassType {
+            prefix_opt: None,
+            name: self.name.fragment,
+            type_args: vec![],
+            def_opt: Cell::new(Some(self as *const Class<'a>)),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
