@@ -189,24 +189,17 @@ impl<'def, 'r> Scope<'def, 'r> {
                 }
             }
             EnclosingTypeDef::Class(class) => {
-                let class = unsafe { &(**class) };
-                for decl in &class.decls {
-                    if let Decl::Class(subclass) = decl {
-                        if subclass.name.fragment == name {
-                            return Some(EnclosingType::Class(subclass.to_type()));
-                        }
-                    }
+                let class = unsafe { &(**class) }.to_type();
+
+                if let Some(found) = class.find_inner_class(name) {
+                    return Some(EnclosingType::Class(found));
                 }
 
-                // Search the inner class of the super classes
-                match class.extend_opt.borrow().as_ref() {
-                    Some(extend_class) => {
-                        if let Some(found) = extend_class.find_class(name) {
-                            return Some(EnclosingType::Class(found));
-                        }
+                if let Some(extend_class) = class.extend_opt.borrow().as_ref() {
+                    if let Some(found) = extend_class.find_inner_class(name) {
+                        return Some(EnclosingType::Class(found));
                     }
-                    None => (),
-                };
+                }
             }
         };
 

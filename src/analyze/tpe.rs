@@ -43,7 +43,25 @@ pub struct ClassType<'a> {
 }
 
 impl<'a> ClassType<'a> {
-    pub fn find_class(&self, name: &str) -> Option<ClassType<'a>> {
+    pub fn get_extend_opt(&self) -> Option<ClassType<'a>> {
+        let extend_class_opt = if let Some(def) = self.def_opt.get() {
+            def.extend_opt.borrow().as_ref()
+        } else {
+          return None;
+        };
+
+        let extend_class = if let Some(extend_class) = extend_class_opt {
+            extend_class
+        } else {
+            return None;
+        };
+
+        Some(extend_class.substitute_from(self))
+    }
+
+    pub fn substi
+
+    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
         let class = if let Some(class) = self.def_opt.get() {
             unsafe { &(*class) }
         } else {
@@ -59,7 +77,7 @@ impl<'a> ClassType<'a> {
             None => {
                 match class.extend_opt.borrow().as_ref() {
                     Some(extend) => {
-                        if let Some(found) = extend.find_class(name) {
+                        if let Some(found) = extend.find_inner_class(name) {
                             // TODO: transfer type args
                             return Some(found);
                         }
