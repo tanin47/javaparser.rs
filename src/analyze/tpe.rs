@@ -47,7 +47,7 @@ impl<'a> ClassType<'a> {
         let extend_class_opt = if let Some(def) = self.def_opt.get() {
             def.extend_opt.borrow().as_ref()
         } else {
-          return None;
+            return None;
         };
 
         let extend_class = if let Some(extend_class) = extend_class_opt {
@@ -56,10 +56,10 @@ impl<'a> ClassType<'a> {
             return None;
         };
 
-        Some(extend_class.substitute_from(self))
+        Some(extend_class.substitute_type_args_from(self))
     }
 
-    pub fn substi
+    pub fn substitute_type_args_from(&self, other: &ClassType<'a>) -> ClassType<'a> {}
 
     pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
         let class = if let Some(class) = self.def_opt.get() {
