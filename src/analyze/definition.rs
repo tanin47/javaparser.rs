@@ -1,5 +1,5 @@
 use analyze::resolve::scope::EnclosingTypeDef;
-use analyze::tpe::{ClassType, ReferenceType, Type};
+use analyze::tpe::{ClassType, EnclosingType, ParameterizedType, ReferenceType, Type};
 use std::cell::{Cell, RefCell};
 use tokenize::span::Span;
 
@@ -87,9 +87,17 @@ impl<'a> Package<'a> {
         if let Some(class) = self.find_class(name) {
             return Some(EnclosingTypeDef::Class(class));
         }
+        if let Some(package) = self.find_package(name) {
+            return Some(EnclosingTypeDef::Package(package));
+        }
+
+        None
+    }
+
+    pub fn find_package<'b>(&self, name: &str) -> Option<&Package<'a>> {
         for package in &self.subpackages {
             if package.name.as_str() == name {
-                return Some(EnclosingTypeDef::Package(package));
+                return Some(package);
             }
         }
 
@@ -148,7 +156,7 @@ impl<'a> Class<'a> {
 
     pub fn to_type(&self) -> ClassType<'a> {
         ClassType {
-            prefix_opt: None,
+            prefix_opt: RefCell::new(None),
             name: self.name.fragment,
             type_args: vec![],
             def_opt: Cell::new(Some(self as *const Class<'a>)),
@@ -190,6 +198,15 @@ pub struct Param<'a> {
 pub struct TypeParam<'a> {
     pub name: &'a Span<'a>,
     pub extends: Vec<ClassType<'a>>,
+}
+
+impl<'a> TypeParam<'a> {
+    pub fn to_type(&self) -> ParameterizedType<'a> {
+        ParameterizedType {
+            name: self.name.fragment,
+            def_opt: Cell::new(Some(self as *const TypeParam<'a>)),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

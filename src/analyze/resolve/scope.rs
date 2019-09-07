@@ -1,6 +1,8 @@
 use analyze;
-use analyze::definition::{Class, Decl, Package, Root};
+use analyze::definition::{Class, Decl, Package, Root, TypeParam};
 use analyze::tpe::{ClassType, EnclosingType, PackagePrefix};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'def, 'r>
@@ -27,11 +29,16 @@ pub struct WildcardImport<'def> {
 unsafe impl<'def> Send for WildcardImport<'def> {}
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Level<'def> {
-    EnclosingType(EnclosingTypeDef<'def>),
-    Local,
+pub struct Level<'def> {
+    pub enclosing_opt: Option<EnclosingTypeDef<'def>>,
+    pub names: HashMap<String, Vec<Name<'def>>>,
 }
 unsafe impl<'def> Send for Level<'def> {}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Name<'def> {
+    TypeParam(*const TypeParam<'def>),
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EnclosingTypeDef<'def> {
@@ -61,6 +68,7 @@ impl<'def> EnclosingTypeDef<'def> {
             EnclosingTypeDef::Package(package) => {
                 let package = unsafe { &(**package) };
                 EnclosingType::Package(PackagePrefix {
+                    prefix_opt: RefCell::new(None),
                     name: &package.name,
                     def: package as *const Package,
                 })
@@ -108,9 +116,25 @@ impl<'def, 'r> Scope<'def, 'r> {
         };
     }
 
+    pub fn add_type_param(&mut self, type_param: &'r TypeParam<'def>) {
+        let level = self.levels.last_mut().unwrap();
+
+        if let None = level.names.get_mut(type_param.name.fragment) {
+            level
+                .names
+                .insert(String::from(type_param.name.fragment), vec![]);
+        }
+
+        let list = level.names.get_mut(type_param.name.fragment).unwrap();
+
+        list.insert(0, Name::TypeParam(type_param as *const TypeParam<'def>))
+    }
+
     pub fn enter_package(&mut self, package: &'r Package<'def>) {
-        self.levels
-            .push(Level::EnclosingType(EnclosingTypeDef::Package(package)));
+        self.levels.push(Level {
+            enclosing_opt: Some(EnclosingTypeDef::Package(package)),
+            names: HashMap::new(),
+        });
     }
 
     pub fn leave(&mut self) {
@@ -118,17 +142,17 @@ impl<'def, 'r> Scope<'def, 'r> {
     }
 
     pub fn enter_class(&mut self, class: &'r Class<'def>) {
-        self.levels
-            .push(Level::EnclosingType(EnclosingTypeDef::Class(class)));
+        self.levels.push(Level {
+            enclosing_opt: Some(EnclosingTypeDef::Class(class)),
+            names: HashMap::new(),
+        });
     }
 
-    pub fn wrap_local<F>(&mut self, mut func: F)
-    where
-        F: FnMut(&mut Scope<'def, 'r>) -> (),
-    {
-        self.levels.push(Level::Local);
-        func(self);
-        self.levels.pop();
+    pub fn enter(&mut self) {
+        self.levels.push(Level {
+            enclosing_opt: None,
+            names: HashMap::new(),
+        });
     }
 
     pub fn resolve_package(&self, name: &str) -> Option<*const Package<'def>> {
@@ -141,20 +165,28 @@ impl<'def, 'r> Scope<'def, 'r> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
-            match current {
-                Level::EnclosingType(enclosing) => {
-                    if let Some(result) = self.resolve_type_at(enclosing, name) {
-                        return Some(result);
-                    }
-
-                    // We search until the closest package. Java only allows referring to a package using its full path.
-                    // There's no such thing as a relative path for package.
-                    if let EnclosingTypeDef::Package(_) = enclosing {
-                        break;
+            if let Some(locals) = current.names.get(name) {
+                for local in locals {
+                    match local {
+                        Name::TypeParam(type_param) => {
+                            let type_param = unsafe { &(**type_param) };
+                            return Some(EnclosingType::Parameterized(type_param.to_type()));
+                        }
                     }
                 }
-                Level::Local => (),
-            };
+            }
+
+            if let Some(enclosing) = &current.enclosing_opt {
+                if let Some(result) = self.resolve_type_at(enclosing, name) {
+                    return Some(result);
+                }
+
+                // We search until the closest package. Java only allows referring to a package using its full path.
+                // There's no such thing as a relative path for package.
+                if let EnclosingTypeDef::Package(_) = enclosing {
+                    break;
+                }
+            }
         }
 
         if let Some(result) = self.resolve_type_with_specific_import(name) {
@@ -191,14 +223,10 @@ impl<'def, 'r> Scope<'def, 'r> {
             EnclosingTypeDef::Class(class) => {
                 let class = unsafe { &(**class) }.to_type();
 
+                // TODO: the result needs to inherit type args from `class`.
+                // Because `class` is the enclosing type def.
                 if let Some(found) = class.find_inner_class(name) {
                     return Some(EnclosingType::Class(found));
-                }
-
-                if let Some(extend_class) = class.extend_opt.borrow().as_ref() {
-                    if let Some(found) = extend_class.find_inner_class(name) {
-                        return Some(EnclosingType::Class(found));
-                    }
                 }
             }
         };

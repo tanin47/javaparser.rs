@@ -51,10 +51,10 @@ pub fn build_class<'a>(class: &'a parse::tree::ClassType<'a>) -> ClassType<'a> {
     }
 
     ClassType {
-        prefix_opt: match &class.prefix_opt {
+        prefix_opt: RefCell::new(match &class.prefix_opt {
             Some(p) => Some(Box::new(EnclosingType::Class(build_class(p)))),
             None => None,
-        },
+        }),
         name: class.name.fragment,
         type_args,
         def_opt: Cell::new(None),

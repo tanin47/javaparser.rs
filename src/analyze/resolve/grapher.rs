@@ -1,7 +1,7 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Package, Root};
 use analyze::resolve::assign_type;
 use analyze::resolve::scope::{EnclosingTypeDef, Level, Scope};
-use analyze::tpe::ClassType;
+use analyze::tpe::{ClassType, Type};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -66,8 +66,8 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
 
     pub fn collect_package(&mut self, package: &'def_ref Package<'def>) {
         self.scope.enter_package(package);
-        for unit in &package.subpackages {
-            self.collect_package(package);
+        for subpackage in &package.subpackages {
+            self.collect_package(subpackage);
         }
         for unit in &package.units {
             self.collect_unit(unit);
@@ -105,7 +105,15 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
     ) {
         let extend_node_opt = {
             let resolved_opt = match class.extend_opt.borrow().as_ref() {
-                Some(extend) => assign_type::resolve_class_type(extend, &self.scope),
+                Some(extend) => {
+                    if let Some(Type::Class(resolved)) =
+                        assign_type::resolve_class_or_parameterized_type(extend, &self.scope)
+                    {
+                        Some(resolved)
+                    } else {
+                        None
+                    }
+                }
                 None => None,
             };
             class.extend_opt.replace(resolved_opt);
@@ -190,12 +198,13 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
         &mut self,
         class_type: &'type_ref ClassType<'def>,
     ) -> Option<NodeIndex> {
-        let resolved =
-            if let Some(resolved) = assign_type::resolve_class_type(class_type, &self.scope) {
-                resolved
-            } else {
-                return None;
-            };
+        let resolved = if let Some(Type::Class(resolved)) =
+            assign_type::resolve_class_or_parameterized_type(class_type, &self.scope)
+        {
+            resolved
+        } else {
+            return None;
+        };
 
         if let Some(class) = class_type.def_opt.get() {
             if let Some(&index) = self.map.get(&(class as *const Class<'def>)) {
