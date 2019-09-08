@@ -13,6 +13,18 @@ pub enum Type<'a> {
     Void,
 }
 
+impl<'a> Type<'a> {
+    pub fn to_type_arg(self) -> TypeArg<'a> {
+        match self {
+            Type::Array(arr) => TypeArg::Array(arr),
+            Type::Class(class) => TypeArg::Class(class),
+            Type::Parameterized(parameterized) => TypeArg::Parameterized(parameterized),
+            Type::Void => panic!(),
+            Type::Primitive(_) => panic!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum ReferenceType<'a> {
     Array(ArrayType<'a>),
@@ -103,7 +115,6 @@ impl<'a> ClassType<'a> {
 
         match class.find(name) {
             Some(found) => {
-                let found = unsafe { &(*found) };
                 // TODO: transfer type args
                 return Some(found.to_type());
             }
@@ -127,6 +138,7 @@ impl<'a> ClassType<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypeArg<'a> {
     Class(ClassType<'a>),
+    Parameterized(ParameterizedType<'a>),
     Array(ArrayType<'a>),
     Wildcard(WildcardType<'a>),
 }
@@ -192,6 +204,14 @@ impl<'a> EnclosingType<'a> {
             EnclosingType::Class(class) => class.prefix_opt.replace(boxed),
             EnclosingType::Parameterized(_) => panic!(),
         };
+    }
+
+    pub fn to_type(self) -> Type<'a> {
+        match self {
+            EnclosingType::Class(class) => Type::Class(class),
+            EnclosingType::Parameterized(p) => Type::Parameterized(p),
+            EnclosingType::Package(package) => panic!(),
+        }
     }
 }
 

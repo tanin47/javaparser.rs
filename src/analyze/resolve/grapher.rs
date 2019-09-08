@@ -10,6 +10,7 @@ use std::sync::Mutex;
 #[derive(Debug)]
 pub struct Node<'def, 'def_ref> {
     pub class: *const Class<'def>,
+    pub index: NodeIndex,
     pub scope: RefCell<Option<Scope<'def, 'def_ref>>>,
     pub dependents: HashSet<NodeIndex>,
     pub dependencies: HashSet<NodeIndex>,
@@ -116,7 +117,10 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
                 }
                 None => None,
             };
-            class.extend_opt.replace(resolved_opt);
+
+            if let Some(resolved) = resolved_opt {
+                class.extend_opt.replace(Some(resolved));
+            }
 
             match class.extend_opt.borrow().as_ref() {
                 Some(extend) => self.collect_node(extend),
@@ -126,17 +130,9 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
 
         let node_index = match self.map.get(&(class as *const Class<'def>)) {
             Some(index) => *index,
-            None => {
-                let node = Node {
-                    class: class as *const Class<'def>,
-                    scope: RefCell::new(None),
-                    dependents: HashSet::new(),
-                    dependencies: HashSet::new(),
-                    fulfilled: Mutex::new(HashSet::new()),
-                };
-                self.insert_node(node, parent_node_opt.is_some())
-            }
+            None => self.create_node(class as *const Class<'def>, parent_node_opt.is_some()),
         };
+        self.update_pool(node_index, parent_node_opt.is_some());
         for decl in &class.decls {
             self.scope.enter_class(class);
             self.collect_decl(decl, Some(node_index));
@@ -171,16 +167,25 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
         }
     }
 
-    fn insert_node(&mut self, node: Node<'def, 'def_ref>, has_outer: bool) -> NodeIndex {
-        let key = node.class;
+    fn create_node(&mut self, class: *const Class<'def>, has_outer: bool) -> NodeIndex {
         let index = self.nodes.len();
-        self.update_pool(&node, index, has_outer);
-        self.nodes.push(node);
-        self.map.insert(key, index);
+        let node = Node {
+            class: class as *const Class<'def>,
+            index,
+            scope: RefCell::new(None),
+            dependents: HashSet::new(),
+            dependencies: HashSet::new(),
+            fulfilled: Mutex::new(HashSet::new()),
+        };
+
+        let key = node.class;
+        self.map.insert(node.class, index);
+        self.nodes.insert(index, node);
         index
     }
 
-    fn update_pool(&mut self, node: &Node<'def, 'def_ref>, index: usize, has_outer: bool) {
+    fn update_pool(&mut self, node_index: NodeIndex, has_outer: bool) {
+        let node = self.nodes.get(node_index).unwrap();
         let has_super_class = unsafe { &(*node.class) }
             .extend_opt
             .borrow()
@@ -188,9 +193,9 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             .is_some();
 
         if !has_super_class && !has_outer {
-            self.pool.insert(index);
+            self.pool.insert(node.index);
         } else {
-            self.pool.remove(&index);
+            self.pool.remove(&node.index);
         }
     }
 
@@ -212,16 +217,10 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             }
         }
 
-        resolved.def_opt.get().map(|class| {
-            let node = Node {
-                class,
-                scope: RefCell::new(None),
-                dependents: HashSet::new(),
-                dependencies: HashSet::new(),
-                fulfilled: Mutex::new(HashSet::new()),
-            };
-            self.insert_node(node, false)
-        })
+        resolved
+            .def_opt
+            .get()
+            .map(|class| self.create_node(class, false))
     }
 }
 
@@ -229,7 +228,7 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
 mod tests {
     use analyze;
     use analyze::definition::{Class, Decl, Import, Method, Package, Root};
-    use analyze::resolve::grapher::Grapher;
+    use analyze::resolve::grapher::{Grapher, NodeIndex};
     use analyze::resolve::merge;
     use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
     use parse::tree::CompilationUnit;
@@ -238,6 +237,116 @@ mod tests {
     use std::iter::FromIterator;
     use test_common::{code, parse, span};
     use tokenize::token::Token;
+
+    #[test]
+    fn test_complex_2() {
+        let raws = vec![
+            r#"
+package dev;
+
+class Test<A> extends Super {
+  class Inner extends Typed<A> {}
+}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Super {
+  class A {}
+  class Typed<A> {}
+}
+        "#
+            .to_owned(),
+        ];
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+        let root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        let mut grapher = Grapher::new(&root);
+        grapher.collect();
+
+        let test = root.find("dev").unwrap().find_class("Test").unwrap() as *const Class;
+        let inner = root
+            .find("dev")
+            .unwrap()
+            .find("Test")
+            .unwrap()
+            .find_class("Inner")
+            .unwrap() as *const Class;
+        let super_class = root.find("dev").unwrap().find_class("Super").unwrap() as *const Class;
+        let super_a = root
+            .find("dev")
+            .unwrap()
+            .find_class("Super")
+            .unwrap()
+            .find("A")
+            .unwrap() as *const Class;
+        let super_typed = root
+            .find("dev")
+            .unwrap()
+            .find_class("Super")
+            .unwrap()
+            .find("Typed")
+            .unwrap() as *const Class;
+        assert_eq!(grapher.nodes.len(), 5);
+        assert_eq!(
+            grapher.pool,
+            HashSet::from_iter(vec![*grapher.map.get(&super_class).unwrap()])
+        );
+        assert_eq!(
+            grapher.get(test).unwrap().dependents,
+            HashSet::from_iter(vec![*grapher.map.get(&inner).unwrap(),])
+        );
+        assert_eq!(
+            grapher.get(test).unwrap().dependencies,
+            HashSet::from_iter(vec![*grapher.map.get(&super_class).unwrap()])
+        );
+        assert_eq!(grapher.get(inner).unwrap().dependents, HashSet::new());
+        assert_eq!(
+            grapher.get(inner).unwrap().dependencies,
+            HashSet::from_iter(vec![
+                *grapher.map.get(&test).unwrap(),
+                *grapher.map.get(&super_typed).unwrap(),
+            ])
+        );
+        assert_eq!(
+            grapher.get(super_class).unwrap().dependents,
+            HashSet::from_iter(vec![
+                *grapher.map.get(&test).unwrap(),
+                *grapher.map.get(&super_a).unwrap(),
+                *grapher.map.get(&super_typed).unwrap(),
+            ])
+        );
+        assert_eq!(
+            grapher.get(super_class).unwrap().dependencies,
+            HashSet::new()
+        );
+        assert_eq!(grapher.get(super_a).unwrap().dependents, HashSet::new());
+        assert_eq!(
+            grapher.get(super_a).unwrap().dependencies,
+            HashSet::from_iter(vec![*grapher.map.get(&super_class).unwrap(),])
+        );
+        assert_eq!(
+            grapher.get(super_typed).unwrap().dependents,
+            HashSet::from_iter(vec![*grapher.map.get(&inner).unwrap(),])
+        );
+        assert_eq!(
+            grapher.get(super_typed).unwrap().dependencies,
+            HashSet::from_iter(vec![*grapher.map.get(&super_class).unwrap(),])
+        );
+    }
 
     #[test]
     fn test_complex() {
@@ -283,7 +392,81 @@ class Super<T> {
         let mut grapher = Grapher::new(&root);
         grapher.collect();
 
-        println!("{:#?}", grapher.pool);
+        let test = root.find("dev").unwrap().find_class("Test").unwrap() as *const Class;
+        let inner = root
+            .find("dev")
+            .unwrap()
+            .find("Test")
+            .unwrap()
+            .find_class("Inner")
+            .unwrap() as *const Class;
+        let inner_of_inner = root
+            .find("dev")
+            .unwrap()
+            .find("Test")
+            .unwrap()
+            .find_class("Inner")
+            .unwrap()
+            .find("InnerOfInner")
+            .unwrap() as *const Class;
+        let super_class = root.find("dev").unwrap().find_class("Super").unwrap() as *const Class;
+        let super_inner = root
+            .find("dev")
+            .unwrap()
+            .find_class("Super")
+            .unwrap()
+            .find("SuperInner")
+            .unwrap() as *const Class;
+        assert_eq!(grapher.nodes.len(), 5);
+        assert_eq!(
+            grapher.pool,
+            HashSet::from_iter(
+                vec![&test, &super_class]
+                    .into_iter()
+                    .map(|c| *grapher.map.get(c).unwrap())
+                    .collect::<Vec<NodeIndex>>()
+            )
+        );
+        assert_eq!(
+            grapher.get(test).unwrap().dependents,
+            HashSet::from_iter(vec![*grapher.map.get(&inner).unwrap(),])
+        );
+        assert_eq!(grapher.get(test).unwrap().dependencies, HashSet::new());
+        assert_eq!(
+            grapher.get(inner).unwrap().dependents,
+            HashSet::from_iter(vec![*grapher.map.get(&inner_of_inner).unwrap(),])
+        );
+        assert_eq!(
+            grapher.get(inner).unwrap().dependencies,
+            HashSet::from_iter(vec![*grapher.map.get(&test).unwrap(),])
+        );
+        assert_eq!(
+            grapher.get(inner_of_inner).unwrap().dependents,
+            HashSet::new()
+        );
+        assert_eq!(
+            grapher.get(inner_of_inner).unwrap().dependencies,
+            HashSet::from_iter(vec![
+                *grapher.map.get(&inner).unwrap(),
+                *grapher.map.get(&super_class).unwrap(),
+            ])
+        );
+        assert_eq!(
+            grapher.get(super_class).unwrap().dependents,
+            HashSet::from_iter(vec![
+                *grapher.map.get(&inner_of_inner).unwrap(),
+                *grapher.map.get(&super_inner).unwrap(),
+            ])
+        );
+        assert_eq!(
+            grapher.get(super_class).unwrap().dependencies,
+            HashSet::new()
+        );
+        assert_eq!(grapher.get(super_inner).unwrap().dependents, HashSet::new());
+        assert_eq!(
+            grapher.get(super_inner).unwrap().dependencies,
+            HashSet::from_iter(vec![*grapher.map.get(&super_class).unwrap(),])
+        );
     }
 
     #[test]

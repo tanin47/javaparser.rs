@@ -132,7 +132,7 @@ unsafe impl<'a> Sync for Class<'a> {}
 unsafe impl<'a> Send for Class<'a> {}
 
 impl<'a> Class<'a> {
-    pub fn find<'b>(&self, name: &str) -> Option<*const Class<'a>> {
+    pub fn find<'b>(&self, name: &str) -> Option<&Class<'a>> {
         for decl in &self.decls {
             if let Decl::Class(class) = decl {
                 if class.name.fragment == name {
@@ -148,6 +148,16 @@ impl<'a> Class<'a> {
         for method in &self.methods {
             if method.name.fragment == name {
                 return Some(method);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_type_param(&self, name: &str) -> Option<&TypeParam<'a>> {
+        for type_param in &self.type_params {
+            if type_param.name.fragment == name {
+                return Some(type_param);
             }
         }
 

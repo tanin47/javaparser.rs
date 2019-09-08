@@ -1,7 +1,12 @@
-use analyze::definition::Class;
+use analyze;
+use analyze::definition::{Class, Root};
+use analyze::resolve::merge;
+use parse::tree::CompilationUnit;
+use parse::Tokens;
 use std::cell::RefCell;
-use test_common::span;
+use test_common::{code, parse, span};
 use tokenize::span::Span;
+use tokenize::token::Token;
 
 pub fn mock_class<'a>(name: &'a Span<'a>) -> Class<'a> {
     Class {

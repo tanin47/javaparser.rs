@@ -1,7 +1,7 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root};
 use analyze::resolve::grapher::{Grapher, Node};
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
-use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
+use analyze::tpe::{ArrayType, ClassType, EnclosingType, PackagePrefix, Type, TypeArg};
 use crossbeam_queue::SegQueue;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -88,7 +88,7 @@ fn apply_node<'def, 'queue_ref, 'grapher_ref, 'def_ref>(
         let dependent = grapher.nodes.get(dependent_index).unwrap();
 
         let mut fulfilled = dependent.fulfilled.lock().unwrap();
-        fulfilled.insert(dependent_index);
+        fulfilled.insert(node.index);
 
         if fulfilled.len() == dependent.dependencies.len() {
             queue.push(dependent);
@@ -111,6 +111,7 @@ fn apply_class<'def, 'def_ref, 'scope_ref>(
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
     scope.enter();
+    // TypeParam can be referred to in the super classes.
     for type_param in &class.type_params {
         scope.add_type_param(type_param);
     }
@@ -130,6 +131,11 @@ fn apply_class<'def, 'def_ref, 'scope_ref>(
     }
 
     scope.enter_class(class);
+    // TypeParam should be recognized before traversing into the super classes.
+    for type_param in &class.type_params {
+        scope.add_type_param(type_param);
+    }
+
     for method in &class.methods {
         apply_method(method, scope);
     }
@@ -174,8 +180,8 @@ fn apply_method<'def, 'def_ref, 'scope_ref>(
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
     let new_type_opt = {
-        let rt = method.return_type.borrow();
-        resolve_type(&rt, scope)
+        let tpe = method.return_type.borrow();
+        resolve_type(&tpe, scope)
     };
     match new_type_opt {
         Some(new_type) => {
@@ -187,39 +193,80 @@ fn apply_method<'def, 'def_ref, 'scope_ref>(
 
 fn resolve_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     tpe: &'type_ref Type<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<Type<'def>> {
     match tpe {
         Type::Class(class_type) => resolve_class_or_parameterized_type(class_type, scope),
-        Type::Array(array_type) => resolve_type(&array_type.elem_type, scope),
+        Type::Array(array_type) => {
+            resolve_array_type(array_type, scope).map(|resolved| Type::Array(resolved))
+        }
         _ => None,
     }
+}
+
+pub fn resolve_array_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
+    array_type: &'type_ref ArrayType<'def>,
+    scope: &'scope_ref Scope<'def, 'def_ref>,
+) -> Option<ArrayType<'def>> {
+    resolve_type(&array_type.elem_type, scope).map(|elem_type| ArrayType {
+        elem_type: Box::new(elem_type),
+    })
 }
 
 pub fn resolve_class_or_parameterized_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     class_type: &'type_ref ClassType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<Type<'def>> {
-    let result_opt = if let Some(prefix) = class_type.prefix_opt.borrow().as_ref() {
-        let new_prefix_opt = resolve_prefix(&prefix, scope);
-        let prefix = new_prefix_opt.unwrap_or_else(|| *prefix.clone());
+    resolve_enclosing_type(class_type, scope).map(|e| e.to_type())
+}
 
-        let result_opt = prefix.find(class_type.name);
-
-        if let Some(result) = &result_opt {
-            result.set_prefix_opt(Some(prefix))
-        }
-        result_opt
-    } else {
-        scope.resolve_type(class_type.name)
+pub fn resolve_type_arg<'type_ref, 'def, 'scope_ref, 'def_ref>(
+    type_arg: &'type_ref TypeArg<'def>,
+    scope: &'scope_ref Scope<'def, 'def_ref>,
+) -> Option<TypeArg<'def>> {
+    let type_opt = match type_arg {
+        TypeArg::Class(class) => resolve_class_or_parameterized_type(class, scope),
+        TypeArg::Array(array) => resolve_array_type(array, scope).map(|t| Type::Array(t)),
+        TypeArg::Parameterized(parameterized) => None,
+        TypeArg::Wildcard(wild) => None,
     };
 
-    match result_opt {
-        Some(EnclosingType::Class(class)) => Some(Type::Class(class)),
-        Some(EnclosingType::Parameterized(p)) => Some(Type::Parameterized(p)),
-        Some(EnclosingType::Package(package)) => panic!(),
-        None => None,
+    type_opt.map(|t| t.to_type_arg())
+}
+
+pub fn resolve_enclosing_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
+    unknown_type: &'type_ref ClassType<'def>,
+    scope: &'scope_ref Scope<'def, 'def_ref>,
+) -> Option<EnclosingType<'def>> {
+    let mut result_opt = if let Some(prefix) = unknown_type.prefix_opt.borrow().as_ref() {
+        let prefix = match resolve_prefix(&prefix, scope) {
+            Some(prefix) => prefix,
+            None => return None,
+        };
+
+        let result = prefix
+            .find(unknown_type.name)
+            .unwrap_or_else(|| EnclosingType::Class(unknown_type.clone()));
+
+        result.set_prefix_opt(Some(prefix));
+        Some(result)
+    } else {
+        scope.resolve_type(unknown_type.name)
+    };
+
+    if !unknown_type.type_args.is_empty() {
+        if let Some(EnclosingType::Class(resolved)) = &mut result_opt {
+            for type_arg in &unknown_type.type_args {
+                resolved
+                    .type_args
+                    .push(resolve_type_arg(type_arg, scope).unwrap_or_else(|| type_arg.clone()));
+            }
+        } else {
+            panic!()
+        }
     }
+
+    result_opt
 }
 
 fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
@@ -245,7 +292,7 @@ fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
 
     match prefix {
         EnclosingType::Package(package) => resolve_package_prefix(package, scope),
-        EnclosingType::Class(class) => scope.resolve_type(class.name),
+        EnclosingType::Class(class) => resolve_enclosing_type(class, scope),
         EnclosingType::Parameterized(p) => None,
     }
 }
@@ -268,9 +315,9 @@ fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
 mod tests {
     use super::apply;
     use analyze;
-    use analyze::definition::{Class, Package, Root};
+    use analyze::definition::{Class, Package, Root, TypeParam};
     use analyze::resolve::merge;
-    use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
+    use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, ParameterizedType, Type, TypeArg};
     use parse::tree::{CompilationUnit, CompilationUnitItem};
     use std::cell::{Cell, RefCell};
     use std::convert::AsRef;
@@ -299,40 +346,61 @@ class Super<T extends Test> {
         "#
             .to_owned(),
         ];
-    }
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
 
-    #[test]
-    fn test_paratermeterized_prefix() {
-        let raws = vec![
-            r#"
-package dev;
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
 
-class Test<A extends Super> {
-  A.SuperInner method() {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
+        apply(&mut root);
 
-class Super extends SuperSuper {
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
+        let ret_type = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Super")
+            .unwrap()
+            .find_method("method")
+            .unwrap()
+            .return_type
+            .borrow();
 
-class SuperSuper {
-  class SuperInner {}
-}
-        "#
-            .to_owned(),
-        ];
+        assert_eq!(
+            ret_type.deref(),
+            &Type::Class(ClassType {
+                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
+                    ParameterizedType {
+                        name: "T",
+                        def_opt: Cell::new(Some(
+                            root.find_package("dev")
+                                .unwrap()
+                                .find_class("Super")
+                                .unwrap()
+                                .find_type_param("T")
+                                .unwrap() as *const TypeParam
+                        ))
+                    }
+                )))),
+                name: "Inner",
+                type_args: vec![],
+                def_opt: Cell::new(None)
+            })
+        )
     }
 
     #[test]
     fn test_not_allowed() {
-        // ParameterizedType CANNOT exist as a super class of a class
+        // ParameterizedType CANNOT exist as a super class of a class.
+        // However, this is for code intelligence, so we allow it.
         let raws = vec![
             r#"
 package dev;
@@ -351,6 +419,56 @@ class Super {
         "#
             .to_owned(),
         ];
+
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        apply(&mut root);
+
+        let inner_extend_opt = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Test")
+            .unwrap()
+            .find("Inner")
+            .unwrap()
+            .extend_opt
+            .borrow();
+
+        assert_eq!(
+            inner_extend_opt.as_ref().unwrap(),
+            &ClassType {
+                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
+                    ParameterizedType {
+                        name: "A",
+                        def_opt: Cell::new(Some(
+                            root.find_package("dev")
+                                .unwrap()
+                                .find_class("Test")
+                                .unwrap()
+                                .find_type_param("A")
+                                .unwrap() as *const TypeParam
+                        ))
+                    }
+                )))),
+                name: "SuperInner",
+                type_args: vec![],
+                def_opt: Cell::new(None)
+            }
+        )
     }
 
     #[test]
@@ -374,6 +492,116 @@ class Super {
         "#
             .to_owned(),
         ];
+
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        apply(&mut root);
+
+        let inner_extend_opt = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Test")
+            .unwrap()
+            .find("Inner")
+            .unwrap()
+            .extend_opt
+            .borrow();
+
+        assert_eq!(
+            inner_extend_opt.as_ref().unwrap(),
+            &ClassType {
+                prefix_opt: RefCell::new(None),
+                name: "Typed",
+                type_args: vec![TypeArg::Parameterized(ParameterizedType {
+                    name: "A",
+                    def_opt: Cell::new(Some(
+                        root.find_package("dev")
+                            .unwrap()
+                            .find_class("Test")
+                            .unwrap()
+                            .find_type_param("A")
+                            .unwrap() as *const TypeParam
+                    ))
+                })],
+                def_opt: Cell::new(Some(
+                    root.find_package("dev")
+                        .unwrap()
+                        .find_class("Super")
+                        .unwrap()
+                        .find("Typed")
+                        .unwrap() as *const Class
+                ))
+            }
+        )
+    }
+
+    #[test]
+    fn test_detect_parameterized() {
+        let raws = vec![r#"
+package dev;
+
+class Test<A> {
+    A method() {}
+}
+        "#
+        .to_owned()];
+
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        apply(&mut root);
+
+        let ret_type = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Test")
+            .unwrap()
+            .find_method("method")
+            .unwrap()
+            .return_type
+            .borrow();
+
+        assert_eq!(
+            ret_type.deref(),
+            &Type::Parameterized(ParameterizedType {
+                name: "A",
+                def_opt: Cell::new(Some(
+                    root.find_package("dev")
+                        .unwrap()
+                        .find_class("Test")
+                        .unwrap()
+                        .find_type_param("A")
+                        .unwrap() as *const TypeParam
+                ))
+            })
+        )
     }
 
     #[test]
@@ -396,17 +624,82 @@ class Test<T> {
         "#
             .to_owned(),
         ];
+
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        apply(&mut root);
+
+        let ret_type = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Test")
+            .unwrap()
+            .find_method("method")
+            .unwrap()
+            .return_type
+            .borrow();
+
+        assert_eq!(
+            ret_type.deref(),
+            &Type::Class(ClassType {
+                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Class(ClassType {
+                    prefix_opt: RefCell::new(None),
+                    name: "Parent",
+                    type_args: vec![TypeArg::Parameterized(ParameterizedType {
+                        name: "T",
+                        def_opt: Cell::new(Some(
+                            root.find_package("dev")
+                                .unwrap()
+                                .find_class("Test")
+                                .unwrap()
+                                .find_type_param("T")
+                                .unwrap() as *const TypeParam
+                        ))
+                    })],
+                    def_opt: Cell::new(Some(
+                        root.find_package("dev")
+                            .unwrap()
+                            .find_class("Parent")
+                            .unwrap() as *const Class
+                    ))
+                })))),
+                name: "Inner",
+                type_args: vec![],
+                def_opt: Cell::new(Some(
+                    root.find_package("dev")
+                        .unwrap()
+                        .find_class("Parent")
+                        .unwrap()
+                        .find("Inner")
+                        .unwrap() as *const Class
+                ))
+            })
+        )
     }
 
     #[test]
-    fn test_scope_resolve_from_outer_class() {
+    fn test_inner_class_of_super_class() {
         let raws = vec![
             r#"
 package dev;
 
-class Test<A> {
+class Test {
   class Inner {
-    class InnerOfInner extends Super<A> {
+    class InnerOfInner extends Super {
       SuperInner method() {}
     } 
   }
@@ -416,10 +709,8 @@ class Test<A> {
             r#"
 package dev;
 
-class Super<T> {
-  class SuperInner {
-    T method() {}
-  }
+class Super {
+  class SuperInner {}
 }
         "#
             .to_owned(),
@@ -441,6 +732,37 @@ class Super<T> {
         );
 
         apply(&mut root);
+
+        let ret_type = root
+            .find_package("dev")
+            .unwrap()
+            .find_class("Test")
+            .unwrap()
+            .find("Inner")
+            .unwrap()
+            .find("InnerOfInner")
+            .unwrap()
+            .find_method("method")
+            .unwrap()
+            .return_type
+            .borrow();
+
+        assert_eq!(
+            ret_type.deref(),
+            &Type::Class(ClassType {
+                prefix_opt: RefCell::new(None),
+                name: "SuperInner",
+                type_args: vec![],
+                def_opt: Cell::new(Some(
+                    root.find_package("dev")
+                        .unwrap()
+                        .find_class("Super")
+                        .unwrap()
+                        .find("SuperInner")
+                        .unwrap() as *const Class
+                ))
+            })
+        )
     }
 
     #[test]
