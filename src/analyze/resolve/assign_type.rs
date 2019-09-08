@@ -111,7 +111,6 @@ fn apply_class<'def, 'def_ref, 'scope_ref>(
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
     scope.enter();
-    // TODO: add type param as type args
     for type_param in &class.type_params {
         scope.add_type_param(type_param);
     }
@@ -201,10 +200,8 @@ pub fn resolve_class_or_parameterized_type<'def, 'type_ref, 'def_ref, 'scope_ref
     class_type: &'type_ref ClassType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<Type<'def>> {
-    println!("{}", class_type.name);
     let result_opt = if let Some(prefix) = class_type.prefix_opt.borrow().as_ref() {
         let new_prefix_opt = resolve_prefix(&prefix, scope);
-        println!("prefix {:#?}", new_prefix_opt);
         let prefix = new_prefix_opt.unwrap_or_else(|| *prefix.clone());
 
         let result_opt = prefix.find(class_type.name);
@@ -229,23 +226,27 @@ fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     prefix: &'type_ref EnclosingType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<EnclosingType<'def>> {
-    if let Some(prefix_prefix) = prefix.get_prefix_opt() {
-        let prefix_prefix = resolve_prefix(prefix_prefix.as_ref().bo, scope)
-            .unwrap_or_else(|| prefix_prefix.deref().clone());
-        let name = prefix.get_name();
+    if let Some(ref_prefix_prefix) = prefix.get_prefix_opt() {
+        if let Some(prefix_prefix) = ref_prefix_prefix.deref() {
+            let prefix_prefix = resolve_prefix(prefix_prefix.deref(), scope)
+                .unwrap_or_else(|| prefix_prefix.deref().clone());
 
-        let result_opt = prefix_prefix.find(prefix.get_name());
+            let name = prefix.get_name();
 
-        if let Some(result) = &result_opt {
-            result.set_prefix_opt(Some(prefix_prefix))
+            let result_opt = prefix_prefix.find(prefix.get_name());
+
+            if let Some(result) = &result_opt {
+                result.set_prefix_opt(Some(prefix_prefix))
+            }
+
+            return result_opt;
         }
-        result_opt
-    } else {
-        match prefix {
-            EnclosingType::Package(package) => resolve_package_prefix(package, scope),
-            EnclosingType::Class(class) => scope.resolve_type(class.name),
-            EnclosingType::Parameterized(p) => None,
-        }
+    }
+
+    match prefix {
+        EnclosingType::Package(package) => resolve_package_prefix(package, scope),
+        EnclosingType::Class(class) => scope.resolve_type(class.name),
+        EnclosingType::Parameterized(p) => None,
     }
 }
 
@@ -278,8 +279,30 @@ mod tests {
     use tokenize::token::Token;
 
     #[test]
+    fn test_circular_paratermeterized() {
+        // This case proves that we need to process type params after processing the concrete types.
+        let raws = vec![
+            r#"
+package dev;
+
+class Test extends Super<Test> {
+}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Super<T extends Test> {
+    class Inner {}
+    T.Inner method() {}
+}
+        "#
+            .to_owned(),
+        ];
+    }
+
+    #[test]
     fn test_paratermeterized_prefix() {
-        // ParameterizedType can exists as a super class of a class
         let raws = vec![
             r#"
 package dev;
@@ -292,7 +315,14 @@ class Test<A extends Super> {
             r#"
 package dev;
 
-class Super {
+class Super extends SuperSuper {
+}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class SuperSuper {
   class SuperInner {}
 }
         "#
@@ -302,7 +332,7 @@ class Super {
 
     #[test]
     fn test_not_allowed() {
-        // ParameterizedType can exists as a super class of a class
+        // ParameterizedType CANNOT exist as a super class of a class
         let raws = vec![
             r#"
 package dev;
@@ -394,6 +424,23 @@ class Super<T> {
         "#
             .to_owned(),
         ];
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+
+        let mut root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        apply(&mut root);
     }
 
     #[test]

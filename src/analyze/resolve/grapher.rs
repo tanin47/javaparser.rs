@@ -228,14 +228,63 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
 #[cfg(test)]
 mod tests {
     use analyze;
-    use analyze::definition::{Class, CompilationUnit, Decl, Import, Method, Package, Root};
+    use analyze::definition::{Class, Decl, Import, Method, Package, Root};
     use analyze::resolve::grapher::Grapher;
     use analyze::resolve::merge;
     use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
+    use parse::tree::CompilationUnit;
     use std::cell::{Cell, RefCell};
     use std::collections::HashSet;
     use std::iter::FromIterator;
     use test_common::{code, parse, span};
+    use tokenize::token::Token;
+
+    #[test]
+    fn test_complex() {
+        let raws = vec![
+            r#"
+package dev;
+
+class Test<A> {
+  class Inner {
+    class InnerOfInner extends Super<A> {
+      SuperInner method() {}
+    } 
+  }
+}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Super<T> {
+  class SuperInner {
+    T method() {}
+  }
+}
+        "#
+            .to_owned(),
+        ];
+        let tokenss = raws
+            .iter()
+            .map(|raw| code(raw))
+            .collect::<Vec<Vec<Token>>>();
+        let units = tokenss
+            .iter()
+            .map(|tokens| parse(tokens))
+            .collect::<Vec<CompilationUnit>>();
+        let root = merge::apply(
+            units
+                .iter()
+                .map(|unit| analyze::build::apply(unit))
+                .collect::<Vec<Root>>(),
+        );
+
+        let mut grapher = Grapher::new(&root);
+        grapher.collect();
+
+        println!("{:#?}", grapher.pool);
+    }
 
     #[test]
     fn test_simple() {
