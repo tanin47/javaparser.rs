@@ -1,8 +1,11 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
+#![feature(thread_spawn_unchecked)]
 
 extern crate core;
+extern crate crossbeam_queue;
 extern crate either;
+extern crate num_cpus;
 extern crate proc_macro;
 
 pub mod analyze;

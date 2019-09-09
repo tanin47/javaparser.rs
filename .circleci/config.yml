@@ -6,6 +6,16 @@ jobs:
 
     steps:
       - checkout
+      - restore_cache:
+          key: project-cache-v1
+      - run:
+          name: Install Rust (nightly)
+          command: rustup install nightly
       - run:
           name: Test
-          command: cargo test
+          command: cargo +nightly test
+      - save_cache:
+          key: project-cache-v1
+          paths:
+            - "~/.cargo"
+
