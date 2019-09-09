@@ -23,12 +23,23 @@ impl<'a> Type<'a> {
             Type::Primitive(_) => panic!(),
         }
     }
+
+    pub fn to_reference_type(self) -> ReferenceType<'a> {
+        match self {
+            Type::Array(arr) => ReferenceType::Array(arr),
+            Type::Class(class) => ReferenceType::Class(class),
+            Type::Parameterized(parameterized) => ReferenceType::Parameterized(parameterized),
+            Type::Void => panic!(),
+            Type::Primitive(_) => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ReferenceType<'a> {
     Array(ArrayType<'a>),
     Class(ClassType<'a>),
+    Parameterized(ParameterizedType<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

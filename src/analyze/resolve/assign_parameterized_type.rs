@@ -1,5 +1,9 @@
-use analyze::definition::{Class, CompilationUnit, Decl, Method, Package, Root, TypeParamExtend};
-use analyze::resolve::assign_type::{resolve_class_or_parameterized_type, resolve_type};
+use analyze::definition::{
+    Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root, TypeParamExtend,
+};
+use analyze::resolve::assign_type::{
+    resolve_and_replace_type, resolve_class_or_parameterized_type, resolve_type,
+};
 use analyze::resolve::scope::Scope;
 use analyze::tpe::Type;
 use crossbeam_queue::SegQueue;
@@ -115,27 +119,6 @@ fn apply_decl<'def, 'def_ref>(decl: &'def_ref Decl<'def>, scope: &mut Scope<'def
     }
 }
 
-fn resolve_type_param_extend<'def, 'def_ref>(
-    origin: &'def_ref TypeParamExtend<'def>,
-    scope: &Scope<'def, 'def_ref>,
-) -> Option<TypeParamExtend<'def>> {
-    let tpe = match origin {
-        TypeParamExtend::Class(class) => resolve_class_or_parameterized_type(class, scope),
-        TypeParamExtend::Parameterized(parameterized) => {
-            Some(Type::Parameterized(parameterized.clone()))
-        }
-    };
-
-    match tpe {
-        Some(Type::Class(class)) => Some(TypeParamExtend::Class(class)),
-        Some(Type::Parameterized(parameterized)) => {
-            Some(TypeParamExtend::Parameterized(parameterized))
-        }
-        None => None,
-        _ => panic!(),
-    }
-}
-
 fn apply_class<'def, 'def_ref>(class: &'def_ref Class<'def>, scope: &mut Scope<'def, 'def_ref>) {
     scope.enter();
     for type_param in &class.type_params {
@@ -158,9 +141,14 @@ fn apply_class<'def, 'def_ref>(class: &'def_ref Class<'def>, scope: &mut Scope<'
     for type_param in &class.type_params {
         scope.add_type_param(type_param);
     }
-
     for method in &class.methods {
         apply_method(method, scope);
+    }
+    for field_group in &class.field_groups {
+        apply_field_group(field_group, scope);
+    }
+    for inner_decl in &class.decls {
+        apply_decl(inner_decl, scope);
     }
 
     scope.leave();
@@ -171,16 +159,48 @@ fn apply_method<'def, 'def_ref, 'scope_ref>(
     method: &'def_ref Method<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
-    let new_type_opt = {
-        let tpe = method.return_type.borrow();
-        resolve_type(&tpe, scope)
-    };
-    match new_type_opt {
-        Some(new_type) => {
-            method.return_type.replace(new_type);
+    resolve_and_replace_type(&method.return_type, scope);
+
+    for param in &method.params {
+        resolve_and_replace_type(&param.tpe, scope);
+    }
+}
+
+fn apply_field_group<'def, 'def_ref, 'scope_ref>(
+    field_group: &'def_ref FieldGroup<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
+    for field in &field_group.items {
+        apply_field(field, scope)
+    }
+}
+
+fn apply_field<'def, 'def_ref, 'scope_ref>(
+    field: &'def_ref Field<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
+    resolve_and_replace_type(&field.tpe, scope);
+}
+
+fn resolve_type_param_extend<'def, 'def_ref>(
+    origin: &'def_ref TypeParamExtend<'def>,
+    scope: &Scope<'def, 'def_ref>,
+) -> Option<TypeParamExtend<'def>> {
+    let tpe = match origin {
+        TypeParamExtend::Class(class) => resolve_class_or_parameterized_type(class, scope),
+        TypeParamExtend::Parameterized(parameterized) => {
+            Some(Type::Parameterized(parameterized.clone()))
         }
-        None => (),
     };
+
+    match tpe {
+        Some(Type::Class(class)) => Some(TypeParamExtend::Class(class)),
+        Some(Type::Parameterized(parameterized)) => {
+            Some(TypeParamExtend::Parameterized(parameterized))
+        }
+        None => None,
+        _ => panic!(),
+    }
 }
 
 #[cfg(test)]
@@ -189,19 +209,22 @@ mod tests {
     use analyze::definition::{Class, TypeParam};
     use analyze::resolve::assign_type;
     use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
-    use analyze::tpe::{ClassType, EnclosingType, ParameterizedType, Type};
+    use analyze::tpe::{
+        ClassType, EnclosingType, ParameterizedType, PrimitiveType, ReferenceType, Type, TypeArg,
+        WildcardType,
+    };
     use std::cell::{Cell, RefCell};
     use std::ops::Deref;
+    use test_common::span;
 
     #[test]
-    fn test_circular_paratermeterized() {
+    fn test_circular_parameterized() {
         // This case proves that we need to process type params after processing the concrete types.
         let raws = vec![
             r#"
 package dev;
 
-class Test extends Super<Test> {
-}
+class Test extends Super<Test> {}
         "#
             .to_owned(),
             r#"
@@ -210,6 +233,7 @@ package dev;
 class Super<T extends Test> {
     class Inner {}
     T.Inner method() {}
+    T.Inner field;
 }
         "#
             .to_owned(),
@@ -221,29 +245,26 @@ class Super<T extends Test> {
         assign_type::apply(&mut root);
         apply(&mut root);
 
-        let ret_type = find_class(&root, "dev.Super")
+        let method = find_class(&root, "dev.Super")
             .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
+            .unwrap();
+        let field = find_class(&root, "dev.Super").find_field("field").unwrap();
 
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
-                    ParameterizedType {
-                        name: "T",
-                        def_opt: Cell::new(Some(
-                            find_class(&root, "dev.Super").find_type_param("T").unwrap()
-                                as *const TypeParam
-                        ))
-                    }
-                )))),
-                name: "Inner",
-                type_args: vec![],
-                def_opt: Cell::new(Some(find_class(&root, "dev.Super.Inner") as *const Class))
-            })
-        )
+        let expected_type = Type::Class(ClassType {
+            prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
+                ParameterizedType {
+                    name: "T",
+                    def_opt: Cell::new(Some(
+                        find_class(&root, "dev.Super").find_type_param("T").unwrap(),
+                    )),
+                },
+            )))),
+            name: "Inner",
+            type_args: vec![],
+            def_opt: Cell::new(Some(find_class(&root, "dev.Super.Inner"))),
+        });
+        assert_eq!(method.return_type.borrow().deref(), &expected_type);
+        assert_eq!(field.tpe.borrow().deref(), &expected_type);
     }
 
     #[test]
@@ -300,5 +321,97 @@ class Super {
     }
 
     // Resolve method's type param
+    #[test]
+    fn test_method_params() {
+        let raws = vec![
+            r#"
+package dev;
+
+class Test<A extends Outer> {
+  class Inner {}
+  void method(int a, Arg<Test<A>, A, ? extends A.Inner> c) {}
+}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Arg<A, B, C> {}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Outer extends SuperOuter {}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class SuperOuter {
+    class Inner {}
+}
+        "#
+            .to_owned(),
+        ];
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
+        assign_type::apply(&mut root);
+        apply(&mut root);
+
+        let method = find_class(&root, "dev.Test").find_method("method").unwrap();
+
+        assert_eq!(method.return_type.borrow().deref(), &Type::Void);
+        assert_eq!(
+            method.params.get(0).unwrap().tpe.borrow().deref(),
+            &Type::Primitive(PrimitiveType::Int)
+        );
+        let wildcard_name = span(5, 38, "?");
+        assert_eq!(
+            method.params.get(1).unwrap().tpe.borrow().deref(),
+            &Type::Class(ClassType {
+                prefix_opt: RefCell::new(None),
+                name: "Arg",
+                type_args: vec![
+                    TypeArg::Class(ClassType {
+                        prefix_opt: RefCell::new(None),
+                        name: "Test",
+                        type_args: vec![TypeArg::Parameterized(ParameterizedType {
+                            name: "A",
+                            def_opt: Cell::new(Some(
+                                find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                            ))
+                        })],
+                        def_opt: Cell::new(Some(find_class(&root, "dev.Test")))
+                    }),
+                    TypeArg::Parameterized(ParameterizedType {
+                        name: "A",
+                        def_opt: Cell::new(Some(
+                            find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                        ))
+                    }),
+                    TypeArg::Wildcard(WildcardType {
+                        name: &wildcard_name,
+                        super_opt: None,
+                        extends: vec![ReferenceType::Class(ClassType {
+                            prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
+                                ParameterizedType {
+                                    name: "A",
+                                    def_opt: Cell::new(Some(
+                                        find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                                    ))
+                                }
+                            )))),
+                            name: "Inner",
+                            type_args: vec![],
+                            def_opt: Cell::new(Some(find_class(&root, "dev.SuperOuter.Inner")))
+                        })]
+                    })
+                ],
+                def_opt: Cell::new(Some(find_class(&root, "dev.Arg")))
+            })
+        );
+    }
     // Resolve the wildcard type arg of a method's arg
 }

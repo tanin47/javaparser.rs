@@ -145,6 +145,18 @@ impl<'a> Class<'a> {
         None
     }
 
+    pub fn find_field(&self, name: &str) -> Option<&Field<'a>> {
+        for group in &self.field_groups {
+            for field in &group.items {
+                if field.name.fragment == name {
+                    return Some(field);
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn find_method(&self, name: &str) -> Option<&Method<'a>> {
         for method in &self.methods {
             if method.name.fragment == name {

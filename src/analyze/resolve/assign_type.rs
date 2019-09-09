@@ -1,7 +1,10 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root};
 use analyze::resolve::grapher::{Grapher, Node};
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
-use analyze::tpe::{ArrayType, ClassType, EnclosingType, PackagePrefix, Type, TypeArg};
+use analyze::tpe::TypeArg::Wildcard;
+use analyze::tpe::{
+    ArrayType, ClassType, EnclosingType, PackagePrefix, ReferenceType, Type, TypeArg, WildcardType,
+};
 use crossbeam_queue::SegQueue;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -166,7 +169,7 @@ fn apply_field<'def, 'def_ref, 'scope_ref>(
     resolve_and_replace_type(&field.tpe, scope);
 }
 
-fn resolve_and_replace_type<'def>(cell: &RefCell<Type<'def>>, scope: &Scope<'def, '_>) {
+pub fn resolve_and_replace_type<'def>(cell: &RefCell<Type<'def>>, scope: &Scope<'def, '_>) {
     let new_type_opt = {
         let tpe = cell.borrow();
         resolve_type(&tpe, scope)
@@ -223,14 +226,47 @@ pub fn resolve_type_arg<'type_ref, 'def, 'scope_ref, 'def_ref>(
     type_arg: &'type_ref TypeArg<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<TypeArg<'def>> {
-    let type_opt = match type_arg {
-        TypeArg::Class(class) => resolve_class_or_parameterized_type(class, scope),
-        TypeArg::Array(array) => resolve_array_type(array, scope).map(|t| Type::Array(t)),
+    match type_arg {
+        TypeArg::Class(class) => {
+            resolve_class_or_parameterized_type(class, scope).map(|t| t.to_type_arg())
+        }
+        TypeArg::Array(array) => resolve_array_type(array, scope).map(|t| TypeArg::Array(t)),
         TypeArg::Parameterized(parameterized) => None,
-        TypeArg::Wildcard(wild) => None,
+        TypeArg::Wildcard(wild) => Some(TypeArg::Wildcard(resolve_wildcard_type(wild, scope))),
+    }
+}
+
+pub fn resolve_reference_type<'type_ref, 'scope_ref, 'def, 'def_ref>(
+    reference: &'type_ref ReferenceType<'def>,
+    scope: &'scope_ref Scope<'def, 'def_ref>,
+) -> ReferenceType<'def> {
+    let type_opt = match reference {
+        ReferenceType::Class(class) => resolve_class_or_parameterized_type(class, scope),
+        ReferenceType::Array(array) => resolve_array_type(array, scope).map(|t| Type::Array(t)),
+        ReferenceType::Parameterized(parameterized) => None,
     };
 
-    type_opt.map(|t| t.to_type_arg())
+    type_opt
+        .map(|t| t.to_reference_type())
+        .unwrap_or_else(|| reference.clone())
+}
+
+pub fn resolve_wildcard_type<'type_ref, 'def, 'scope_ref, 'def_ref>(
+    wildcard: &'type_ref WildcardType<'def>,
+    scope: &'scope_ref Scope<'def, 'def_ref>,
+) -> WildcardType<'def> {
+    WildcardType {
+        name: wildcard.name,
+        extends: wildcard
+            .extends
+            .iter()
+            .map(|e| resolve_reference_type(e, scope))
+            .collect(),
+        super_opt: match &wildcard.super_opt {
+            Some(super_tpe) => Some(Box::new(resolve_reference_type(super_tpe, scope))),
+            None => None,
+        },
+    }
 }
 
 pub fn resolve_enclosing_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
@@ -329,7 +365,7 @@ mod tests {
     use tokenize::token::Token;
 
     #[test]
-    fn test_circular_paratermeterized() {
+    fn test_circular_parameterized() {
         // This case proves that we need to process type params after processing the concrete types.
         let raws = vec![
             r#"
@@ -833,14 +869,14 @@ class Test3 extends Test2 {
     }
 
     #[test]
-    fn test_method_args() {
+    fn test_method_params() {
         let raws = vec![
             r#"
 package dev;
 
-class Test<A> {
+class Test<A extends Outer> {
   class Inner {}
-  void method(int a, Arg<Test<A>, A, ? extends Inner> c) {}
+  void method(int a, Arg<Test<A>, A, ? extends A.Inner> c) {}
 }
         "#
             .to_owned(),
@@ -848,6 +884,20 @@ class Test<A> {
 package dev;
 
 class Arg<A, B, C> {}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Outer extends SuperOuter {}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class SuperOuter {
+    class Inner {}
+}
         "#
             .to_owned(),
         ];
@@ -891,10 +941,17 @@ class Arg<A, B, C> {}
                         name: &wildcard_name,
                         super_opt: None,
                         extends: vec![ReferenceType::Class(ClassType {
-                            prefix_opt: RefCell::new(None),
+                            prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
+                                ParameterizedType {
+                                    name: "A",
+                                    def_opt: Cell::new(Some(
+                                        find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                                    ))
+                                }
+                            )))),
                             name: "Inner",
                             type_args: vec![],
-                            def_opt: Cell::new(None) // not resolved here.
+                            def_opt: Cell::new(None)
                         })]
                     })
                 ],
