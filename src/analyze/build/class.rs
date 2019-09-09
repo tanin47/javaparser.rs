@@ -89,7 +89,7 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                         name: &span(1, 7, "Test"),
                         type_params: vec![TypeParam {
                             name: &span(1, 12, "T"),
-                            extends: vec![]
+                            extends: RefCell::new(vec![])
                         }],
                         extend_opt: RefCell::new(Some(ClassType {
                             prefix_opt: RefCell::new(None),

@@ -62,7 +62,7 @@ impl<'a> ParameterizedType<'a> {
             return None;
         };
 
-        for extend in &type_param.extends {
+        for extend in type_param.extends.borrow().iter() {
             if let Some(inner) = extend.find_inner_class(name) {
                 return Some(inner);
             }

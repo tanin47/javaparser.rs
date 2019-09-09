@@ -40,6 +40,7 @@ pub struct CompilationUnit<'a> {
     pub main: Decl<'a>,
     pub others: Vec<Decl<'a>>,
 }
+unsafe impl<'a> Send for CompilationUnit<'a> {}
 
 impl<'a> CompilationUnit<'a> {
     pub fn find(&self, name: &str) -> Option<*const Class<'a>> {
@@ -205,9 +206,24 @@ pub struct Param<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum TypeParamExtend<'a> {
+    Class(ClassType<'a>),
+    Parameterized(ParameterizedType<'a>),
+}
+
+impl<'a> TypeParamExtend<'a> {
+    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
+        match self {
+            TypeParamExtend::Class(class) => class.find_inner_class(name),
+            TypeParamExtend::Parameterized(parameterized) => parameterized.find_inner_class(name),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct TypeParam<'a> {
     pub name: &'a Span<'a>,
-    pub extends: Vec<ClassType<'a>>,
+    pub extends: RefCell<Vec<TypeParamExtend<'a>>>,
 }
 
 impl<'a> TypeParam<'a> {

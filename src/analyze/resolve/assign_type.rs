@@ -191,7 +191,7 @@ fn apply_method<'def, 'def_ref, 'scope_ref>(
     };
 }
 
-fn resolve_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
+pub fn resolve_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     tpe: &'type_ref Type<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<Type<'def>> {
@@ -293,7 +293,7 @@ fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     match prefix {
         EnclosingType::Package(package) => resolve_package_prefix(package, scope),
         EnclosingType::Class(class) => resolve_enclosing_type(class, scope),
-        EnclosingType::Parameterized(p) => None,
+        EnclosingType::Parameterized(p) => Some(EnclosingType::Parameterized(p.clone())),
     }
 }
 
