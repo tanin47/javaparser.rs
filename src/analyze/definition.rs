@@ -201,7 +201,7 @@ unsafe impl<'a> Sync for Method<'a> {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Param<'a> {
-    pub tpe: Type<'a>,
+    pub tpe: RefCell<Type<'a>>,
     pub name: &'a Span<'a>,
 }
 

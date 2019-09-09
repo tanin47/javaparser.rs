@@ -163,13 +163,17 @@ fn apply_field<'def, 'def_ref, 'scope_ref>(
     field: &'def_ref Field<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
+    resolve_and_replace_type(&field.tpe, scope);
+}
+
+fn resolve_and_replace_type<'def>(cell: &RefCell<Type<'def>>, scope: &Scope<'def, '_>) {
     let new_type_opt = {
-        let tpe = field.tpe.borrow();
+        let tpe = cell.borrow();
         resolve_type(&tpe, scope)
     };
     match new_type_opt {
         Some(new_type) => {
-            field.tpe.replace(new_type);
+            cell.replace(new_type);
         }
         None => (),
     };
@@ -179,16 +183,11 @@ fn apply_method<'def, 'def_ref, 'scope_ref>(
     method: &'def_ref Method<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
-    let new_type_opt = {
-        let tpe = method.return_type.borrow();
-        resolve_type(&tpe, scope)
-    };
-    match new_type_opt {
-        Some(new_type) => {
-            method.return_type.replace(new_type);
-        }
-        None => (),
-    };
+    resolve_and_replace_type(&method.return_type, scope);
+
+    for param in &method.params {
+        resolve_and_replace_type(&param.tpe, scope);
+    }
 }
 
 pub fn resolve_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
@@ -318,7 +317,10 @@ mod tests {
     use analyze::definition::{Class, Package, Root, TypeParam};
     use analyze::resolve::merge;
     use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
-    use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, ParameterizedType, Type, TypeArg};
+    use analyze::tpe::{
+        ClassType, EnclosingType, PackagePrefix, ParameterizedType, PrimitiveType, ReferenceType,
+        Type, TypeArg, WildcardType,
+    };
     use parse::tree::{CompilationUnit, CompilationUnitItem};
     use std::cell::{Cell, RefCell};
     use std::convert::AsRef;
@@ -826,6 +828,77 @@ class Test3 extends Test2 {
                         .find("Inner")
                         .unwrap() as *const Class
                 ))
+            })
+        );
+    }
+
+    #[test]
+    fn test_method_args() {
+        let raws = vec![
+            r#"
+package dev;
+
+class Test<A> {
+  class Inner {}
+  void method(int a, Arg<Test<A>, A, ? extends Inner> c) {}
+}
+        "#
+            .to_owned(),
+            r#"
+package dev;
+
+class Arg<A, B, C> {}
+        "#
+            .to_owned(),
+        ];
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
+        apply(&mut root);
+
+        let method = find_class(&root, "dev.Test").find_method("method").unwrap();
+
+        assert_eq!(method.return_type.borrow().deref(), &Type::Void);
+        assert_eq!(
+            method.params.get(0).unwrap().tpe.borrow().deref(),
+            &Type::Primitive(PrimitiveType::Int)
+        );
+        let wildcard_name = span(5, 38, "?");
+        assert_eq!(
+            method.params.get(1).unwrap().tpe.borrow().deref(),
+            &Type::Class(ClassType {
+                prefix_opt: RefCell::new(None),
+                name: "Arg",
+                type_args: vec![
+                    TypeArg::Class(ClassType {
+                        prefix_opt: RefCell::new(None),
+                        name: "Test",
+                        type_args: vec![TypeArg::Parameterized(ParameterizedType {
+                            name: "A",
+                            def_opt: Cell::new(Some(
+                                find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                            ))
+                        })],
+                        def_opt: Cell::new(Some(find_class(&root, "dev.Test")))
+                    }),
+                    TypeArg::Parameterized(ParameterizedType {
+                        name: "A",
+                        def_opt: Cell::new(Some(
+                            find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                        ))
+                    }),
+                    TypeArg::Wildcard(WildcardType {
+                        name: &wildcard_name,
+                        super_opt: None,
+                        extends: vec![ReferenceType::Class(ClassType {
+                            prefix_opt: RefCell::new(None),
+                            name: "Inner",
+                            type_args: vec![],
+                            def_opt: Cell::new(None) // not resolved here.
+                        })]
+                    })
+                ],
+                def_opt: Cell::new(Some(find_class(&root, "dev.Arg")))
             })
         );
     }
