@@ -55,7 +55,7 @@ impl<'def> EnclosingTypeDef<'def> {
             }
         }
     }
-    pub fn find_class(&self, name: &str) -> Option<&Class<'def>> {
+    pub fn find_class<'a, 'b>(&'a self, name: &str) -> Option<&'b Class<'def>> {
         match self.find(name) {
             Some(EnclosingTypeDef::Package(_)) => panic!(),
             Some(EnclosingTypeDef::Class(class)) => Some(unsafe { &*class }),

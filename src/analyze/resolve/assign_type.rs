@@ -317,6 +317,7 @@ mod tests {
     use analyze;
     use analyze::definition::{Class, Package, Root, TypeParam};
     use analyze::resolve::merge;
+    use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
     use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, ParameterizedType, Type, TypeArg};
     use parse::tree::{CompilationUnit, CompilationUnitItem};
     use std::cell::{Cell, RefCell};
@@ -346,29 +347,13 @@ class Super<T extends Test> {
         "#
             .to_owned(),
         ];
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
 
         apply(&mut root);
 
-        let ret_type = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Super")
-            .unwrap()
+        let ret_type = find_class(&root, "dev.Super")
             .find_method("method")
             .unwrap()
             .return_type
@@ -420,33 +405,13 @@ class Super {
             .to_owned(),
         ];
 
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
 
         apply(&mut root);
 
-        let inner_extend_opt = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test")
-            .unwrap()
-            .find("Inner")
-            .unwrap()
-            .extend_opt
-            .borrow();
+        let inner_extend_opt = find_class(&root, "dev.Test.Inner").extend_opt.borrow();
 
         assert_eq!(
             inner_extend_opt.as_ref().unwrap(),
@@ -493,33 +458,12 @@ class Super {
             .to_owned(),
         ];
 
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
-
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
         apply(&mut root);
 
-        let inner_extend_opt = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test")
-            .unwrap()
-            .find("Inner")
-            .unwrap()
-            .extend_opt
-            .borrow();
+        let inner_extend_opt = find_class(&root, "dev.Test.Inner").extend_opt.borrow();
 
         assert_eq!(
             inner_extend_opt.as_ref().unwrap(),
@@ -560,29 +504,12 @@ class Test<A> {
         "#
         .to_owned()];
 
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
-
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
         apply(&mut root);
 
-        let ret_type = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test")
-            .unwrap()
+        let ret_type = find_class(&root, "dev.Test")
             .find_method("method")
             .unwrap()
             .return_type
@@ -625,29 +552,12 @@ class Test<T> {
             .to_owned(),
         ];
 
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
-
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
         apply(&mut root);
 
-        let ret_type = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test")
-            .unwrap()
+        let ret_type = find_class(&root, "dev.Test")
             .find_method("method")
             .unwrap()
             .return_type
@@ -715,33 +625,12 @@ class Super {
         "#
             .to_owned(),
         ];
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
-
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
         apply(&mut root);
 
-        let ret_type = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test")
-            .unwrap()
-            .find("Inner")
-            .unwrap()
-            .find("InnerOfInner")
-            .unwrap()
+        let ret_type = find_class(&root, "dev.Test.Inner.InnerOfInner")
             .find_method("method")
             .unwrap()
             .return_type
@@ -785,29 +674,12 @@ class Test {
         "#
             .to_owned(),
         ];
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
-
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
         apply(&mut root);
 
-        let ret_type = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test")
-            .unwrap()
+        let ret_type = find_class(&root, "dev.Test")
             .find_method("method")
             .unwrap()
             .return_type
@@ -879,29 +751,12 @@ class Test2 extends Test {
         "#
             .to_owned(),
         ];
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
-
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
         apply(&mut root);
 
-        let ret_type = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test2")
-            .unwrap()
+        let ret_type = find_class(&root, "dev.Test2")
             .find_method("method")
             .unwrap()
             .return_type
@@ -946,29 +801,12 @@ class Test3 extends Test2 {
         "#
             .to_owned(),
         ];
-        let tokenss = raws
-            .iter()
-            .map(|raw| code(raw))
-            .collect::<Vec<Vec<Token>>>();
-        let units = tokenss
-            .iter()
-            .map(|tokens| parse(tokens))
-            .collect::<Vec<CompilationUnit>>();
-
-        let mut root = merge::apply(
-            units
-                .iter()
-                .map(|unit| analyze::build::apply(unit))
-                .collect::<Vec<Root>>(),
-        );
-
+        let tokenss = make_tokenss(&raws);
+        let units = make_units(&tokenss);
+        let mut root = make_root(&units);
         apply(&mut root);
 
-        let ret_type = root
-            .find_package("dev")
-            .unwrap()
-            .find_class("Test3")
-            .unwrap()
+        let ret_type = find_class(&root, "dev.Test3")
             .find_method("method")
             .unwrap()
             .return_type
