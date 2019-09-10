@@ -53,6 +53,7 @@ where
     }
 
     CompilationUnit {
+        package: scope.
         imports: build_imports(&unit.imports),
         main,
         others,

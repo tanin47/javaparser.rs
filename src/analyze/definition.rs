@@ -36,6 +36,7 @@ impl<'a> Root<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CompilationUnit<'a> {
+    pub package: Vec<*const Pacakge<'a>>,
     pub imports: Vec<Import>,
     pub main: Decl<'a>,
     pub others: Vec<Decl<'a>>,
