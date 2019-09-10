@@ -320,7 +320,6 @@ class Super {
         )
     }
 
-    // Resolve method's type param
     #[test]
     fn test_method_params() {
         let raws = vec![
@@ -413,5 +412,4 @@ class SuperOuter {
             })
         );
     }
-    // Resolve the wildcard type arg of a method's arg
 }

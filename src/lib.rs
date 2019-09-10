@@ -10,6 +10,7 @@ extern crate proc_macro;
 
 pub mod analyze;
 pub mod parse;
+pub mod semantics;
 pub mod tokenize;
 
 pub mod test_common;
