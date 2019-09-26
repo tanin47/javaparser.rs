@@ -3,7 +3,7 @@ use {analyze, parse};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CompilationUnit<'a> {
-    pub package: Vec<Package<'a>>,
+    //    pub package: Package<'a>,
     pub imports: Vec<Import<'a>>,
     //    pub main: Decl<'a>,
     //    pub others: Vec<Decl<'a>>,
@@ -11,7 +11,7 @@ pub struct CompilationUnit<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Package<'a> {
-    pub prefix_opt: Option<Package<'a>>,
+    pub prefix_opt: Option<Box<Package<'a>>>,
     pub span: Span<'a>,
     pub def_opt: Option<*const analyze::definition::Package<'a>>,
 }
@@ -28,7 +28,7 @@ pub struct Import<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ImportPrefix<'a> {
     pub span: Span<'a>,
-    pub prefix_opt: Option<ImportPrefix<'a>>,
+    pub prefix_opt: Option<Box<ImportPrefix<'a>>>,
     pub def_opt: Option<ImportPrefixDef<'a>>,
 }
 

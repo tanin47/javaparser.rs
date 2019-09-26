@@ -1,12 +1,21 @@
 use analyze;
+use analyze::resolve::scope::Scope;
 use parse;
+use semantics::tree::CompilationUnit;
 
 pub mod compilation_unit;
+pub mod import;
 pub mod tree;
 
 pub fn apply<'def>(
     target: &parse::tree::CompilationUnit<'def>,
-    index: &analyze::definition::Root<'def>,
-) -> CompilationUnit {
-    compilation_unit::apply(target, index)
+    root: &analyze::definition::Root<'def>,
+) -> CompilationUnit<'def> {
+    let mut scope = Scope {
+        root,
+        levels: vec![],
+        specific_imports: vec![],
+        wildcard_imports: vec![],
+    };
+    compilation_unit::apply(target, &mut scope)
 }
