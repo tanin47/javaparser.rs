@@ -18,7 +18,7 @@ pub fn build<'def, 'r>(unit: &'r parse::tree::CompilationUnit<'def>) -> Root<'de
     Root { subpackages, units }
 }
 
-fn build_imports(imports: &Vec<parse::tree::Import>) -> Vec<Import> {
+pub fn build_imports(imports: &Vec<parse::tree::Import>) -> Vec<Import> {
     let mut new_imports = vec![];
 
     for import in imports {
