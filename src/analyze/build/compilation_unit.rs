@@ -7,7 +7,7 @@ use either::Either;
 use parse;
 use parse::tree::CompilationUnitItem;
 
-pub fn build<'a>(unit: &'a parse::tree::CompilationUnit<'a>) -> Root<'a> {
+pub fn build<'def, 'r>(unit: &'r parse::tree::CompilationUnit<'def>) -> Root<'def> {
     let mut scope = Scope { paths: vec![] };
 
     let (subpackages, units) = match &unit.package_opt {

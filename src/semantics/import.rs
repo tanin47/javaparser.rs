@@ -101,10 +101,7 @@ class Super {}
         ];
         let tokenss = make_tokenss(&raws);
         let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-
-        analyze::resolve::assign_type::apply(&mut root);
-        analyze::resolve::assign_parameterized_type::apply(&mut root);
+        let root = analyze::resolve::apply(&units);
 
         let result = semantics::apply(units.first().unwrap(), &root);
         println!("{:#?}", result);

@@ -5,18 +5,18 @@ use parse;
 use parse::tree::CompilationUnitItem;
 use tokenize::span::Span;
 
-pub fn build<'a, 'b>(
-    package: &'a parse::tree::Package<'a>,
-    unit: &'a parse::tree::CompilationUnit<'a>,
-    scope: &'b mut Scope,
-) -> Package<'a>
+pub fn build<'def, 'scope_ref, 'def_ref>(
+    package: &'def_ref parse::tree::Package<'def>,
+    unit: &'def_ref parse::tree::CompilationUnit<'def>,
+    scope: &'scope_ref mut Scope,
+) -> Package<'def>
 where
-    'a: 'b,
+    'def: 'scope_ref,
 {
     build_nested(&package.components, unit, scope)
 }
 
-fn build_nested<'a, 'b>(
+fn build_nested<'def, 'b>(
     components: &'a [Span],
     unit: &'a parse::tree::CompilationUnit<'a>,
     scope: &'b mut Scope,
