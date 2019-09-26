@@ -4,13 +4,10 @@ use analyze::definition::{Class, Decl, Interface};
 use parse;
 use parse::tree::ClassBodyItem;
 
-pub fn build<'a, 'b>(
-    interface: &'a parse::tree::Interface<'a>,
-    scope: &'b mut Scope,
-) -> Interface<'a>
-where
-    'a: 'b,
-{
+pub fn build<'def, 'scope_ref, 'def_ref>(
+    interface: &'def_ref parse::tree::Interface<'def>,
+    scope: &'scope_ref mut Scope,
+) -> Interface<'def> {
     scope.wrap(interface.name.fragment, |scope| {
         let mut decls = vec![];
         let mut methods = vec![];
@@ -28,7 +25,7 @@ where
 
         Interface {
             import_path: scope.get_import_path(),
-            name: &interface.name,
+            name: interface.name.clone(),
             decls,
             methods,
             field_groups,

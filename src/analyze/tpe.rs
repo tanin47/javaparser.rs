@@ -156,7 +156,7 @@ pub enum TypeArg<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct WildcardType<'a> {
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     pub super_opt: Option<Box<ReferenceType<'a>>>,
     pub extends: Vec<ReferenceType<'a>>,
 }

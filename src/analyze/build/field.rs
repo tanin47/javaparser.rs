@@ -3,10 +3,12 @@ use analyze::definition::{Field, FieldGroup};
 use parse;
 use std::cell::RefCell;
 
-pub fn build<'a>(field: &'a parse::tree::VariableDeclarator<'a>) -> Field<'a> {
+pub fn build<'def, 'def_ref>(
+    field: &'def_ref parse::tree::VariableDeclarator<'def>,
+) -> Field<'def> {
     Field {
         tpe: RefCell::new(tpe::build(&field.tpe)),
-        name: &field.name,
+        name: field.name.clone(),
     }
 }
 

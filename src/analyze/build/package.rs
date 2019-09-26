@@ -9,21 +9,15 @@ pub fn build<'def, 'scope_ref, 'def_ref>(
     package: &'def_ref parse::tree::Package<'def>,
     unit: &'def_ref parse::tree::CompilationUnit<'def>,
     scope: &'scope_ref mut Scope,
-) -> Package<'def>
-where
-    'def: 'scope_ref,
-{
+) -> Package<'def> {
     build_nested(&package.components, unit, scope)
 }
 
-fn build_nested<'def, 'b>(
-    components: &'a [Span],
-    unit: &'a parse::tree::CompilationUnit<'a>,
-    scope: &'b mut Scope,
-) -> Package<'a>
-where
-    'a: 'b,
-{
+fn build_nested<'def, 'scope_ref, 'def_ref, 'com_ref>(
+    components: &'com_ref [Span],
+    unit: &'def_ref parse::tree::CompilationUnit<'def>,
+    scope: &'scope_ref mut Scope,
+) -> Package<'def> {
     scope.wrap(components[0].fragment, |scope| {
         if components.len() == 1 {
             let unit = compilation_unit::build_unit(unit, scope);

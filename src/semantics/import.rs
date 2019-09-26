@@ -78,16 +78,19 @@ fn get_enclosing_type_def<'def, 'def_ref>(
 
 #[cfg(test)]
 mod tests {
-    use analyze::test_common::{make_root, make_tokenss, make_units};
+    use analyze::test_common::{find_class, find_package, make_root, make_tokenss, make_units};
+    use semantics::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};
+    use test_common::span;
     use {analyze, semantics};
 
     #[test]
-    fn test_simple() {
+    fn test() {
         let raws = vec![
             r#"
 package dev;
 
 import dev2.Super;
+import static dev2.*;
 
 class Test {}
         "#
@@ -104,6 +107,29 @@ class Super {}
         let root = analyze::resolve::apply(&units);
 
         let result = semantics::apply(units.first().unwrap(), &root);
-        println!("{:#?}", result);
+
+        assert_eq!(
+            result.imports,
+            vec![
+                Import {
+                    span: span(3, 13, "Super"),
+                    prefix_opt: Some(ImportPrefix {
+                        span: span(3, 8, "dev2"),
+                        prefix_opt: None,
+                        def_opt: Some(ImportPrefixDef::Package(root.find_package("dev2").unwrap()))
+                    }),
+                    is_static: false,
+                    is_wildcard: false,
+                    def_opt: Some(ImportDef::Class(find_class(&root, "dev2.Super")))
+                },
+                Import {
+                    span: span(4, 15, "dev2"),
+                    prefix_opt: None,
+                    is_static: true,
+                    is_wildcard: true,
+                    def_opt: Some(ImportDef::Package(root.find_package("dev2").unwrap()))
+                },
+            ]
+        );
     }
 }

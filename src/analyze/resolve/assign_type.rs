@@ -913,7 +913,6 @@ class SuperOuter {
             method.params.get(0).unwrap().tpe.borrow().deref(),
             &Type::Primitive(PrimitiveType::Int)
         );
-        let wildcard_name = span(5, 38, "?");
         assert_eq!(
             method.params.get(1).unwrap().tpe.borrow().deref(),
             &Type::Class(ClassType {
@@ -938,7 +937,7 @@ class SuperOuter {
                         ))
                     }),
                     TypeArg::Wildcard(WildcardType {
-                        name: &wildcard_name,
+                        name: span(5, 38, "?"),
                         super_opt: None,
                         extends: vec![ReferenceType::Class(ClassType {
                             prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(

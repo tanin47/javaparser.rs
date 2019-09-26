@@ -38,13 +38,10 @@ fn build_imports(imports: &Vec<parse::tree::Import>) -> Vec<Import> {
     new_imports
 }
 
-pub fn build_unit<'a, 'b>(
-    unit: &'a parse::tree::CompilationUnit<'a>,
-    scope: &'b mut Scope,
-) -> CompilationUnit<'a>
-where
-    'a: 'b,
-{
+pub fn build_unit<'def, 'scope_ref, 'def_ref>(
+    unit: &'def_ref parse::tree::CompilationUnit<'def>,
+    scope: &'scope_ref mut Scope,
+) -> CompilationUnit<'def> {
     let main = build_decl(&unit.items.first().unwrap(), scope);
     let mut others = vec![];
 
@@ -59,13 +56,10 @@ where
     }
 }
 
-fn build_decl<'a, 'b>(
-    item: &'a parse::tree::CompilationUnitItem<'a>,
-    scope: &'b mut Scope,
-) -> Decl<'a>
-where
-    'a: 'b,
-{
+fn build_decl<'def, 'scope_ref, 'def_ref>(
+    item: &'def_ref parse::tree::CompilationUnitItem<'def>,
+    scope: &'scope_ref mut Scope,
+) -> Decl<'def> {
     match item {
         parse::tree::CompilationUnitItem::Class(c) => Decl::Class(class::build(c, scope)),
         parse::tree::CompilationUnitItem::Interface(i) => {

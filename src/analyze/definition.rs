@@ -119,7 +119,7 @@ impl<'a> Package<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Class<'a> {
     pub import_path: String,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'a>>,
     pub extend_opt: RefCell<Option<ClassType<'a>>>,
@@ -190,7 +190,7 @@ impl<'a> Class<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Interface<'a> {
     pub import_path: String,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     pub methods: Vec<Method<'a>>,
     pub field_groups: Vec<FieldGroup<'a>>,
     pub decls: Vec<Decl<'a>>,
@@ -198,7 +198,7 @@ pub struct Interface<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Constructor<'a> {
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -206,7 +206,7 @@ pub struct Method<'a> {
     pub modifiers: Vec<Modifier>,
     pub type_params: Vec<TypeParam<'a>>,
     pub return_type: RefCell<Type<'a>>,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     pub params: Vec<Param<'a>>,
 }
 unsafe impl<'a> Sync for Method<'a> {}
@@ -214,7 +214,7 @@ unsafe impl<'a> Sync for Method<'a> {}
 #[derive(Debug, PartialEq, Clone)]
 pub struct Param<'a> {
     pub tpe: RefCell<Type<'a>>,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -234,7 +234,7 @@ impl<'a> TypeParamExtend<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypeParam<'a> {
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     pub extends: RefCell<Vec<TypeParamExtend<'a>>>,
 }
 
@@ -272,6 +272,6 @@ pub struct FieldGroup<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Field<'a> {
     pub tpe: RefCell<Type<'a>>,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
 }
 unsafe impl<'a> Sync for Field<'a> {}
