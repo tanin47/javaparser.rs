@@ -90,7 +90,8 @@ enum Test3 {}
                             type_params: vec![],
                             extend_opt: None,
                             implements: vec![],
-                            body: ClassBody { items: vec![] }
+                            body: ClassBody { items: vec![] },
+                            def_opt: RefCell::new(None),
                         }),
                         CompilationUnitItem::Interface(Interface {
                             modifiers: vec![],
@@ -136,7 +137,8 @@ enum Test3 {}
                         type_params: vec![],
                         extend_opt: None,
                         implements: vec![],
-                        body: ClassBody { items: vec![] }
+                        body: ClassBody { items: vec![] },
+                        def_opt: RefCell::new(None)
                     })]
                 }
             ))
@@ -233,6 +235,7 @@ class Test {}
                         extend_opt: None,
                         implements: vec![],
                         body: ClassBody { items: vec![] },
+                        def_opt: RefCell::new(None)
                     })]
                 }
             ))

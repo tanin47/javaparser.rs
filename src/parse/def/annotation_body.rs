@@ -112,6 +112,7 @@ mod tests {
         FieldDeclarators, Interface, VariableDeclarator,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
     use test_common::{code, primitive, span};
 
     #[test]
@@ -153,7 +154,8 @@ mod tests {
                             type_params: vec![],
                             extend_opt: None,
                             implements: vec![],
-                            body: ClassBody { items: vec![] }
+                            body: ClassBody { items: vec![] },
+                            def_opt: RefCell::new(None)
                         }),
                         AnnotationBodyItem::Interface(Interface {
                             modifiers: vec![],

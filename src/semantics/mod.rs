@@ -2,9 +2,12 @@ use analyze;
 use analyze::resolve::scope::Scope;
 use parse;
 
+pub mod block;
 pub mod class;
 pub mod compilation_unit;
 pub mod import;
+pub mod method;
+pub mod statement;
 //pub mod tree;
 
 pub fn apply<'def>(

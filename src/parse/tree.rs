@@ -108,6 +108,7 @@ pub struct Class<'a> {
     pub extend_opt: Option<ClassType<'a>>,
     pub implements: Vec<ClassType<'a>>,
     pub body: ClassBody<'a>,
+    pub def_opt: RefCell<Option<*const analyze::definition::Class<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

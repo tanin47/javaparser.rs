@@ -19,6 +19,7 @@ mod tests {
         MethodCall, Modifier, Name, Statement,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
     use test_common::{code, span};
 
     #[test]
@@ -40,6 +41,7 @@ strictfp class Test {}
                     extend_opt: None,
                     implements: vec![],
                     body: ClassBody { items: vec![] },
+                    def_opt: RefCell::new(None)
                 })
             ))
         );

@@ -1,5 +1,6 @@
 use analyze::resolve::scope::Scope;
-use semantics::import;
+use parse::tree::CompilationUnitItem;
+use semantics::{class, import};
 use {analyze, parse};
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
@@ -8,6 +9,8 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
 ) {
     if let Some(package) = &unit.package_opt {
         enter_package(package, scope);
+    } else {
+        scope.enter();
     }
 
     for im in &unit.imports {
@@ -15,11 +18,27 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         import::apply(im, scope);
     }
 
-    // TODO: process class
+    for item in &unit.items {
+        apply_item(item, scope);
+    }
 
     if let Some(package) = &unit.package_opt {
         leave_package(package, scope);
+    } else {
+        scope.leave();
     }
+}
+
+fn apply_item<'def, 'def_ref, 'scope_ref>(
+    item: &'def_ref CompilationUnitItem<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
+    match item {
+        CompilationUnitItem::Class(c) => class::apply(c, scope),
+        CompilationUnitItem::Interface(_) => panic!(),
+        CompilationUnitItem::Annotation(_) => panic!(),
+        CompilationUnitItem::Enum(_) => panic!(),
+    };
 }
 
 fn enter_package<'def, 'def_ref, 'scope_ref>(

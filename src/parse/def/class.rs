@@ -3,6 +3,7 @@ use parse::def::{class_body, type_params};
 use parse::tpe::class;
 use parse::tree::{Class, ClassBody, ClassType, Modifier};
 use parse::{ParseResult, Tokens};
+use std::cell::RefCell;
 use tokenize::span::Span;
 
 pub fn parse_implements(input: Tokens) -> ParseResult<Vec<ClassType>> {
@@ -44,6 +45,7 @@ pub fn parse_tail<'a>(
             extend_opt,
             implements,
             body,
+            def_opt: RefCell::new(None),
         },
     ))
 }
@@ -59,6 +61,7 @@ mod tests {
         Modifier, TypeArg, TypeParam,
     };
     use parse::{compilation_unit, Tokens};
+    use std::cell::RefCell;
     use test_common::{code, primitive, span};
 
     #[test]
@@ -92,7 +95,8 @@ mod tests {
                         type_args_opt: None
                     }),
                     implements: vec![],
-                    body: ClassBody { items: vec![] }
+                    body: ClassBody { items: vec![] },
+                    def_opt: RefCell::new(None)
                 })
             ))
         );
@@ -132,7 +136,8 @@ class Test<A> implements Super, Super2<A> {}
                             })])
                         },
                     ],
-                    body: ClassBody { items: vec![] }
+                    body: ClassBody { items: vec![] },
+                    def_opt: RefCell::new(None)
                 })
             ))
         );
