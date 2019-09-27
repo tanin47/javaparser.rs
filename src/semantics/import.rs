@@ -1,34 +1,39 @@
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
-use semantics::tree::{CompilationUnit, Import, ImportDef, ImportPrefix, ImportPrefixDef};
+use parse::tree::{ImportDef, ImportPrefix, ImportPrefixDef};
 use {analyze, parse};
 
 pub fn apply<'def, 'def_ref>(
     import: &parse::tree::Import<'def>,
     scope: &mut Scope<'def, 'def_ref>,
-) -> Import<'def> {
-    let mut prefix_opt: Option<ImportPrefix> = None;
-    for component in &import.components[0..(import.components.len() - 1)] {
-        let def_opt = get_prefix_def(&prefix_opt, component.fragment, scope);
-        prefix_opt = Some(ImportPrefix {
-            span: component.clone(),
-            prefix_opt: prefix_opt.map(Box::new),
-            def_opt,
-        });
-    }
+) {
+    match &import.prefix_opt {
+        Some(prefix) => apply_prefix(prefix, scope),
+        None => (),
+    };
 
-    let span = import.components.last().unwrap().clone();
-    let def_opt = get_def(&prefix_opt, span.fragment, scope);
-    Import {
-        span,
-        prefix_opt,
-        is_static: import.is_static,
-        is_wildcard: import.is_wildcard,
-        def_opt,
-    }
+    import
+        .def_opt
+        .replace(get_def(&import.prefix_opt, import.name.fragment, scope));
+}
+
+pub fn apply_prefix<'def, 'def_ref>(
+    import: &parse::tree::ImportPrefix<'def>,
+    scope: &mut Scope<'def, 'def_ref>,
+) {
+    match &import.prefix_opt {
+        Some(prefix) => apply_prefix(prefix, scope),
+        None => (),
+    };
+
+    import.def_opt.replace(get_prefix_def(
+        &import.prefix_opt,
+        import.name.fragment,
+        scope,
+    ));
 }
 
 fn get_def<'def, 'def_ref>(
-    prefix_opt: &Option<ImportPrefix<'def>>,
+    prefix_opt: &Option<Box<ImportPrefix<'def>>>,
     name: &'def str,
     scope: &mut Scope<'def, 'def_ref>,
 ) -> Option<ImportDef<'def>> {
@@ -42,7 +47,7 @@ fn get_def<'def, 'def_ref>(
 }
 
 fn get_prefix_def<'def, 'def_ref>(
-    prefix_opt: &Option<ImportPrefix<'def>>,
+    prefix_opt: &Option<Box<ImportPrefix<'def>>>,
     name: &'def str,
     scope: &mut Scope<'def, 'def_ref>,
 ) -> Option<ImportPrefixDef<'def>> {
@@ -56,18 +61,18 @@ fn get_prefix_def<'def, 'def_ref>(
 }
 
 fn get_enclosing_type_def<'def, 'def_ref>(
-    prefix_opt: &Option<ImportPrefix<'def>>,
+    prefix_opt: &Option<Box<ImportPrefix<'def>>>,
     name: &'def str,
     scope: &mut Scope<'def, 'def_ref>,
 ) -> Option<EnclosingTypeDef<'def>> {
     match prefix_opt {
-        Some(prefix) => match prefix.def_opt {
+        Some(prefix) => match prefix.def_opt.borrow().as_ref() {
             Some(ImportPrefixDef::Package(package)) => {
-                let package = unsafe { &(*package) };
+                let package = unsafe { &(**package) };
                 package.find(name)
             }
             Some(ImportPrefixDef::Class(class)) => {
-                let class = unsafe { &(*class) };
+                let class = unsafe { &(**class) };
                 class.find(name).map(|c| EnclosingTypeDef::Class(c))
             }
             None => None,
@@ -79,7 +84,8 @@ fn get_enclosing_type_def<'def, 'def_ref>(
 #[cfg(test)]
 mod tests {
     use analyze::test_common::{find_class, find_package, make_root, make_tokenss, make_units};
-    use semantics::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};
+    use parse::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};
+    use std::cell::RefCell;
     use test_common::span;
     use {analyze, semantics};
 
@@ -106,28 +112,32 @@ class Super {}
         let units = make_units(&tokenss);
         let root = analyze::resolve::apply(&units);
 
-        let result = semantics::apply(units.first().unwrap(), &root);
+        semantics::apply(units.first().unwrap(), &root);
 
         assert_eq!(
-            result.imports,
+            units.first().unwrap().imports,
             vec![
                 Import {
-                    span: span(3, 13, "Super"),
-                    prefix_opt: Some(ImportPrefix {
-                        span: span(3, 8, "dev2"),
+                    prefix_opt: Some(Box::new(ImportPrefix {
                         prefix_opt: None,
-                        def_opt: Some(ImportPrefixDef::Package(root.find_package("dev2").unwrap()))
-                    }),
+                        name: span(3, 8, "dev2"),
+                        def_opt: RefCell::new(Some(ImportPrefixDef::Package(
+                            root.find_package("dev2").unwrap()
+                        )))
+                    })),
                     is_static: false,
                     is_wildcard: false,
-                    def_opt: Some(ImportDef::Class(find_class(&root, "dev2.Super")))
+                    name: span(3, 13, "Super"),
+                    def_opt: RefCell::new(Some(ImportDef::Class(find_class(&root, "dev2.Super"))))
                 },
                 Import {
-                    span: span(4, 15, "dev2"),
                     prefix_opt: None,
                     is_static: true,
                     is_wildcard: true,
-                    def_opt: Some(ImportDef::Package(root.find_package("dev2").unwrap()))
+                    name: span(4, 15, "dev2"),
+                    def_opt: RefCell::new(Some(ImportDef::Package(
+                        root.find_package("dev2").unwrap()
+                    )))
                 },
             ]
         );

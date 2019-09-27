@@ -1,16 +1,16 @@
 use analyze;
 use analyze::resolve::scope::Scope;
 use parse;
-use semantics::tree::CompilationUnit;
 
+pub mod class;
 pub mod compilation_unit;
 pub mod import;
-pub mod tree;
+//pub mod tree;
 
 pub fn apply<'def>(
     target: &parse::tree::CompilationUnit<'def>,
     root: &analyze::definition::Root<'def>,
-) -> CompilationUnit<'def> {
+) {
     let mut scope = Scope {
         root,
         levels: vec![],

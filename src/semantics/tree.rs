@@ -43,3 +43,45 @@ pub enum ImportDef<'a> {
     Package(*const analyze::definition::Package<'a>),
     Class(*const analyze::definition::Class<'a>),
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Class<'a> {
+    pub name: Span<'a>,
+    pub def_opt: Option<*const analyze::definition::Class<'a>>,
+    pub body: ClassBody<'a>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ClassBody<'a> {
+    pub items: Vec<ClassBodyItem<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ClassBodyItem<'a> {
+    Method(Method<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Method<'a> {
+    pub name: Span<'a>,
+    pub block_opt: Option<Block<'a>>,
+    pub def_opt: Option<*const analyze::definition::Class<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Block<'a> {
+    pub stmts: Vec<Statement<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Statement<'a> {
+    Block(Block<'a>),
+    Class(Class<'a>),
+    VariableDeclarators(VariableDeclarators<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct VariableDeclarators<'a> {
+    pub modifiers: Vec<Modifier<'a>>,
+    pub declarators: Vec<VariableDeclarator<'a>>,
+}

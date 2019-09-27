@@ -1,37 +1,54 @@
 use analyze::resolve::scope::Scope;
 use semantics::import;
-use semantics::tree::CompilationUnit;
 use {analyze, parse};
 
-pub fn apply<'def, 'def_ref>(
-    unit: &parse::tree::CompilationUnit<'def>,
-    scope: &mut Scope<'def, 'def_ref>,
-) -> CompilationUnit<'def> {
-    let mut imports = vec![];
-    for im in &unit.imports {
-        imports.push(import::apply(im, scope));
-    }
-
+pub fn apply<'def, 'def_ref, 'scope_ref>(
+    unit: &'def_ref parse::tree::CompilationUnit<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
     if let Some(package) = &unit.package_opt {
-        let mut current = scope
-            .root
-            .find_package(package.components.first().unwrap().fragment)
-            .unwrap();
-        scope.enter_package(current);
-        for component in &package.components[1..(package.components.len() - 1)] {
-            current = current.find_package(component.fragment).unwrap();
-            scope.enter_package(current);
-        }
+        enter_package(package, scope);
     }
 
-    {
-        let imports = analyze::build::compilation_unit::build_imports(&unit.imports);
-        for im in &imports {
-            scope.add_import(im);
-        }
+    for im in &unit.imports {
+        scope.add_import(im);
+        import::apply(im, scope);
     }
 
     // TODO: process class
 
-    CompilationUnit { imports }
+    if let Some(package) = &unit.package_opt {
+        leave_package(package, scope);
+    }
+}
+
+fn enter_package<'def, 'def_ref, 'scope_ref>(
+    package: &'def_ref parse::tree::Package<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
+    if let Some(prefix) = &package.prefix_opt {
+        enter_package(prefix, scope);
+        scope
+            .levels
+            .last()
+            .unwrap()
+            .enclosing_opt
+            .as_ref()
+            .unwrap()
+            .find_package(package.name.fragment);
+    } else {
+        scope.enter_package(scope.root.find_package(package.name.fragment).unwrap());
+    }
+}
+
+fn leave_package<'def, 'def_ref, 'scope_ref>(
+    package: &'def_ref parse::tree::Package<'def>,
+    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+) {
+    if let Some(prefix) = &package.prefix_opt {
+        enter_package(prefix, scope);
+        scope.leave();
+    } else {
+        scope.leave();
+    }
 }

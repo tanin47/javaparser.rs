@@ -47,9 +47,10 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Annotation, AnnotationBody, Class, ClassBody, CompilationUnit, CompilationUnitItem, Enum,
-        Import, Interface, Package,
+        Import, ImportPrefix, Interface, Package,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
 
     #[test]
     fn parse_class_with_package() {
@@ -71,8 +72,15 @@ enum Test3 {}
                 &[] as Tokens,
                 CompilationUnit {
                     package_opt: Some(Package {
+                        prefix_opt: Some(Box::new(Package {
+                            prefix_opt: None,
+                            annotateds: vec![],
+                            name: span(3, 9, "dev"),
+                            def_opt: None
+                        })),
                         annotateds: vec![],
-                        components: vec![span(3, 9, "dev"), span(3, 13, "lilit"),],
+                        name: span(3, 13, "lilit"),
+                        def_opt: None
                     }),
                     imports: vec![],
                     items: vec![
@@ -154,37 +162,68 @@ class Test {}
                 &[] as Tokens,
                 CompilationUnit {
                     package_opt: Some(Package {
+                        prefix_opt: Some(Box::new(Package {
+                            prefix_opt: None,
+                            annotateds: vec![],
+                            name: span(1, 9, "dev"),
+                            def_opt: None
+                        })),
                         annotateds: vec![],
-                        components: vec![span(1, 9, "dev"), span(1, 13, "lilit")]
+                        name: span(1, 13, "lilit"),
+                        def_opt: None
                     }),
                     imports: vec![
                         Import {
+                            prefix_opt: Some(Box::new(ImportPrefix {
+                                prefix_opt: None,
+                                name: span(3, 8, "dev"),
+                                def_opt: RefCell::new(None)
+                            })),
                             is_static: false,
-                            components: vec![span(3, 8, "dev"), span(3, 12, "test")],
-                            is_wildcard: true
+                            is_wildcard: true,
+                            name: span(3, 12, "test"),
+                            def_opt: RefCell::new(None)
                         },
                         Import {
+                            prefix_opt: Some(Box::new(ImportPrefix {
+                                prefix_opt: None,
+                                name: span(4, 8, "dev"),
+                                def_opt: RefCell::new(None)
+                            })),
                             is_static: false,
-                            components: vec![span(4, 8, "dev"), span(4, 12, "test")],
-                            is_wildcard: false
+                            is_wildcard: false,
+                            name: span(4, 12, "test"),
+                            def_opt: RefCell::new(None)
                         },
                         Import {
+                            prefix_opt: Some(Box::new(ImportPrefix {
+                                prefix_opt: Some(Box::new(ImportPrefix {
+                                    prefix_opt: None,
+                                    name: span(5, 8, "dev"),
+                                    def_opt: RefCell::new(None)
+                                })),
+                                name: span(5, 12, "test"),
+                                def_opt: RefCell::new(None)
+                            })),
                             is_static: false,
-                            components: vec![
-                                span(5, 8, "dev"),
-                                span(5, 12, "test"),
-                                span(5, 17, "Test")
-                            ],
-                            is_wildcard: false
+                            is_wildcard: false,
+                            name: span(5, 17, "Test"),
+                            def_opt: RefCell::new(None)
                         },
                         Import {
+                            prefix_opt: Some(Box::new(ImportPrefix {
+                                prefix_opt: Some(Box::new(ImportPrefix {
+                                    prefix_opt: None,
+                                    name: span(6, 8, "dev"),
+                                    def_opt: RefCell::new(None)
+                                })),
+                                name: span(6, 12, "test"),
+                                def_opt: RefCell::new(None)
+                            })),
                             is_static: false,
-                            components: vec![
-                                span(6, 8, "dev"),
-                                span(6, 12, "test"),
-                                span(6, 17, "Test"),
-                            ],
-                            is_wildcard: true
+                            is_wildcard: true,
+                            name: span(6, 17, "Test"),
+                            def_opt: RefCell::new(None)
                         },
                     ],
                     items: vec![CompilationUnitItem::Class(Class {

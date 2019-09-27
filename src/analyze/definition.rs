@@ -1,5 +1,6 @@
 use analyze::resolve::scope::EnclosingTypeDef;
 use analyze::tpe::{ClassType, EnclosingType, ParameterizedType, ReferenceType, Type};
+use parse;
 use std::cell::{Cell, RefCell};
 use tokenize::span::Span;
 
@@ -36,7 +37,7 @@ impl<'a> Root<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CompilationUnit<'a> {
-    pub imports: Vec<Import>,
+    pub imports: Vec<*const parse::tree::Import<'a>>,
     pub main: Decl<'a>,
     pub others: Vec<Decl<'a>>,
 }
@@ -61,13 +62,6 @@ impl<'a> CompilationUnit<'a> {
 pub enum Decl<'a> {
     Class(Class<'a>),
     Interface(Interface<'a>),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Import {
-    pub components: Vec<String>,
-    pub is_wildcard: bool,
-    pub is_static: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]

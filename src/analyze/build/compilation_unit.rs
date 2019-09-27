@@ -1,8 +1,6 @@
 use analyze::build::scope::Scope;
 use analyze::build::{class, interface, package};
-use analyze::definition::{
-    Class, CompilationUnit, Decl, Import, Interface, Package, PackageDecl, Root,
-};
+use analyze::definition::{Class, CompilationUnit, Decl, Interface, Package, PackageDecl, Root};
 use either::Either;
 use parse;
 use parse::tree::CompilationUnitItem;
@@ -18,21 +16,13 @@ pub fn build<'def, 'r>(unit: &'r parse::tree::CompilationUnit<'def>) -> Root<'de
     Root { subpackages, units }
 }
 
-pub fn build_imports(imports: &Vec<parse::tree::Import>) -> Vec<Import> {
+pub fn build_imports<'def, 'r>(
+    imports: &'r Vec<parse::tree::Import<'def>>,
+) -> Vec<*const parse::tree::Import<'def>> {
     let mut new_imports = vec![];
 
     for import in imports {
-        let mut components = vec![];
-
-        for c in &import.components {
-            components.push(c.fragment.to_owned())
-        }
-
-        new_imports.push(Import {
-            components,
-            is_wildcard: import.is_wildcard,
-            is_static: import.is_static,
-        })
+        new_imports.push(import as *const parse::tree::Import)
     }
 
     new_imports

@@ -1,8 +1,9 @@
-use analyze;
 use analyze::definition::{Class, Decl, Package, Root, TypeParam};
 use analyze::tpe::{ClassType, EnclosingType, PackagePrefix};
+use parse::tree::ImportPrefix;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use {analyze, parse};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'def, 'r>
@@ -89,28 +90,33 @@ impl<'def> EnclosingTypeDef<'def> {
 }
 
 impl<'def, 'r> Scope<'def, 'r> {
-    pub fn add_import(&mut self, import: &analyze::definition::Import) {
-        let mut imported: EnclosingTypeDef = if let Some(first) = import.components.first() {
-            self.root.find(first.as_str()).unwrap()
-        } else {
-            return;
+    fn resolve_import_prefix(&self, prefix: &'r ImportPrefix<'def>) -> EnclosingTypeDef<'def> {
+        match &prefix.prefix_opt {
+            None => self.root.find(prefix.name.fragment).unwrap(),
+            Some(prefix_prefix) => self.resolve_import_prefix(prefix_prefix),
+        }
+    }
+
+    pub fn add_import(&mut self, import: &'r parse::tree::Import<'def>) {
+        let enclosing_prefix_opt = match &import.prefix_opt {
+            Some(prefix) => Some(self.resolve_import_prefix(prefix)),
+            None => None,
         };
 
-        for component in &import.components[1..] {
-            if let Some(enclosing) = self.resolve_type_def_at(&imported, component) {
-                imported = enclosing;
-            } else {
-                return;
-            }
-        }
+        let enclosing = match enclosing_prefix_opt {
+            Some(prefix) => self
+                .resolve_type_def_at(&prefix, import.name.fragment)
+                .unwrap(),
+            None => self.root.find(import.name.fragment).unwrap(),
+        };
 
         if import.is_wildcard {
             self.wildcard_imports.push(WildcardImport {
-                enclosing: imported,
+                enclosing,
                 is_static: import.is_static,
             });
         } else {
-            let class = if let EnclosingTypeDef::Class(class) = imported {
+            let class = if let EnclosingTypeDef::Class(class) = enclosing {
                 class
             } else {
                 return;

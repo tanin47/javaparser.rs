@@ -102,7 +102,7 @@ fn apply_unit<'def, 'def_ref>(
     scope: &mut Scope<'def, 'def_ref>,
 ) {
     for import in &unit.imports {
-        scope.add_import(import);
+        scope.add_import(unsafe { &**import });
     }
 
     apply_decl(&unit.main, scope);

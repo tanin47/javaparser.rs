@@ -37,12 +37,12 @@ pub fn make_units<'r: 'unit, 'token, 'unit>(
         .collect::<Vec<CompilationUnit>>()
 }
 
-pub fn make_root<'r: 'root, 'unit, 'root>(units: &'r [CompilationUnit<'unit>]) -> Root<'root> {
+pub fn make_root<'r, 'def>(units: &'r [CompilationUnit<'def>]) -> Root<'def> {
     merge::apply(
         units
             .iter()
             .map(|unit| analyze::build::apply(unit))
-            .collect::<Vec<Root>>(),
+            .collect::<Vec<Root<'def>>>(),
     )
 }
 

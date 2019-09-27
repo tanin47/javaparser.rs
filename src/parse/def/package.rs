@@ -12,11 +12,24 @@ pub fn parse(input: Tokens) -> ParseResult<Package> {
 
     let (input, _) = symbol(';')(input)?;
 
+    let mut prefix_opt: Option<Package> = None;
+
+    for component in &components[0..(components.len() - 1)] {
+        prefix_opt = Some(Package {
+            prefix_opt: prefix_opt.map(Box::new),
+            annotateds: vec![],
+            name: component.clone(),
+            def_opt: None,
+        });
+    }
+
     Ok((
         input,
         Package {
+            prefix_opt: prefix_opt.map(Box::new),
             annotateds,
-            components,
+            name: components.last().unwrap().clone(),
+            def_opt: None,
         },
     ))
 }

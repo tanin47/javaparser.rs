@@ -78,7 +78,7 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
 
     pub fn collect_unit<'scope_ref>(&mut self, unit: &'def_ref CompilationUnit<'def>) {
         for import in &unit.imports {
-            self.scope.add_import(import)
+            self.scope.add_import(unsafe { &**import });
         }
 
         self.collect_decl(&unit.main, None);
@@ -227,7 +227,7 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
 #[cfg(test)]
 mod tests {
     use analyze;
-    use analyze::definition::{Class, Decl, Import, Method, Package, Root};
+    use analyze::definition::{Class, Decl, Method, Package, Root};
     use analyze::resolve::grapher::{Grapher, NodeIndex};
     use analyze::resolve::merge;
     use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
