@@ -113,7 +113,8 @@ fn apply_class<'def, 'def_ref, 'scope_ref>(
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
     scope.enter();
-    // TypeParam can be referred to in the super classes.
+    // TypeParam can be referred to in the 'extend' section. But the class itself can't.
+    // So, we do double-scope here.
     for type_param in &class.type_params {
         scope.add_type_param(type_param);
     }
@@ -283,8 +284,7 @@ pub fn resolve_enclosing_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
             .find(&unknown_type.name)
             .unwrap_or_else(|| EnclosingType::Class(unknown_type.clone()));
 
-        result.set_prefix_opt(Some(prefix));
-        Some(result)
+        Some(result.set_prefix_opt(Some(prefix)))
     } else {
         scope.resolve_type(&unknown_type.name)
     };

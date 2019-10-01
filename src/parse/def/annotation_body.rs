@@ -179,7 +179,7 @@ mod tests {
                         AnnotationBodyItem::FieldDeclarators(FieldDeclarators {
                             modifiers: vec![],
                             declarators: vec![VariableDeclarator {
-                                tpe: primitive(7, 3, "int"),
+                                tpe: RefCell::new(primitive(7, 3, "int")),
                                 name: span(7, 7, "a"),
                                 expr_opt: None
                             }]

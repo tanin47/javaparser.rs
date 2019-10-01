@@ -1,6 +1,6 @@
 use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
-use parse::tree::{ClassType, ParameterizedType, Type};
+use parse::tree::{ClassType, ParameterizedType, Type, VariableDeclarator};
 use std::cell::{Cell, RefCell};
 use tokenize::span::Span;
 

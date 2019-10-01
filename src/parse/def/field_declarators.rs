@@ -30,6 +30,7 @@ mod tests {
         MarkerAnnotated, Modifier, PrimitiveType, PrimitiveTypeType, Type, VariableDeclarator,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
     use test_common::{code, span};
 
     #[test]
@@ -57,10 +58,10 @@ mod tests {
                         })
                     ],
                     declarators: vec![VariableDeclarator {
-                        tpe: Type::Primitive(PrimitiveType {
+                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
                             name: span(1, 15, "int"),
                             tpe: PrimitiveTypeType::Int
-                        }),
+                        })),
                         name: span(1, 19, "a"),
                         expr_opt: None
                     }]
@@ -86,18 +87,18 @@ static int[] a, b[];
                     })],
                     declarators: vec![
                         VariableDeclarator {
-                            tpe: Type::Array(ArrayType {
+                            tpe: RefCell::new(Type::Array(ArrayType {
                                 tpe: Box::new(Type::Primitive(PrimitiveType {
                                     name: span(1, 8, "int"),
                                     tpe: PrimitiveTypeType::Int
                                 })),
                                 size_opt: None
-                            }),
+                            })),
                             name: span(1, 14, "a"),
                             expr_opt: None
                         },
                         VariableDeclarator {
-                            tpe: Type::Array(ArrayType {
+                            tpe: RefCell::new(Type::Array(ArrayType {
                                 tpe: Box::new(Type::Array(ArrayType {
                                     tpe: Box::new(Type::Primitive(PrimitiveType {
                                         name: span(1, 8, "int"),
@@ -106,7 +107,7 @@ static int[] a, b[];
                                     size_opt: None
                                 })),
                                 size_opt: None
-                            }),
+                            })),
                             name: span(1, 17, "b"),
                             expr_opt: None
                         },
@@ -129,10 +130,10 @@ int a = 1;
                 ClassBodyItem::FieldDeclarators(FieldDeclarators {
                     modifiers: vec![],
                     declarators: vec![VariableDeclarator {
-                        tpe: Type::Primitive(PrimitiveType {
+                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
                             name: span(1, 1, "int"),
                             tpe: PrimitiveTypeType::Int
-                        }),
+                        })),
                         name: span(1, 5, "a"),
                         expr_opt: Some(Expr::Int(Int {
                             value: span(1, 9, "1")
@@ -157,31 +158,31 @@ int a = 1, b[], c;
                     modifiers: vec![],
                     declarators: vec![
                         VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(1, 1, "int"),
                                 tpe: PrimitiveTypeType::Int
-                            }),
+                            })),
                             name: span(1, 5, "a"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(1, 9, "1")
                             }))
                         },
                         VariableDeclarator {
-                            tpe: Type::Array(ArrayType {
+                            tpe: RefCell::new(Type::Array(ArrayType {
                                 tpe: Box::new(Type::Primitive(PrimitiveType {
                                     name: span(1, 1, "int"),
                                     tpe: PrimitiveTypeType::Int
                                 })),
                                 size_opt: None
-                            }),
+                            })),
                             name: span(1, 12, "b"),
                             expr_opt: None
                         },
                         VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(1, 1, "int"),
                                 tpe: PrimitiveTypeType::Int
-                            }),
+                            })),
                             name: span(1, 17, "c"),
                             expr_opt: None
                         }

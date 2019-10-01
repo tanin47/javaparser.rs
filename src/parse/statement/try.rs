@@ -87,6 +87,7 @@ mod tests {
         TryResource, Type, UnaryOperation,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
     use test_common::{code, span};
 
     #[test]
@@ -156,10 +157,10 @@ try (
                     resources: vec![
                         TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(2, 3, "int"),
                                 tpe: PrimitiveTypeType::Int
-                            }),
+                            })),
                             name: span(2, 7, "i"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(2, 11, "1")
@@ -167,10 +168,10 @@ try (
                         }),
                         TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(3, 3, "int"),
                                 tpe: PrimitiveTypeType::Int
-                            }),
+                            })),
                             name: span(3, 7, "a"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(3, 11, "2")

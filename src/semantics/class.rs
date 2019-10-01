@@ -14,12 +14,27 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         }
     }
 
+    scope.enter();
+    // TypeParam can be referred to in the 'extend' section. But the class itself can't.
+    // So, we do double-scope here.
+    if let Some(def) = class.def_opt.borrow().as_ref() {
+        let def = unsafe { &**def };
+        for type_param in &def.type_params {
+            scope.add_type_param(type_param);
+        }
+    } else {
+        panic!();
+    }
+
     if let Some(def) = class.def_opt.borrow().as_ref() {
         scope.enter_class(unsafe { &**def });
     } else {
         scope.enter();
     }
 
+    apply_class_body(&class.body, scope);
+
+    scope.leave();
     scope.leave();
 }
 

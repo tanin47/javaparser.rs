@@ -52,6 +52,7 @@ mod tests {
         FieldDeclarators, Keyword, MarkerAnnotated, Modifier, VariableDeclarator,
     };
     use parse::{compilation_unit, Tokens};
+    use std::cell::RefCell;
     use test_common::{code, primitive, span};
 
     #[test]
@@ -98,7 +99,7 @@ mod tests {
                         items: vec![ClassBodyItem::FieldDeclarators(FieldDeclarators {
                             modifiers: vec![],
                             declarators: vec![VariableDeclarator {
-                                tpe: primitive(3, 3, "int"),
+                                tpe: RefCell::new(primitive(3, 3, "int")),
                                 name: span(3, 7, "a"),
                                 expr_opt: None
                             }]

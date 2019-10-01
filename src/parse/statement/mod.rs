@@ -99,6 +99,7 @@ mod tests {
         ReturnStmt, Statement, Type, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
 
     #[test]
     fn test_empty() {
@@ -157,10 +158,10 @@ label: int a;
                     statement: Box::new(Statement::VariableDeclarators(VariableDeclarators {
                         modifiers: vec![],
                         declarators: vec![VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(1, 8, "int"),
                                 tpe: PrimitiveTypeType::Int
-                            }),
+                            })),
                             name: span(1, 12, "a"),
                             expr_opt: None
                         }]

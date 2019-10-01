@@ -9,6 +9,7 @@ extern crate num_cpus;
 extern crate proc_macro;
 
 pub mod analyze;
+pub mod extract;
 pub mod parse;
 pub mod semantics;
 pub mod tokenize;

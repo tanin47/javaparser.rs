@@ -75,6 +75,7 @@ mod tests {
         Type, UnaryOperation, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
     use test_common::{code, span};
 
     #[test]
@@ -90,10 +91,10 @@ for(int a:list) a++;
                 Statement::Foreach(Foreach {
                     declarator: StandaloneVariableDeclarator {
                         modifiers: vec![],
-                        tpe: Type::Primitive(PrimitiveType {
+                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
                             name: span(1, 5, "int"),
                             tpe: PrimitiveTypeType::Int
-                        }),
+                        })),
                         name: span(1, 9, "a"),
                         expr_opt: None
                     },
@@ -128,10 +129,10 @@ for(int i=0;i<2;i++) x++;
                     inits: vec![Statement::VariableDeclarators(VariableDeclarators {
                         modifiers: vec![],
                         declarators: vec![VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(1, 5, "int"),
                                 tpe: PrimitiveTypeType::Int
-                            }),
+                            })),
                             name: span(1, 9, "i"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(1, 11, "0")

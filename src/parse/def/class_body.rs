@@ -193,10 +193,10 @@ mod tests {
                         ClassBodyItem::FieldDeclarators(FieldDeclarators {
                             modifiers: vec![],
                             declarators: vec![VariableDeclarator {
-                                tpe: Type::Primitive(PrimitiveType {
+                                tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                     name: span(4, 3, "int"),
                                     tpe: PrimitiveTypeType::Int
-                                }),
+                                })),
                                 name: span(4, 7, "a"),
                                 expr_opt: None
                             }]

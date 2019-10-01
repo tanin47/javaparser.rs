@@ -7,7 +7,7 @@ pub fn build<'def, 'def_ref>(
     field: &'def_ref parse::tree::VariableDeclarator<'def>,
 ) -> Field<'def> {
     Field {
-        tpe: RefCell::new(field.tpe.clone()),
+        tpe: field.tpe.clone(),
         name: field.name.clone(),
     }
 }

@@ -616,14 +616,14 @@ pub struct VariableDeclarators<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StandaloneVariableDeclarator<'a> {
     pub modifiers: Vec<Modifier<'a>>,
-    pub tpe: Type<'a>,
+    pub tpe: RefCell<Type<'a>>,
     pub name: Span<'a>,
     pub expr_opt: Option<Expr<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarator<'a> {
-    pub tpe: Type<'a>,
+    pub tpe: RefCell<Type<'a>>,
     pub name: Span<'a>,
     pub expr_opt: Option<Expr<'a>>,
 }
