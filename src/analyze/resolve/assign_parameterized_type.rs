@@ -5,8 +5,8 @@ use analyze::resolve::assign_type::{
     resolve_and_replace_type, resolve_class_or_parameterized_type, resolve_type,
 };
 use analyze::resolve::scope::Scope;
-use analyze::tpe::Type;
 use crossbeam_queue::SegQueue;
+use parse::tree::Type;
 use std::sync::Mutex;
 use std::thread;
 
@@ -209,9 +209,9 @@ mod tests {
     use analyze::definition::{Class, TypeParam};
     use analyze::resolve::assign_type;
     use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
-    use analyze::tpe::{
-        ClassType, EnclosingType, ParameterizedType, PrimitiveType, ReferenceType, Type, TypeArg,
-        WildcardType,
+    use parse::tree::{
+        ClassType, EnclosingType, ParameterizedType, PrimitiveType, PrimitiveTypeType,
+        ReferenceType, Type, TypeArg, Void, WildcardType,
     };
     use std::cell::{Cell, RefCell};
     use std::ops::Deref;
@@ -250,21 +250,30 @@ class Super<T extends Test> {
             .unwrap();
         let field = find_class(&root, "dev.Super").find_field("field").unwrap();
 
-        let expected_type = Type::Class(ClassType {
-            prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
-                ParameterizedType {
-                    name: "T",
-                    def_opt: Cell::new(Some(
-                        find_class(&root, "dev.Super").find_type_param("T").unwrap(),
-                    )),
-                },
-            )))),
-            name: "Inner",
-            type_args: vec![],
-            def_opt: Cell::new(Some(find_class(&root, "dev.Super.Inner"))),
-        });
-        assert_eq!(method.return_type.borrow().deref(), &expected_type);
-        assert_eq!(field.tpe.borrow().deref(), &expected_type);
+        assert_eq!(
+            method.return_type.borrow().deref(),
+            &Type::Class(ClassType {
+                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+                    name: span(5, 5, "T"),
+                    def: find_class(&root, "dev.Super").find_type_param("T").unwrap(),
+                },))),
+                name: span(5, 7, "Inner"),
+                type_args_opt: None,
+                def_opt: Some(find_class(&root, "dev.Super.Inner")),
+            })
+        );
+        assert_eq!(
+            field.tpe.borrow().deref(),
+            &Type::Class(ClassType {
+                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+                    name: span(6, 5, "T"),
+                    def: find_class(&root, "dev.Super").find_type_param("T").unwrap(),
+                },))),
+                name: span(6, 7, "Inner"),
+                type_args_opt: None,
+                def_opt: Some(find_class(&root, "dev.Super.Inner")),
+            })
+        );
     }
 
     #[test]
@@ -304,18 +313,14 @@ class Super {
         assert_eq!(
             ret_type.deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
-                    ParameterizedType {
-                        name: "C",
-                        def_opt: Cell::new(Some(
-                            find_class(&root, "dev.Test").find_type_param("C").unwrap()
-                                as *const TypeParam
-                        ))
-                    }
-                )))),
-                name: "Inner",
-                type_args: vec![],
-                def_opt: Cell::new(Some(find_class(&root, "dev.Super.Inner") as *const Class))
+                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+                    name: span(4, 5, "C"),
+                    def: find_class(&root, "dev.Test").find_type_param("C").unwrap()
+                        as *const TypeParam
+                }))),
+                name: span(4, 7, "Inner"),
+                type_args_opt: None,
+                def_opt: Some(find_class(&root, "dev.Super.Inner") as *const Class)
             })
         )
     }
@@ -361,53 +366,57 @@ class SuperOuter {
 
         let method = find_class(&root, "dev.Test").find_method("method").unwrap();
 
-        assert_eq!(method.return_type.borrow().deref(), &Type::Void);
+        assert_eq!(
+            method.return_type.borrow().deref(),
+            &Type::Void(Void {
+                span: span(5, 3, "void")
+            })
+        );
         assert_eq!(
             method.params.get(0).unwrap().tpe.borrow().deref(),
-            &Type::Primitive(PrimitiveType::Int)
+            &Type::Primitive(PrimitiveType {
+                name: span(5, 15, "int"),
+                tpe: PrimitiveTypeType::Int
+            })
         );
         assert_eq!(
             method.params.get(1).unwrap().tpe.borrow().deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(None),
-                name: "Arg",
-                type_args: vec![
+                prefix_opt: None,
+                name: span(5, 22, "Arg"),
+                type_args_opt: Some(vec![
                     TypeArg::Class(ClassType {
-                        prefix_opt: RefCell::new(None),
-                        name: "Test",
-                        type_args: vec![TypeArg::Parameterized(ParameterizedType {
-                            name: "A",
-                            def_opt: Cell::new(Some(
-                                find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                            ))
-                        })],
-                        def_opt: Cell::new(Some(find_class(&root, "dev.Test")))
+                        prefix_opt: None,
+                        name: span(5, 26, "Test"),
+                        type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+                            name: span(5, 31, "A"),
+                            def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                        })]),
+                        def_opt: Some(find_class(&root, "dev.Test"))
                     }),
                     TypeArg::Parameterized(ParameterizedType {
-                        name: "A",
-                        def_opt: Cell::new(Some(
-                            find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                        ))
+                        name: span(5, 35, "A"),
+                        def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
                     }),
                     TypeArg::Wildcard(WildcardType {
                         name: span(5, 38, "?"),
                         super_opt: None,
                         extends: vec![ReferenceType::Class(ClassType {
-                            prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
+                            prefix_opt: Some(Box::new(EnclosingType::Parameterized(
                                 ParameterizedType {
-                                    name: "A",
-                                    def_opt: Cell::new(Some(
-                                        find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                                    ))
+                                    name: span(5, 48, "A"),
+                                    def: find_class(&root, "dev.Test")
+                                        .find_type_param("A")
+                                        .unwrap()
                                 }
-                            )))),
-                            name: "Inner",
-                            type_args: vec![],
-                            def_opt: Cell::new(Some(find_class(&root, "dev.SuperOuter.Inner")))
+                            ))),
+                            name: span(5, 50, "Inner"),
+                            type_args_opt: None,
+                            def_opt: Some(find_class(&root, "dev.SuperOuter.Inner"))
                         })]
                     })
-                ],
-                def_opt: Cell::new(Some(find_class(&root, "dev.Arg")))
+                ]),
+                def_opt: Some(find_class(&root, "dev.Arg"))
             })
         );
     }

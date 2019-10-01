@@ -1,6 +1,6 @@
 use analyze::resolve::scope::EnclosingTypeDef;
-use analyze::tpe::{ClassType, EnclosingType, ParameterizedType, ReferenceType, Type};
 use parse;
+use parse::tree::{ClassType, ParameterizedType, Type};
 use std::cell::{Cell, RefCell};
 use tokenize::span::Span;
 
@@ -171,12 +171,12 @@ impl<'a> Class<'a> {
         None
     }
 
-    pub fn to_type(&self) -> ClassType<'a> {
+    pub fn to_type(&self, name: &Span<'a>) -> ClassType<'a> {
         ClassType {
-            prefix_opt: RefCell::new(None),
-            name: self.name.fragment,
-            type_args: vec![],
-            def_opt: Cell::new(Some(self as *const Class<'a>)),
+            prefix_opt: None,
+            name: name.clone(),
+            type_args_opt: None,
+            def_opt: Some(self as *const Class<'a>),
         }
     }
 }
@@ -218,7 +218,7 @@ pub enum TypeParamExtend<'a> {
 }
 
 impl<'a> TypeParamExtend<'a> {
-    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
+    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
         match self {
             TypeParamExtend::Class(class) => class.find_inner_class(name),
             TypeParamExtend::Parameterized(parameterized) => parameterized.find_inner_class(name),
@@ -233,12 +233,13 @@ pub struct TypeParam<'a> {
 }
 
 impl<'a> TypeParam<'a> {
-    pub fn to_type(&self) -> ParameterizedType<'a> {
-        ParameterizedType {
-            name: self.name.fragment,
-            def_opt: Cell::new(Some(self as *const TypeParam<'a>)),
-        }
-    }
+    // This method makes no sense. We can't use type param's name as the type. That is wrong
+    //    pub fn to_type(&self) -> ParameterizedType<'a> {
+    //        ParameterizedType {
+    //            name: self.name,
+    //            def_opt: self as *const TypeParam<'a>,
+    //        }
+    //    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

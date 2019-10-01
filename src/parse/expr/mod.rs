@@ -50,7 +50,7 @@ mod tests {
     use parse::tree::{
         ArrayType, BinaryOperation, Boolean, ClassExpr, ClassType, ConstructorReference, Expr,
         FieldAccess, MethodCall, MethodReference, MethodReferencePrimary, Name, PrimitiveType,
-        ReferenceType, Type, TypeArg,
+        PrimitiveTypeType, ReferenceType, Type, TypeArg,
     };
     use parse::Tokens;
 
@@ -67,7 +67,8 @@ int[]::size
                 Expr::MethodReference(MethodReference {
                     primary: MethodReferencePrimary::Array(ArrayType {
                         tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "int")
+                            name: span(1, 1, "int"),
+                            tpe: PrimitiveTypeType::Int
                         })),
                         size_opt: None
                     }),
@@ -95,8 +96,10 @@ Test<A>::new
                         type_args_opt: Some(vec![TypeArg::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 6, "A"),
-                            type_args_opt: None
-                        })])
+                            type_args_opt: None,
+                            def_opt: None
+                        })]),
+                        def_opt: None
                     }),
                     type_args_opt: None,
                 })
@@ -119,7 +122,8 @@ Test.class.hashCode()
                         tpe: Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 1, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }),
                         span: span(1, 6, "class")
                     }))),

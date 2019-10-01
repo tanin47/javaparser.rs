@@ -1,5 +1,5 @@
 use analyze;
-use std::cell::RefCell;
+use std::cell::{Cell, Ref, RefCell};
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -206,8 +206,33 @@ pub enum Type<'a> {
     Class(ClassType<'a>),
     Primitive(PrimitiveType<'a>),
     Array(ArrayType<'a>),
+    Parameterized(ParameterizedType<'a>),
     Void(Void<'a>),
     UnknownType,
+}
+
+impl<'a> Type<'a> {
+    pub fn to_type_arg(self) -> TypeArg<'a> {
+        match self {
+            Type::Array(arr) => TypeArg::Array(arr),
+            Type::Class(class) => TypeArg::Class(class),
+            Type::Parameterized(parameterized) => TypeArg::Parameterized(parameterized),
+            Type::Void(_) => panic!(),
+            Type::Primitive(_) => panic!(),
+            Type::UnknownType => panic!(),
+        }
+    }
+
+    pub fn to_reference_type(self) -> ReferenceType<'a> {
+        match self {
+            Type::Array(arr) => ReferenceType::Array(arr),
+            Type::Class(class) => ReferenceType::Class(class),
+            Type::Parameterized(parameterized) => ReferenceType::Parameterized(parameterized),
+            Type::Void(_) => panic!(),
+            Type::Primitive(_) => panic!(),
+            Type::UnknownType => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -219,11 +244,86 @@ pub struct Void<'a> {
 pub enum ReferenceType<'a> {
     Class(ClassType<'a>),
     Array(ArrayType<'a>),
+    Parameterized(ParameterizedType<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct PackagePrefix<'a> {
+    pub prefix_opt: Option<Box<EnclosingType<'a>>>,
+    pub name: Span<'a>,
+    pub def: *const analyze::definition::Package<'a>,
+}
+
+impl<'a> PackagePrefix<'a> {
+    pub fn find(&self, name: &Span<'a>) -> Option<EnclosingType<'a>> {
+        let def = unsafe { &(*self.def) };
+        def.find(name.fragment).map(|e| e.to_type(name))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum EnclosingType<'a> {
+    Package(PackagePrefix<'a>),
+    Class(ClassType<'a>),
+    Parameterized(ParameterizedType<'a>),
+}
+
+impl<'a> EnclosingType<'a> {
+    pub fn get_name(&self) -> &Span<'a> {
+        match self {
+            EnclosingType::Package(package) => &package.name,
+            EnclosingType::Class(class) => &class.name,
+            EnclosingType::Parameterized(p) => &p.name,
+        }
+    }
+    pub fn find(&self, name: &Span<'a>) -> Option<EnclosingType<'a>> {
+        match self {
+            EnclosingType::Package(package) => package.find(name),
+            EnclosingType::Class(class) => class
+                .find_inner_class(name)
+                .map(|c| EnclosingType::Class(c)),
+            EnclosingType::Parameterized(parameterized) => parameterized
+                .find_inner_class(name)
+                .map(|c| EnclosingType::Class(c)),
+        }
+    }
+    pub fn get_prefix_opt(&self) -> Option<&Option<Box<EnclosingType<'a>>>> {
+        match self {
+            EnclosingType::Package(package) => Some(&package.prefix_opt),
+            EnclosingType::Class(class) => Some(&class.prefix_opt),
+            EnclosingType::Parameterized(_) => None,
+        }
+    }
+    pub fn set_prefix_opt(&self, prefix_opt: Option<EnclosingType<'a>>) -> EnclosingType<'a> {
+        match self {
+            EnclosingType::Package(package) => EnclosingType::Package(PackagePrefix {
+                prefix_opt: prefix_opt.map(Box::new),
+                name: package.name.clone(),
+                def: package.def,
+            }),
+            EnclosingType::Class(class) => EnclosingType::Class(ClassType {
+                prefix_opt: prefix_opt.map(Box::new),
+                name: class.name.clone(),
+                type_args_opt: class.type_args_opt.clone(),
+                def_opt: class.def_opt.clone(),
+            }),
+            EnclosingType::Parameterized(_) => panic!(),
+        }
+    }
+
+    pub fn to_type(self) -> Type<'a> {
+        match self {
+            EnclosingType::Class(class) => Type::Class(class),
+            EnclosingType::Parameterized(p) => Type::Parameterized(p),
+            EnclosingType::Package(package) => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypeArg<'a> {
     Class(ClassType<'a>),
+    Parameterized(ParameterizedType<'a>),
     Array(ArrayType<'a>),
     Wildcard(WildcardType<'a>),
 }
@@ -232,25 +332,114 @@ pub enum TypeArg<'a> {
 pub struct WildcardType<'a> {
     pub name: Span<'a>,
     pub extends: Vec<ReferenceType<'a>>,
-    pub super_opt: Option<ReferenceType<'a>>,
+    pub super_opt: Option<Box<ReferenceType<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PrimitiveType<'a> {
     pub name: Span<'a>,
+    pub tpe: PrimitiveTypeType,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum PrimitiveTypeType {
+    Boolean,
+    Byte,
+    Char,
+    Double,
+    Float,
+    Int,
+    Long,
+    Short,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ClassType<'a> {
-    pub prefix_opt: Option<Box<ClassType<'a>>>,
+    pub prefix_opt: Option<Box<EnclosingType<'a>>>,
     pub name: Span<'a>,
     pub type_args_opt: Option<Vec<TypeArg<'a>>>,
+    pub def_opt: Option<*const analyze::definition::Class<'a>>,
+}
+
+impl<'a> ClassType<'a> {
+    pub fn get_extend_opt(&self) -> Option<ClassType<'a>> {
+        let extend_class_opt = if let Some(def) = self.def_opt {
+            let def = unsafe { &(*def) };
+            def.extend_opt.borrow()
+        } else {
+            return None;
+        };
+
+        let extend_class = if let Some(extend_class) = extend_class_opt.as_ref() {
+            extend_class
+        } else {
+            return None;
+        };
+
+        Some(extend_class.clone())
+        //        Some(extend_class.substitute_type_args_from(self))
+    }
+
+    // Example:
+    // class Current<T> {}
+    // class Subclass<A> extends Current<A> {}
+    //
+    // We get Current<T> where the value of T is assigned with A.
+    //    pub fn substitute_type_args_from(&self, subclass: &ClassType<'a>) -> ClassType<'a> {}
+
+    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
+        let class = if let Some(class) = self.def_opt {
+            unsafe { &(*class) }
+        } else {
+            return None;
+        };
+
+        match class.find(name.fragment) {
+            Some(found) => {
+                // TODO: transfer type args
+                return Some(found.to_type(name));
+            }
+            None => {
+                match class.extend_opt.borrow().as_ref() {
+                    Some(extend) => {
+                        if let Some(found) = extend.find_inner_class(name) {
+                            // TODO: transfer type args
+                            return Some(found);
+                        }
+                    }
+                    None => (),
+                }
+            }
+        };
+
+        None
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ArrayType<'a> {
     pub tpe: Box<Type<'a>>,
     pub size_opt: Option<Box<Expr<'a>>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ParameterizedType<'a> {
+    pub name: Span<'a>,
+    pub def: *const analyze::definition::TypeParam<'a>,
+}
+
+impl<'a> ParameterizedType<'a> {
+    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
+        let type_param = unsafe { &(*self.def) };
+
+        for extend in type_param.extends.borrow().iter() {
+            if let Some(inner) = extend.find_inner_class(name) {
+                return Some(inner);
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -1,7 +1,8 @@
 use parse::combinator::{get_and_not_followed_by, identifier, symbol};
 use parse::tpe::{array, type_args};
-use parse::tree::{ClassType, Type};
+use parse::tree::{ClassType, EnclosingType, Type};
 use parse::{ParseResult, Tokens};
+use std::cell::Cell;
 use tokenize::span::Span;
 
 pub fn contains_type_args(class: &ClassType) -> bool {
@@ -9,8 +10,11 @@ pub fn contains_type_args(class: &ClassType) -> bool {
         true
     } else {
         match &class.prefix_opt {
-            Some(prefix) => contains_type_args(prefix),
-            None => false,
+            Some(enclosing) => match enclosing.as_ref() {
+                EnclosingType::Class(prefix) => contains_type_args(prefix),
+                _ => false,
+            },
+            _ => false,
         }
     }
 }
@@ -24,11 +28,12 @@ pub fn parse_tail<'a>(
 
     let tpe = ClassType {
         prefix_opt: match prefix_opt {
-            Some(prefix) => Some(Box::new(prefix)),
+            Some(prefix) => Some(Box::new(EnclosingType::Class(prefix))),
             None => None,
         },
         name,
         type_args_opt,
+        def_opt: None,
     };
 
     if let Ok((input, _)) = get_and_not_followed_by(symbol('.'), symbol('.'))(input) {
@@ -59,7 +64,7 @@ pub fn parse(input: Tokens) -> ParseResult<Type> {
 #[cfg(test)]
 mod tests {
     use super::parse;
-    use parse::tree::{ArrayType, ClassType, Type, TypeArg};
+    use parse::tree::{ArrayType, ClassType, EnclosingType, Type, TypeArg};
     use parse::Tokens;
     use test_common::{code, span};
 
@@ -76,7 +81,8 @@ Test
                 Type::Class(ClassType {
                     prefix_opt: None,
                     name: span(1, 1, "Test"),
-                    type_args_opt: None
+                    type_args_opt: None,
+                    def_opt: None
                 })
             ))
         );
@@ -93,17 +99,20 @@ Parent<A>.Test
             Ok((
                 &[] as Tokens,
                 Type::Class(ClassType {
-                    prefix_opt: Some(Box::new(ClassType {
+                    prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 1, "Parent"),
                         type_args_opt: Some(vec![TypeArg::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 8, "A"),
-                            type_args_opt: None
-                        })])
-                    })),
+                            type_args_opt: None,
+                            def_opt: None
+                        })]),
+                        def_opt: None
+                    }))),
                     name: span(1, 11, "Test"),
-                    type_args_opt: None
+                    type_args_opt: None,
+                    def_opt: None
                 })
             ))
         );
@@ -129,18 +138,22 @@ Test<Another<A>, T[]>
                             type_args_opt: Some(vec![TypeArg::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 14, "A"),
-                                type_args_opt: None
-                            })])
+                                type_args_opt: None,
+                                def_opt: None
+                            })]),
+                            def_opt: None
                         }),
                         TypeArg::Array(ArrayType {
                             tpe: Box::new(Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 18, "T"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: None
                         })
-                    ])
+                    ]),
+                    def_opt: None
                 })
             ))
         );
@@ -160,7 +173,8 @@ Test[]
                     tpe: Box::new(Type::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 1, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     })),
                     size_opt: None
                 })
@@ -184,7 +198,8 @@ Test[][][]
                             tpe: Box::new(Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: None
                         })),

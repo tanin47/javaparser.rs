@@ -23,7 +23,7 @@ mod tests {
     use test_common::{code, span};
 
     use super::parse;
-    use parse::tree::{Cast, Expr, Name, PrimitiveType, Type, UnaryOperation};
+    use parse::tree::{Cast, Expr, Name, PrimitiveType, PrimitiveTypeType, Type, UnaryOperation};
     use parse::Tokens;
 
     #[test]
@@ -38,7 +38,8 @@ mod tests {
                 &[] as Tokens,
                 Expr::Cast(Cast {
                     tpes: vec![Type::Primitive(PrimitiveType {
-                        name: span(1, 2, "int")
+                        name: span(1, 2, "int"),
+                        tpe: PrimitiveTypeType::Int
                     })],
                     expr: Box::new(Expr::UnaryOperation(UnaryOperation {
                         expr: Box::new(Expr::Name(Name {

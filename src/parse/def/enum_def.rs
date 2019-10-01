@@ -73,7 +73,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -84,7 +85,8 @@ mod tests {
                     implements: vec![ClassType {
                         prefix_opt: None,
                         name: span(1, 36, "Super"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }],
                     constants: vec![EnumConstant {
                         annotateds: vec![],

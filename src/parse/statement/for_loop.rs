@@ -71,8 +71,8 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Assigned, Assignment, BinaryOperation, Block, Expr, ForLoop, Foreach, Int, Name,
-        PrimitiveType, ReturnStmt, StandaloneVariableDeclarator, Statement, Type, UnaryOperation,
-        VariableDeclarator, VariableDeclarators,
+        PrimitiveType, PrimitiveTypeType, ReturnStmt, StandaloneVariableDeclarator, Statement,
+        Type, UnaryOperation, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
     use test_common::{code, span};
@@ -91,7 +91,8 @@ for(int a:list) a++;
                     declarator: StandaloneVariableDeclarator {
                         modifiers: vec![],
                         tpe: Type::Primitive(PrimitiveType {
-                            name: span(1, 5, "int")
+                            name: span(1, 5, "int"),
+                            tpe: PrimitiveTypeType::Int
                         }),
                         name: span(1, 9, "a"),
                         expr_opt: None
@@ -128,7 +129,8 @@ for(int i=0;i<2;i++) x++;
                         modifiers: vec![],
                         declarators: vec![VariableDeclarator {
                             tpe: Type::Primitive(PrimitiveType {
-                                name: span(1, 5, "int")
+                                name: span(1, 5, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             name: span(1, 9, "i"),
                             expr_opt: Some(Expr::Int(Int {

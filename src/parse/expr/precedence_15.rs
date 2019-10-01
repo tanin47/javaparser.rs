@@ -4,10 +4,11 @@ use parse::expr::atom::name;
 use parse::expr::precedence_16;
 use parse::tpe::type_args;
 use parse::tree::{
-    ClassType, ConstructorReference, Expr, FieldAccess, MethodReference, MethodReferencePrimary,
-    ReferenceType,
+    ClassType, ConstructorReference, EnclosingType, Expr, FieldAccess, MethodReference,
+    MethodReferencePrimary, ReferenceType,
 };
 use parse::{ParseResult, Tokens};
+use std::cell::Cell;
 
 fn convert_field_to_class(field: FieldAccess) -> Result<ClassType, ()> {
     let prefix = match *field.expr {
@@ -16,14 +17,16 @@ fn convert_field_to_class(field: FieldAccess) -> Result<ClassType, ()> {
             prefix_opt: None,
             name: parent.name,
             type_args_opt: None,
+            def_opt: None,
         },
         _ => return Err(()),
     };
 
     Ok(ClassType {
-        prefix_opt: Some(Box::new(prefix)),
+        prefix_opt: Some(Box::new(EnclosingType::Class(prefix))),
         name: field.field.name,
         type_args_opt: None,
+        def_opt: None,
     })
 }
 
@@ -33,6 +36,7 @@ pub fn convert_to_type(expr: Expr) -> Result<ClassType, ()> {
             prefix_opt: None,
             name: name.name,
             type_args_opt: None,
+            def_opt: None,
         }),
         Expr::FieldAccess(field) => {
             if let Ok(class) = convert_field_to_class(field) {
@@ -157,7 +161,8 @@ foo[x]::<A>bar
                     type_args_opt: Some(vec![TypeArg::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 10, "A"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     })]),
                     name: span(1, 12, "bar")
                 })

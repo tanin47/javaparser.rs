@@ -121,8 +121,8 @@ mod tests {
 
     use super::parse;
     use parse::tree::{
-        ArrayType, ClassExpr, ClassType, Expr, FieldAccess, MethodCall, Name, NewObject,
-        PrimitiveType, Super, SuperConstructorCall, This, Type,
+        ArrayType, ClassExpr, ClassType, EnclosingType, Expr, FieldAccess, MethodCall, Name,
+        NewObject, PrimitiveType, PrimitiveTypeType, Super, SuperConstructorCall, This, Type,
     };
     use parse::Tokens;
 
@@ -143,7 +143,8 @@ a.new Test()
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 7, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],
@@ -188,13 +189,15 @@ Parent.Test.this.super()
                 Expr::SuperConstructorCall(SuperConstructorCall {
                     prefix_opt: Some(Box::new(Expr::This(This {
                         tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         span: span(1, 13, "this")
                     }))),
@@ -219,13 +222,15 @@ Parent.Test.super.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::Super(Super {
                         tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         span: span(1, 13, "super")
                     }))),
@@ -250,13 +255,15 @@ Parent.Test.this.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::This(This {
                         tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         span: span(1, 13, "this")
                     }))),
@@ -281,13 +288,15 @@ Parent.Test.class.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }),
                         span: span(1, 13, "class")
                     }))),
@@ -314,7 +323,8 @@ Test.class.hashCode()
                         tpe: Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 1, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }),
                         span: span(1, 6, "class")
                     }))),
@@ -339,7 +349,8 @@ char.class.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "char")
+                            name: span(1, 1, "char"),
+                            tpe: PrimitiveTypeType::Char
                         }),
                         span: span(1, 6, "class")
                     }))),
@@ -365,7 +376,8 @@ byte[].class.hashCode()
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Array(ArrayType {
                             tpe: Box::new(Type::Primitive(PrimitiveType {
-                                name: span(1, 1, "byte")
+                                name: span(1, 1, "byte"),
+                                tpe: PrimitiveTypeType::Byte
                             })),
                             size_opt: None
                         }),
@@ -393,13 +405,15 @@ Parent.Test[].class.hashCode()
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Array(ArrayType {
                             tpe: Box::new(Type::Class(ClassType {
-                                prefix_opt: Some(Box::new(ClassType {
+                                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                     prefix_opt: None,
                                     name: span(1, 1, "Parent"),
-                                    type_args_opt: None
-                                })),
+                                    type_args_opt: None,
+                                    def_opt: None
+                                }))),
                                 name: span(1, 8, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: None
                         }),
@@ -428,7 +442,8 @@ Test[].class
                         tpe: Box::new(Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 1, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         size_opt: None
                     }),

@@ -33,7 +33,7 @@ pub fn parse_wildcard(input: Tokens) -> ParseResult<TypeArg> {
         input,
         TypeArg::Wildcard(WildcardType {
             name,
-            super_opt,
+            super_opt: super_opt.map(Box::new),
             extends,
         }),
     ))
@@ -84,7 +84,8 @@ pub fn parse(input: Tokens) -> ParseResult<Option<Vec<TypeArg>>> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        ArrayType, ClassType, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType,
+        ArrayType, ClassType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg,
+        WildcardType,
     };
     use parse::Tokens;
     use test_common::{code, span};
@@ -107,15 +108,18 @@ mod tests {
                             tpe: Box::new(Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 7, "A"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: None
-                        })])
+                        })]),
+                        def_opt: None
                     }),
                     TypeArg::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 13, "B"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }),
                     TypeArg::Wildcard(WildcardType {
                         name: span(1, 16, "?"),
@@ -123,7 +127,8 @@ mod tests {
                         extends: vec![ReferenceType::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 26, "C"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })]
                     })
                 ])
@@ -143,12 +148,13 @@ mod tests {
                 &[] as Tokens,
                 Some(vec![TypeArg::Wildcard(WildcardType {
                     name: span(1, 2, "?"),
-                    super_opt: Some(ReferenceType::Array(ArrayType {
+                    super_opt: Some(Box::new(ReferenceType::Array(ArrayType {
                         tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 10, "int")
+                            name: span(1, 10, "int"),
+                            tpe: PrimitiveTypeType::Int
                         })),
                         size_opt: None
-                    })),
+                    }))),
                     extends: vec![]
                 })])
             ))
@@ -171,14 +177,16 @@ mod tests {
                     extends: vec![
                         ReferenceType::Array(ArrayType {
                             tpe: Box::new(Type::Primitive(PrimitiveType {
-                                name: span(1, 12, "boolean")
+                                name: span(1, 12, "boolean"),
+                                tpe: PrimitiveTypeType::Boolean
                             })),
                             size_opt: None
                         }),
                         ReferenceType::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 24, "S"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }),
                     ]
                 })])

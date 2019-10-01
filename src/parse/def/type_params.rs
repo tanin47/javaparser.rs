@@ -55,7 +55,8 @@ mod tests {
                         extends: vec![ClassType {
                             prefix_opt: None,
                             name: span(1, 15, "A"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }]
                     },
                     TypeParam {
@@ -64,7 +65,8 @@ mod tests {
                             ClassType {
                                 prefix_opt: None,
                                 name: span(1, 28, "String"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             },
                             ClassType {
                                 prefix_opt: None,
@@ -72,8 +74,10 @@ mod tests {
                                 type_args_opt: Some(vec![TypeArg::Class(ClassType {
                                     prefix_opt: None,
                                     name: span(1, 45, "A"),
-                                    type_args_opt: None
-                                })])
+                                    type_args_opt: None,
+                                    def_opt: None
+                                })]),
+                                def_opt: None
                             }
                         ]
                     },

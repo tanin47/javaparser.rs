@@ -56,8 +56,8 @@ mod tests {
     use parse::def::class_body;
     use parse::tree::{
         Annotated, ArrayType, Block, ClassBodyItem, ClassType, Expr, Int, Keyword, MarkerAnnotated,
-        Method, Modifier, Param, PrimitiveType, ReferenceType, ReturnStmt, Statement, Type,
-        TypeArg, TypeParam, Void,
+        Method, Modifier, Param, PrimitiveType, PrimitiveTypeType, ReferenceType, ReturnStmt,
+        Statement, Type, TypeArg, TypeParam, Void,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -78,7 +78,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -95,12 +96,14 @@ mod tests {
                         ClassType {
                             prefix_opt: None,
                             name: span(1, 37, "Exception"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         },
                         ClassType {
                             prefix_opt: None,
                             name: span(1, 48, "AnotherException"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }
                     ],
                     block_opt: None,
@@ -123,7 +126,8 @@ int method()[] {}
                     modifiers: vec![],
                     return_type: Type::Array(ArrayType {
                         tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "int")
+                            name: span(1, 1, "int"),
+                            tpe: PrimitiveTypeType::Int
                         })),
                         size_opt: None
                     }),
@@ -190,7 +194,8 @@ private void method() {}
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 17, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 22, "t"),
@@ -200,7 +205,8 @@ private void method() {}
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 25, "A"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 27, "a"),
@@ -239,7 +245,8 @@ private void method() {}
                             extends: vec![ClassType {
                                 prefix_opt: None,
                                 name: span(1, 15, "A"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }]
                         }
                     ],
@@ -252,8 +259,10 @@ private void method() {}
                                 type_args_opt: Some(vec![TypeArg::Class(ClassType {
                                     prefix_opt: None,
                                     name: span(1, 35, "A"),
-                                    type_args_opt: None
-                                })])
+                                    type_args_opt: None,
+                                    def_opt: None
+                                })]),
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 38, "t"),
@@ -263,7 +272,8 @@ private void method() {}
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 41, "B"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 43, "b"),

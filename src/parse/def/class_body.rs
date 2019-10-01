@@ -134,7 +134,8 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Annotation, AnnotationBody, Block, Class, ClassBody, ClassBodyItem, Constructor, Enum,
-        FieldDeclarators, Interface, Method, PrimitiveType, Type, VariableDeclarator, Void,
+        FieldDeclarators, Interface, Method, PrimitiveType, PrimitiveTypeType, Type,
+        VariableDeclarator, Void,
     };
     use parse::Tokens;
     use std::cell::RefCell;
@@ -193,7 +194,8 @@ mod tests {
                             modifiers: vec![],
                             declarators: vec![VariableDeclarator {
                                 tpe: Type::Primitive(PrimitiveType {
-                                    name: span(4, 3, "int")
+                                    name: span(4, 3, "int"),
+                                    tpe: PrimitiveTypeType::Int
                                 }),
                                 name: span(4, 7, "a"),
                                 expr_opt: None

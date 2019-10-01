@@ -73,13 +73,16 @@ new <String>Test<Integer>()
                         type_args_opt: Some(vec![TypeArg::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 18, "Integer"),
-                            type_args_opt: None
-                        })])
+                            type_args_opt: None,
+                            def_opt: None
+                        })]),
+                        def_opt: None
                     },
                     constructor_type_args_opt: Some(vec![TypeArg::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 6, "String"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     })]),
                     args: vec![],
                     body_opt: None
@@ -103,7 +106,8 @@ new Test<>()
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: Some(vec![])
+                        type_args_opt: Some(vec![]),
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],
@@ -128,7 +132,8 @@ new Test()
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],
@@ -153,7 +158,8 @@ new Test(1, "a")
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![
@@ -186,7 +192,8 @@ new Test() {
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],

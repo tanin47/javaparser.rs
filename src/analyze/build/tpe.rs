@@ -1,7 +1,7 @@
-use analyze::tpe::{
+use parse;
+use parse::tree::{
     ArrayType, ClassType, EnclosingType, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType,
 };
-use parse;
 use std::cell::{Cell, RefCell};
 
 pub fn build<'def, 'def_ref>(tpe: &'def_ref parse::tree::Type<'def>) -> Type<'def> {
@@ -14,19 +14,10 @@ pub fn build<'def, 'def_ref>(tpe: &'def_ref parse::tree::Type<'def>) -> Type<'de
     }
 }
 
-pub fn build_reference<'def, 'def_ref>(
-    tpe: &'def_ref parse::tree::ReferenceType<'def>,
-) -> ReferenceType<'def> {
-    match tpe {
-        parse::tree::ReferenceType::Array(a) => ReferenceType::Array(build_array(a)),
-        parse::tree::ReferenceType::Class(c) => ReferenceType::Class(build_class(c)),
-    }
-}
-
 fn build_primitive<'def, 'def_ref>(
     primitive: &'def_ref parse::tree::PrimitiveType<'def>,
-) -> PrimitiveType {
-    match primitive.name.fragment {
+) -> PrimitiveType<'def> {
+    let tpe = match primitive.name.fragment {
         "boolean" => PrimitiveType::Boolean,
         "byte" => PrimitiveType::Byte,
         "short" => PrimitiveType::Short,
@@ -36,33 +27,41 @@ fn build_primitive<'def, 'def_ref>(
         "double" => PrimitiveType::Double,
         "char" => PrimitiveType::Char,
         _ => panic!(),
+    };
+
+    PrimitiveType {
+        name: primitive.name,
+        tpe: tpe,
     }
 }
 
 fn build_array<'def, 'def_ref>(array: &'def_ref parse::tree::ArrayType<'def>) -> ArrayType<'def> {
     ArrayType {
-        elem_type: Box::new(build(&array.tpe)),
+        tpe: Box::new(build(&array.tpe)),
+        size_opt: None,
     }
 }
 
 pub fn build_class<'def, 'def_ref>(
     class: &'def_ref parse::tree::ClassType<'def>,
 ) -> ClassType<'def> {
-    let mut type_args = vec![];
+    let mut type_args_opt: Option<Vec<TypeArg>> = None;
 
     if let Some(tas) = &class.type_args_opt {
+        let mut type_args = vec![];
         for t in tas {
             type_args.push(build_type_arg(t));
         }
+        type_args_opt = Some(type_args)
     }
 
     ClassType {
-        prefix_opt: RefCell::new(match &class.prefix_opt {
-            Some(p) => Some(Box::new(EnclosingType::Class(build_class(p)))),
+        prefix_opt: match &class.prefix_opt {
+            Some(p) => Some(p.clone()),
             None => None,
-        }),
-        name: class.name.fragment,
-        type_args,
+        },
+        name: class.name,
+        type_args_opt,
         def_opt: Cell::new(None),
     }
 }

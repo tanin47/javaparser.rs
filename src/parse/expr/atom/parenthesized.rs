@@ -36,7 +36,8 @@ mod tests {
                     tpe: Type::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 15, "Class"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     })
                 })
             ))

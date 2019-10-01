@@ -80,7 +80,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -92,7 +93,8 @@ mod tests {
                     extend_opt: Some(ClassType {
                         prefix_opt: None,
                         name: span(1, 34, "Super"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }),
                     implements: vec![],
                     body: ClassBody { items: vec![] },
@@ -124,7 +126,8 @@ class Test<A> implements Super, Super2<A> {}
                         ClassType {
                             prefix_opt: None,
                             name: span(1, 26, "Super"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         },
                         ClassType {
                             prefix_opt: None,
@@ -132,8 +135,10 @@ class Test<A> implements Super, Super2<A> {}
                             type_args_opt: Some(vec![TypeArg::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 40, "A"),
-                                type_args_opt: None
-                            })])
+                                type_args_opt: None,
+                                def_opt: None
+                            })]),
+                            def_opt: None
                         },
                     ],
                     body: ClassBody { items: vec![] },

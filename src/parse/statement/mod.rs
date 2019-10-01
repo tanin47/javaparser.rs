@@ -95,8 +95,8 @@ mod tests {
 
     use super::parse;
     use parse::tree::{
-        ArrayType, ClassType, Expr, Labeled, Name, NewArray, PrimitiveType, ReturnStmt, Statement,
-        Type, VariableDeclarator, VariableDeclarators,
+        ArrayType, ClassType, Expr, Labeled, Name, NewArray, PrimitiveType, PrimitiveTypeType,
+        ReturnStmt, Statement, Type, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
 
@@ -128,7 +128,8 @@ return new Segment[ssize];
                             tpe: Box::new(Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 12, "Segment"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: Some(Box::new(Expr::Name(Name {
                                 name: span(1, 20, "ssize")
@@ -158,6 +159,7 @@ label: int a;
                         declarators: vec![VariableDeclarator {
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(1, 8, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             name: span(1, 12, "a"),
                             expr_opt: None

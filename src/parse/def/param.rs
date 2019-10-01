@@ -58,14 +58,16 @@ final @Anno Test... t
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 8, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                     ],
                     tpe: Type::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 13, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }),
                     is_varargs: true,
                     name: span(1, 21, "t"),
@@ -91,7 +93,8 @@ Test[] t[]
                             tpe: Box::new(Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: None
                         })),

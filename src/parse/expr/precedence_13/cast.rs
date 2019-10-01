@@ -42,7 +42,8 @@ mod tests {
                         tpes: vec![Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 11, "Int"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })],
                         expr: Box::new(Expr::Name(Name {
                             name: span(1, 15, "t")

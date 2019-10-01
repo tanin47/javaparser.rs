@@ -1,6 +1,5 @@
 use analyze::definition::Root;
 use analyze::resolve::scope::Scope;
-use analyze::tpe::Type;
 use {analyze, parse};
 
 pub mod assign_parameterized_type;

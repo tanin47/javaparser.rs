@@ -1,3 +1,4 @@
+use parse::tpe::primitive::build_type_type;
 use parse::tree::{CompilationUnit, PrimitiveType, Type};
 use parse::Tokens;
 use tokenize;
@@ -25,5 +26,6 @@ pub fn parse(tokens: Tokens) -> CompilationUnit {
 pub fn primitive(line: usize, col: usize, name: &str) -> Type {
     Type::Primitive(PrimitiveType {
         name: span(line, col, name),
+        tpe: build_type_type(name).unwrap(),
     })
 }

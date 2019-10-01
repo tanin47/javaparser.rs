@@ -1,7 +1,6 @@
 use analyze::resolve::scope::Scope;
-use analyze::tpe::{EnclosingType, Type};
 use parse;
-use parse::tree::{Class, ClassBodyItem};
+use parse::tree::{Class, ClassBodyItem, EnclosingType};
 use semantics::method;
 use std::borrow::Borrow;
 
@@ -9,8 +8,8 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
     class: &'def_ref parse::tree::Class<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
-    if let Some(EnclosingType::Class(tpe)) = scope.resolve_type(class.name.fragment) {
-        if let Some(def) = tpe.def_opt.get() {
+    if let Some(EnclosingType::Class(tpe)) = scope.resolve_type(&class.name) {
+        if let Some(def) = tpe.def_opt {
             class.def_opt.replace(Some(def));
         }
     }

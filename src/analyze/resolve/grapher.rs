@@ -1,7 +1,7 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Package, Root};
 use analyze::resolve::assign_type;
 use analyze::resolve::scope::{EnclosingTypeDef, Level, Scope};
-use analyze::tpe::{ClassType, Type};
+use parse::tree::{ClassType, Type};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -211,16 +211,13 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
             return None;
         };
 
-        if let Some(class) = class_type.def_opt.get() {
+        if let Some(class) = class_type.def_opt {
             if let Some(&index) = self.map.get(&(class as *const Class<'def>)) {
                 return Some(index);
             }
         }
 
-        resolved
-            .def_opt
-            .get()
-            .map(|class| self.create_node(class, false))
+        resolved.def_opt.map(|class| self.create_node(class, false))
     }
 }
 
@@ -231,7 +228,6 @@ mod tests {
     use analyze::resolve::grapher::{Grapher, NodeIndex};
     use analyze::resolve::merge;
     use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
-    use analyze::tpe::{ClassType, EnclosingType, PackagePrefix, Type};
     use parse::tree::CompilationUnit;
     use std::cell::{Cell, RefCell};
     use std::collections::HashSet;

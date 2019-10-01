@@ -48,7 +48,8 @@ pub fn parse_tail<'a>(input: Tokens<'a>, tpe: Type<'a>) -> ParseResult<'a, Expr<
 mod tests {
     use parse::expr::atom;
     use parse::tree::{
-        ArrayInitializer, ArrayType, ClassType, Expr, Int, Name, NewArray, PrimitiveType, Type,
+        ArrayInitializer, ArrayType, ClassType, Expr, Int, Name, NewArray, PrimitiveType,
+        PrimitiveTypeType, Type,
     };
     use parse::Tokens;
     use test_common::{code, primitive, span};
@@ -68,7 +69,8 @@ new Test[size]
                         tpe: Box::new(Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 5, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         size_opt: Some(Box::new(Expr::Name(Name {
                             name: span(1, 10, "size")
@@ -94,7 +96,8 @@ new int[2][]
                     tpe: ArrayType {
                         tpe: Box::new(Type::Array(ArrayType {
                             tpe: Box::new(Type::Primitive(PrimitiveType {
-                                name: span(1, 5, "int")
+                                name: span(1, 5, "int"),
+                                tpe: PrimitiveTypeType::Int
                             })),
                             size_opt: None
                         })),
@@ -121,7 +124,8 @@ new int[] { 1, {2}}
                 Expr::NewArray(NewArray {
                     tpe: ArrayType {
                         tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 5, "int")
+                            name: span(1, 5, "int"),
+                            tpe: PrimitiveTypeType::Int
                         })),
                         size_opt: None
                     },

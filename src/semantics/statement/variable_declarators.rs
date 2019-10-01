@@ -1,5 +1,4 @@
 use analyze::resolve::scope::Scope;
-use analyze::tpe::Type;
 use parse::tree::{VariableDeclarator, VariableDeclarators};
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(

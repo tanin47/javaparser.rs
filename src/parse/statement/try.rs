@@ -83,8 +83,8 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Block, Catch, ClassType, Expr, FieldAccess, Int, Keyword, MethodCall, Modifier, Name,
-        PrimitiveType, StandaloneVariableDeclarator, Statement, Throw, Try, TryResource, Type,
-        UnaryOperation,
+        PrimitiveType, PrimitiveTypeType, StandaloneVariableDeclarator, Statement, Throw, Try,
+        TryResource, Type, UnaryOperation,
     };
     use parse::Tokens;
     use test_common::{code, span};
@@ -157,7 +157,8 @@ try (
                         TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
-                                name: span(2, 3, "int")
+                                name: span(2, 3, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             name: span(2, 7, "i"),
                             expr_opt: Some(Expr::Int(Int {
@@ -167,7 +168,8 @@ try (
                         TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
-                                name: span(3, 3, "int")
+                                name: span(3, 3, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             name: span(3, 7, "a"),
                             expr_opt: Some(Expr::Int(Int {
@@ -183,12 +185,14 @@ try (
                                 ClassType {
                                     prefix_opt: None,
                                     name: span(6, 10, "Exception"),
-                                    type_args_opt: None
+                                    type_args_opt: None,
+                                    def_opt: None
                                 },
                                 ClassType {
                                     prefix_opt: None,
                                     name: span(6, 22, "Exception2"),
-                                    type_args_opt: None
+                                    type_args_opt: None,
+                                    def_opt: None
                                 }
                             ],
                             block: Block {
@@ -207,7 +211,8 @@ try (
                             class_types: vec![ClassType {
                                 prefix_opt: None,
                                 name: span(8, 16, "Exp"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }],
                             block: Block {
                                 stmts: vec![Statement::Expr(Expr::MethodCall(MethodCall {

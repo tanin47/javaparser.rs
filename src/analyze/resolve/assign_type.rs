@@ -1,11 +1,10 @@
 use analyze::definition::{Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root};
 use analyze::resolve::grapher::{Grapher, Node};
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
-use analyze::tpe::TypeArg::Wildcard;
-use analyze::tpe::{
+use crossbeam_queue::SegQueue;
+use parse::tree::{
     ArrayType, ClassType, EnclosingType, PackagePrefix, ReferenceType, Type, TypeArg, WildcardType,
 };
-use crossbeam_queue::SegQueue;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -210,8 +209,9 @@ pub fn resolve_array_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     array_type: &'type_ref ArrayType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<ArrayType<'def>> {
-    resolve_type(&array_type.elem_type, scope).map(|elem_type| ArrayType {
-        elem_type: Box::new(elem_type),
+    resolve_type(&array_type.tpe, scope).map(|elem_type| ArrayType {
+        tpe: Box::new(elem_type),
+        size_opt: None,
     })
 }
 
@@ -273,31 +273,40 @@ pub fn resolve_enclosing_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     unknown_type: &'type_ref ClassType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<EnclosingType<'def>> {
-    let mut result_opt = if let Some(prefix) = unknown_type.prefix_opt.borrow().as_ref() {
+    let mut result_opt = if let Some(prefix) = unknown_type.prefix_opt.as_ref() {
         let prefix = match resolve_prefix(&prefix, scope) {
             Some(prefix) => prefix,
             None => return None,
         };
 
         let result = prefix
-            .find(unknown_type.name)
+            .find(&unknown_type.name)
             .unwrap_or_else(|| EnclosingType::Class(unknown_type.clone()));
 
         result.set_prefix_opt(Some(prefix));
         Some(result)
     } else {
-        scope.resolve_type(unknown_type.name)
+        scope.resolve_type(&unknown_type.name)
     };
 
-    if !unknown_type.type_args.is_empty() {
-        if let Some(EnclosingType::Class(resolved)) = &mut result_opt {
-            for type_arg in &unknown_type.type_args {
-                resolved
-                    .type_args
-                    .push(resolve_type_arg(type_arg, scope).unwrap_or_else(|| type_arg.clone()));
+    if let Some(type_args) = &unknown_type.type_args_opt {
+        if !type_args.is_empty() {
+            if let Some(EnclosingType::Class(resolved)) = &mut result_opt {
+                let mut resolved_type_args = vec![];
+                for type_arg in type_args {
+                    resolved_type_args.push(
+                        resolve_type_arg(type_arg, scope).unwrap_or_else(|| type_arg.clone()),
+                    );
+                }
+                result_opt = Some(EnclosingType::Class(ClassType {
+                    prefix_opt: resolved.prefix_opt.clone(),
+                    name: resolved.name.clone(),
+                    type_args_opt: Some(resolved_type_args),
+                    def_opt: resolved.def_opt.clone(),
+                }))
+            } else {
+                panic!()
             }
-        } else {
-            panic!()
         }
     }
 
@@ -309,16 +318,16 @@ fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<EnclosingType<'def>> {
     if let Some(ref_prefix_prefix) = prefix.get_prefix_opt() {
-        if let Some(prefix_prefix) = ref_prefix_prefix.deref() {
+        if let Some(prefix_prefix) = ref_prefix_prefix {
             let prefix_prefix = resolve_prefix(prefix_prefix.deref(), scope)
                 .unwrap_or_else(|| prefix_prefix.deref().clone());
 
             let name = prefix.get_name();
 
-            let result_opt = prefix_prefix.find(prefix.get_name());
+            let mut result_opt = prefix_prefix.find(prefix.get_name());
 
             if let Some(result) = &result_opt {
-                result.set_prefix_opt(Some(prefix_prefix))
+                result_opt = Some(result.set_prefix_opt(Some(prefix_prefix)))
             }
 
             return result_opt;
@@ -336,10 +345,10 @@ fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     package: &'type_ref PackagePrefix<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<EnclosingType<'def>> {
-    match scope.resolve_package(package.name) {
+    match scope.resolve_package(package.name.fragment) {
         Some(p) => Some(EnclosingType::Package(PackagePrefix {
-            prefix_opt: RefCell::new(None),
-            name: &unsafe { &(*p) }.name,
+            prefix_opt: None,
+            name: package.name.clone(),
             def: p as *const Package<'def>,
         })),
         None => None,
@@ -353,11 +362,11 @@ mod tests {
     use analyze::definition::{Class, Package, Root, TypeParam};
     use analyze::resolve::merge;
     use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
-    use analyze::tpe::{
-        ClassType, EnclosingType, PackagePrefix, ParameterizedType, PrimitiveType, ReferenceType,
-        Type, TypeArg, WildcardType,
+    use parse::tree::{
+        ClassType, CompilationUnit, CompilationUnitItem, EnclosingType, PackagePrefix,
+        ParameterizedType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg, Void,
+        WildcardType,
     };
-    use parse::tree::{CompilationUnit, CompilationUnitItem};
     use std::cell::{Cell, RefCell};
     use std::convert::AsRef;
     use std::ops::Deref;
@@ -400,22 +409,19 @@ class Super<T extends Test> {
         assert_eq!(
             ret_type.deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
-                    ParameterizedType {
-                        name: "T",
-                        def_opt: Cell::new(Some(
-                            root.find_package("dev")
-                                .unwrap()
-                                .find_class("Super")
-                                .unwrap()
-                                .find_type_param("T")
-                                .unwrap() as *const TypeParam
-                        ))
-                    }
-                )))),
-                name: "Inner",
-                type_args: vec![],
-                def_opt: Cell::new(None)
+                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+                    name: span(5, 5, "T"),
+                    def: root
+                        .find_package("dev")
+                        .unwrap()
+                        .find_class("Super")
+                        .unwrap()
+                        .find_type_param("T")
+                        .unwrap() as *const TypeParam
+                }))),
+                name: span(5, 7, "Inner"),
+                type_args_opt: None,
+                def_opt: None
             })
         )
     }
@@ -454,22 +460,19 @@ class Super {
         assert_eq!(
             inner_extend_opt.as_ref().unwrap(),
             &ClassType {
-                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
-                    ParameterizedType {
-                        name: "A",
-                        def_opt: Cell::new(Some(
-                            root.find_package("dev")
-                                .unwrap()
-                                .find_class("Test")
-                                .unwrap()
-                                .find_type_param("A")
-                                .unwrap() as *const TypeParam
-                        ))
-                    }
-                )))),
-                name: "SuperInner",
-                type_args: vec![],
-                def_opt: Cell::new(None)
+                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+                    name: span(4, 23, "A"),
+                    def: root
+                        .find_package("dev")
+                        .unwrap()
+                        .find_class("Test")
+                        .unwrap()
+                        .find_type_param("A")
+                        .unwrap() as *const TypeParam
+                }))),
+                name: span(4, 25, "SuperInner"),
+                type_args_opt: None,
+                def_opt: None
             }
         )
     }
@@ -506,27 +509,26 @@ class Super {
         assert_eq!(
             inner_extend_opt.as_ref().unwrap(),
             &ClassType {
-                prefix_opt: RefCell::new(None),
-                name: "Typed",
-                type_args: vec![TypeArg::Parameterized(ParameterizedType {
-                    name: "A",
-                    def_opt: Cell::new(Some(
-                        root.find_package("dev")
-                            .unwrap()
-                            .find_class("Test")
-                            .unwrap()
-                            .find_type_param("A")
-                            .unwrap() as *const TypeParam
-                    ))
-                })],
-                def_opt: Cell::new(Some(
+                prefix_opt: None,
+                name: span(4, 23, "Typed"),
+                type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+                    name: span(4, 29, "A"),
+                    def: root
+                        .find_package("dev")
+                        .unwrap()
+                        .find_class("Test")
+                        .unwrap()
+                        .find_type_param("A")
+                        .unwrap() as *const TypeParam
+                })]),
+                def_opt: Some(
                     root.find_package("dev")
                         .unwrap()
                         .find_class("Super")
                         .unwrap()
                         .find("Typed")
                         .unwrap() as *const Class
-                ))
+                )
             }
         )
     }
@@ -556,15 +558,14 @@ class Test<A> {
         assert_eq!(
             ret_type.deref(),
             &Type::Parameterized(ParameterizedType {
-                name: "A",
-                def_opt: Cell::new(Some(
-                    root.find_package("dev")
-                        .unwrap()
-                        .find_class("Test")
-                        .unwrap()
-                        .find_type_param("A")
-                        .unwrap() as *const TypeParam
-                ))
+                name: span(4, 5, "A"),
+                def: root
+                    .find_package("dev")
+                    .unwrap()
+                    .find_class("Test")
+                    .unwrap()
+                    .find_type_param("A")
+                    .unwrap() as *const TypeParam
             })
         )
     }
@@ -604,37 +605,36 @@ class Test<T> {
         assert_eq!(
             ret_type.deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Class(ClassType {
-                    prefix_opt: RefCell::new(None),
-                    name: "Parent",
-                    type_args: vec![TypeArg::Parameterized(ParameterizedType {
-                        name: "T",
-                        def_opt: Cell::new(Some(
-                            root.find_package("dev")
-                                .unwrap()
-                                .find_class("Test")
-                                .unwrap()
-                                .find_type_param("T")
-                                .unwrap() as *const TypeParam
-                        ))
-                    })],
-                    def_opt: Cell::new(Some(
+                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+                    prefix_opt: None,
+                    name: span(4, 3, "Parent"),
+                    type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+                        name: span(4, 10, "T"),
+                        def: root
+                            .find_package("dev")
+                            .unwrap()
+                            .find_class("Test")
+                            .unwrap()
+                            .find_type_param("T")
+                            .unwrap() as *const TypeParam
+                    })]),
+                    def_opt: Some(
                         root.find_package("dev")
                             .unwrap()
                             .find_class("Parent")
                             .unwrap() as *const Class
-                    ))
-                })))),
-                name: "Inner",
-                type_args: vec![],
-                def_opt: Cell::new(Some(
+                    )
+                }))),
+                name: span(4, 13, "Inner"),
+                type_args_opt: None,
+                def_opt: Some(
                     root.find_package("dev")
                         .unwrap()
                         .find_class("Parent")
                         .unwrap()
                         .find("Inner")
                         .unwrap() as *const Class
-                ))
+                )
             })
         )
     }
@@ -677,17 +677,17 @@ class Super {
         assert_eq!(
             ret_type.deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(None),
-                name: "SuperInner",
-                type_args: vec![],
-                def_opt: Cell::new(Some(
+                prefix_opt: None,
+                name: span(6, 7, "SuperInner"),
+                type_args_opt: None,
+                def_opt: Some(
                     root.find_package("dev")
                         .unwrap()
                         .find_class("Super")
                         .unwrap()
                         .find("SuperInner")
                         .unwrap() as *const Class
-                ))
+                )
             })
         )
     }
@@ -726,38 +726,34 @@ class Test {
         assert_eq!(
             ret_type.deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Class(ClassType {
-                    prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Package(
-                        PackagePrefix {
-                            prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Package(
-                                PackagePrefix {
-                                    prefix_opt: RefCell::new(None),
-                                    name: "parent",
-                                    def: root.find_package("parent").unwrap() as *const Package
-                                }
-                            )))),
-                            name: "dev2",
-                            def: root
-                                .find_package("parent")
-                                .unwrap()
-                                .find_package("dev2")
-                                .unwrap() as *const Package
-                        }
-                    )))),
-                    name: "Another",
-                    type_args: vec![],
-                    def_opt: Cell::new(Some(
+                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+                    prefix_opt: Some(Box::new(EnclosingType::Package(PackagePrefix {
+                        prefix_opt: Some(Box::new(EnclosingType::Package(PackagePrefix {
+                            prefix_opt: None,
+                            name: span(4, 3, "parent"),
+                            def: root.find_package("parent").unwrap() as *const Package
+                        }))),
+                        name: span(4, 10, "dev2"),
+                        def: root
+                            .find_package("parent")
+                            .unwrap()
+                            .find_package("dev2")
+                            .unwrap() as *const Package
+                    }))),
+                    name: span(4, 15, "Another"),
+                    type_args_opt: None,
+                    def_opt: Some(
                         root.find("parent")
                             .unwrap()
                             .find("dev2")
                             .unwrap()
                             .find_class("Another")
                             .unwrap() as *const Class
-                    ))
-                })))),
-                name: "AnotherInner",
-                type_args: vec![],
-                def_opt: Cell::new(Some(
+                    )
+                }))),
+                name: span(4, 23, "AnotherInner"),
+                type_args_opt: None,
+                def_opt: Some(
                     root.find("parent")
                         .unwrap()
                         .find("dev2")
@@ -766,7 +762,7 @@ class Test {
                         .unwrap()
                         .find("AnotherInner")
                         .unwrap() as *const Class
-                ))
+                )
             })
         )
     }
@@ -803,12 +799,10 @@ class Test2 extends Test {
         assert_eq!(
             ret_type.deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(None),
-                name: "Test",
-                type_args: vec![],
-                def_opt: Cell::new(Some(
-                    root.find("dev").unwrap().find_class("Test").unwrap() as *const Class
-                ))
+                prefix_opt: None,
+                name: span(4, 3, "Test"),
+                type_args_opt: None,
+                def_opt: Some(root.find("dev").unwrap().find_class("Test").unwrap() as *const Class)
             })
         )
     }
@@ -853,17 +847,17 @@ class Test3 extends Test2 {
         assert_eq!(
             ret_type.deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(None),
-                name: "Inner",
-                type_args: vec![],
-                def_opt: Cell::new(Some(
+                prefix_opt: None,
+                name: span(4, 3, "Inner"),
+                type_args_opt: None,
+                def_opt: Some(
                     root.find("dev")
                         .unwrap()
                         .find_class("Test")
                         .unwrap()
                         .find("Inner")
                         .unwrap() as *const Class
-                ))
+                )
             })
         );
     }
@@ -908,53 +902,57 @@ class SuperOuter {
 
         let method = find_class(&root, "dev.Test").find_method("method").unwrap();
 
-        assert_eq!(method.return_type.borrow().deref(), &Type::Void);
+        assert_eq!(
+            method.return_type.borrow().deref(),
+            &Type::Void(Void {
+                span: span(5, 3, "void")
+            })
+        );
         assert_eq!(
             method.params.get(0).unwrap().tpe.borrow().deref(),
-            &Type::Primitive(PrimitiveType::Int)
+            &Type::Primitive(PrimitiveType {
+                name: span(5, 15, "int"),
+                tpe: PrimitiveTypeType::Int
+            })
         );
         assert_eq!(
             method.params.get(1).unwrap().tpe.borrow().deref(),
             &Type::Class(ClassType {
-                prefix_opt: RefCell::new(None),
-                name: "Arg",
-                type_args: vec![
+                prefix_opt: None,
+                name: span(5, 22, "Arg"),
+                type_args_opt: Some(vec![
                     TypeArg::Class(ClassType {
-                        prefix_opt: RefCell::new(None),
-                        name: "Test",
-                        type_args: vec![TypeArg::Parameterized(ParameterizedType {
-                            name: "A",
-                            def_opt: Cell::new(Some(
-                                find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                            ))
-                        })],
-                        def_opt: Cell::new(Some(find_class(&root, "dev.Test")))
+                        prefix_opt: None,
+                        name: span(5, 26, "Test"),
+                        type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+                            name: span(5, 31, "A"),
+                            def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
+                        })]),
+                        def_opt: Some(find_class(&root, "dev.Test"))
                     }),
                     TypeArg::Parameterized(ParameterizedType {
-                        name: "A",
-                        def_opt: Cell::new(Some(
-                            find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                        ))
+                        name: span(5, 35, "A"),
+                        def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
                     }),
                     TypeArg::Wildcard(WildcardType {
                         name: span(5, 38, "?"),
                         super_opt: None,
                         extends: vec![ReferenceType::Class(ClassType {
-                            prefix_opt: RefCell::new(Some(Box::new(EnclosingType::Parameterized(
+                            prefix_opt: Some(Box::new(EnclosingType::Parameterized(
                                 ParameterizedType {
-                                    name: "A",
-                                    def_opt: Cell::new(Some(
-                                        find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                                    ))
+                                    name: span(5, 48, "A"),
+                                    def: find_class(&root, "dev.Test")
+                                        .find_type_param("A")
+                                        .unwrap()
                                 }
-                            )))),
-                            name: "Inner",
-                            type_args: vec![],
-                            def_opt: Cell::new(None)
+                            ))),
+                            name: span(5, 50, "Inner"),
+                            type_args_opt: None,
+                            def_opt: None
                         })]
                     })
-                ],
-                def_opt: Cell::new(Some(find_class(&root, "dev.Arg")))
+                ]),
+                def_opt: Some(find_class(&root, "dev.Arg"))
             })
         );
     }

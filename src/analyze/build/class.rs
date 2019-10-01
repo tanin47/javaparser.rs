@@ -1,5 +1,5 @@
 use analyze::build::scope::Scope;
-use analyze::build::{constructor, field_group, interface, method, tpe, type_param};
+use analyze::build::{constructor, field_group, interface, method, type_param};
 use analyze::definition::{Class, Decl};
 use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
@@ -36,7 +36,7 @@ pub fn build<'def, 'scope_ref, 'def_ref>(
         }
 
         for i in &class.implements {
-            implements.push(tpe::build_class(i))
+            implements.push(i.clone())
         }
 
         Class {
@@ -44,7 +44,7 @@ pub fn build<'def, 'scope_ref, 'def_ref>(
             name: class.name.clone(),
             type_params,
             extend_opt: RefCell::new(match &class.extend_opt {
-                Some(extend) => Some(tpe::build_class(extend)),
+                Some(extend) => Some(extend.clone()),
                 None => None,
             }),
             decls,
@@ -63,7 +63,10 @@ mod tests {
         Class, CompilationUnit, Constructor, Decl, Field, FieldGroup, Method, Package, Root,
         TypeParam,
     };
-    use analyze::tpe::{ClassType, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType};
+    use parse::tree::{
+        ClassType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg, Void,
+        WildcardType,
+    };
     use std::cell::{Cell, RefCell};
     use test_common::{code, parse, span};
 
@@ -92,29 +95,29 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                             extends: RefCell::new(vec![])
                         }],
                         extend_opt: RefCell::new(Some(ClassType {
-                            prefix_opt: RefCell::new(None),
-                            name: "Super",
-                            type_args: vec![TypeArg::Wildcard(WildcardType {
+                            prefix_opt: None,
+                            name: span(1, 23, "Super"),
+                            type_args_opt: Some(vec![TypeArg::Wildcard(WildcardType {
                                 name: span(1, 29, "?"),
                                 super_opt: None,
                                 extends: vec![ReferenceType::Class(ClassType {
-                                    prefix_opt: RefCell::new(None),
-                                    name: "T",
-                                    type_args: vec![],
-                                    def_opt: Cell::new(None)
+                                    prefix_opt: None,
+                                    name: span(1, 39, "T"),
+                                    type_args_opt: None,
+                                    def_opt: None
                                 })]
-                            })],
-                            def_opt: Cell::new(None)
+                            })]),
+                            def_opt: None
                         })),
                         decls: vec![Decl::Class(Class {
                             import_path: "Test.InnerClass".to_owned(),
                             name: span(5, 11, "InnerClass"),
                             type_params: vec![],
                             extend_opt: RefCell::new(Some(ClassType {
-                                prefix_opt: RefCell::new(None),
-                                name: "Other",
-                                type_args: vec![],
-                                def_opt: Cell::new(None)
+                                prefix_opt: None,
+                                name: span(5, 30, "Other"),
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             decls: vec![],
                             constructors: vec![],
@@ -127,7 +130,9 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                         }],
                         methods: vec![Method {
                             modifiers: vec![],
-                            return_type: RefCell::new(Type::Void),
+                            return_type: RefCell::new(Type::Void(Void {
+                                span: span(3, 5, "void")
+                            })),
                             name: span(3, 10, "method"),
                             type_params: vec![],
                             params: vec![]
@@ -135,20 +140,23 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                         field_groups: vec![FieldGroup {
                             modifiers: vec![],
                             items: vec![Field {
-                                tpe: RefCell::new(Type::Primitive(PrimitiveType::Int)),
+                                tpe: RefCell::new(Type::Primitive(PrimitiveType {
+                                    name: span(4, 5, "int"),
+                                    tpe: PrimitiveTypeType::Int
+                                })),
                                 name: span(4, 9, "a")
                             },]
                         }],
                         implements: vec![ClassType {
-                            prefix_opt: RefCell::new(None),
-                            name: "Interface",
-                            type_args: vec![TypeArg::Class(ClassType {
-                                prefix_opt: RefCell::new(None),
-                                name: "T",
-                                type_args: vec![],
-                                def_opt: Cell::new(None)
-                            })],
-                            def_opt: Cell::new(None)
+                            prefix_opt: None,
+                            name: span(1, 53, "Interface"),
+                            type_args_opt: Some(vec![TypeArg::Class(ClassType {
+                                prefix_opt: None,
+                                name: span(1, 63, "T"),
+                                type_args_opt: None,
+                                def_opt: None
+                            })]),
+                            def_opt: None
                         }]
                     }),
                     others: vec![]

@@ -75,7 +75,7 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Annotated, ArrayType, ClassType, Expr, Int, MarkerAnnotated, Modifier, PrimitiveType,
-        Statement, Type, VariableDeclarator, VariableDeclarators,
+        PrimitiveTypeType, Statement, Type, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
     use test_common::{code, span};
@@ -95,12 +95,14 @@ mod tests {
                         class: ClassType {
                             prefix_opt: None,
                             name: span(1, 2, "Anno"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }
                     }))],
                     declarators: vec![VariableDeclarator {
                         tpe: Type::Primitive(PrimitiveType {
                             name: span(1, 7, "int"),
+                            tpe: PrimitiveTypeType::Int
                         }),
                         name: span(1, 11, "a"),
                         expr_opt: None
@@ -127,6 +129,7 @@ int[] a, b[];
                             tpe: Type::Array(ArrayType {
                                 tpe: Box::new(Type::Primitive(PrimitiveType {
                                     name: span(1, 1, "int"),
+                                    tpe: PrimitiveTypeType::Int
                                 })),
                                 size_opt: None
                             }),
@@ -138,6 +141,7 @@ int[] a, b[];
                                 tpe: Box::new(Type::Array(ArrayType {
                                     tpe: Box::new(Type::Primitive(PrimitiveType {
                                         name: span(1, 1, "int"),
+                                        tpe: PrimitiveTypeType::Int
                                     })),
                                     size_opt: None
                                 })),
@@ -167,6 +171,7 @@ int a = 1;
                     declarators: vec![VariableDeclarator {
                         tpe: Type::Primitive(PrimitiveType {
                             name: span(1, 1, "int"),
+                            tpe: PrimitiveTypeType::Int
                         }),
                         name: span(1, 5, "a"),
                         expr_opt: Some(Expr::Int(Int {
@@ -194,6 +199,7 @@ int a = 1, b[], c;
                         VariableDeclarator {
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(1, 1, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             name: span(1, 5, "a"),
                             expr_opt: Some(Expr::Int(Int {
@@ -204,6 +210,7 @@ int a = 1, b[], c;
                             tpe: Type::Array(ArrayType {
                                 tpe: Box::new(Type::Primitive(PrimitiveType {
                                     name: span(1, 1, "int"),
+                                    tpe: PrimitiveTypeType::Int
                                 })),
                                 size_opt: None
                             }),
@@ -213,6 +220,7 @@ int a = 1, b[], c;
                         VariableDeclarator {
                             tpe: Type::Primitive(PrimitiveType {
                                 name: span(1, 1, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             name: span(1, 17, "c"),
                             expr_opt: None

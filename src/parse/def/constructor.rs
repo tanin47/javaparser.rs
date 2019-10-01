@@ -59,7 +59,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -72,7 +73,8 @@ mod tests {
                     throws: vec![ClassType {
                         prefix_opt: None,
                         name: span(1, 36, "Exp"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }],
                     block: Block { stmts: vec![] },
                 })
@@ -103,7 +105,8 @@ mod tests {
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 9, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 14, "t"),
@@ -113,7 +116,8 @@ mod tests {
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 17, "A"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 19, "a"),

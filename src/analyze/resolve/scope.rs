@@ -1,8 +1,8 @@
 use analyze::definition::{Class, Decl, Package, Root, TypeParam};
-use analyze::tpe::{ClassType, EnclosingType, PackagePrefix};
-use parse::tree::ImportPrefix;
+use parse::tree::{ClassType, EnclosingType, ImportPrefix, PackagePrefix, ParameterizedType};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use tokenize::span::Span;
 use {analyze, parse};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -71,19 +71,19 @@ impl<'def> EnclosingTypeDef<'def> {
         }
     }
 
-    pub fn to_type(&self) -> EnclosingType<'def> {
+    pub fn to_type(&self, name: &Span<'def>) -> EnclosingType<'def> {
         match self {
             EnclosingTypeDef::Package(package) => {
                 let package = unsafe { &(**package) };
                 EnclosingType::Package(PackagePrefix {
-                    prefix_opt: RefCell::new(None),
-                    name: &package.name,
+                    prefix_opt: None,
+                    name: name.clone(),
                     def: package as *const Package,
                 })
             }
             EnclosingTypeDef::Class(class) => {
                 let class = unsafe { &(**class) };
-                EnclosingType::Class(class.to_type())
+                EnclosingType::Class(class.to_type(name))
             }
         }
     }
@@ -174,16 +174,19 @@ impl<'def, 'r> Scope<'def, 'r> {
             .map(|p| p as *const Package<'def>)
     }
 
-    pub fn resolve_type(&self, name: &str) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type(&self, name: &Span<'def>) -> Option<EnclosingType<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
-            if let Some(locals) = current.names.get(name) {
+            if let Some(locals) = current.names.get(name.fragment) {
                 for local in locals {
                     match local {
                         Name::TypeParam(type_param) => {
                             let type_param = unsafe { &(**type_param) };
-                            return Some(EnclosingType::Parameterized(type_param.to_type()));
+                            return Some(EnclosingType::Parameterized(ParameterizedType {
+                                name: name.clone(),
+                                def: type_param,
+                            }));
                         }
                     }
                 }
@@ -206,14 +209,17 @@ impl<'def, 'r> Scope<'def, 'r> {
             return Some(result);
         }
 
-        self.root.find(name).map(|e| e.to_type())
+        self.root.find(name.fragment).map(|e| e.to_type(name))
     }
 
-    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type_with_specific_import(
+        &self,
+        name: &Span<'def>,
+    ) -> Option<EnclosingType<'def>> {
         for import in &self.specific_imports {
             let class = unsafe { &(*import.class) };
-            if class.name.fragment == name {
-                return Some(EnclosingType::Class(class.to_type()));
+            if class.name.fragment == name.fragment {
+                return Some(EnclosingType::Class(class.to_type(name)));
             }
         }
 
@@ -223,18 +229,18 @@ impl<'def, 'r> Scope<'def, 'r> {
     pub fn resolve_type_at(
         &self,
         current: &EnclosingTypeDef<'def>,
-        name: &str,
+        name: &Span<'def>,
     ) -> Option<EnclosingType<'def>> {
         match current {
             EnclosingTypeDef::Package(package) => {
                 let package = unsafe { &(**package) };
 
-                if let Some(enclosing) = package.find(name) {
-                    return Some(enclosing.to_type());
+                if let Some(enclosing) = package.find(name.fragment) {
+                    return Some(enclosing.to_type(name));
                 }
             }
             EnclosingTypeDef::Class(class) => {
-                let class = unsafe { &(**class) }.to_type();
+                let class = unsafe { &(**class) }.to_type(name);
 
                 // TODO: the result needs to inherit type args from `class`.
                 // Because `class` is the enclosing type def.

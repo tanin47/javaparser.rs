@@ -78,7 +78,8 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        Block, ClassType, Expr, Int, Lambda, Param, PrimitiveType, ReturnStmt, Statement, Type,
+        Block, ClassType, Expr, Int, Lambda, Param, PrimitiveType, PrimitiveTypeType, ReturnStmt,
+        Statement, Type,
     };
     use parse::Tokens;
     use test_common::{code, span};
@@ -100,7 +101,8 @@ mod tests {
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 7, "t"),
@@ -114,7 +116,8 @@ mod tests {
                         Param {
                             modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
-                                name: span(1, 13, "int")
+                                name: span(1, 13, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             is_varargs: false,
                             name: span(1, 17, "i"),

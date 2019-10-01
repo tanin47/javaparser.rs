@@ -1,4 +1,4 @@
-use analyze::build::{modifier, param, tpe, type_param};
+use analyze::build::{modifier, param, type_param};
 use analyze::definition::Method;
 use parse;
 use std::cell::RefCell;
@@ -18,7 +18,7 @@ pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> Met
     Method {
         modifiers: modifier::build(&method.modifiers),
         type_params,
-        return_type: RefCell::new(tpe::build(&method.return_type)),
+        return_type: RefCell::new(method.return_type.clone()),
         name: method.name.clone(),
         params,
     }

@@ -35,7 +35,8 @@ throw new Exception();
                         tpe: ClassType {
                             prefix_opt: None,
                             name: span(1, 11, "Exception"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         },
                         constructor_type_args_opt: None,
                         args: vec![],
