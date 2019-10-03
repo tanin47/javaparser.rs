@@ -20,12 +20,12 @@ mod tests {
     };
     use parse::Tokens;
     use std::cell::RefCell;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 strictfp class Test {}
             "#

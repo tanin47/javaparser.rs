@@ -42,52 +42,52 @@ pub fn parse(input: Tokens) -> ParseResult<Type> {
     array::parse_tail(input, Type::Primitive(tpe))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse;
-    use parse::tree::{ArrayType, PrimitiveType, PrimitiveTypeType, Type};
-    use parse::Tokens;
-    use test_common::{code, span};
-
-    #[test]
-    fn test_long() {
-        assert_eq!(
-            parse(&code(
-                r#"
-long
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Type::Primitive(PrimitiveType {
-                    name: span(1, 1, "long"),
-                    tpe: PrimitiveTypeType::Long
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_array_2d() {
-        assert_eq!(
-            parse(&code(
-                r#"
-long[][]
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Type::Array(ArrayType {
-                    tpe: Box::new(Type::Array(ArrayType {
-                        tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "long"),
-                            tpe: PrimitiveTypeType::Long
-                        })),
-                        size_opt: None
-                    })),
-                    size_opt: None
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::parse;
+//    use parse::tree::{ArrayType, PrimitiveType, PrimitiveTypeType, Type};
+//    use parse::Tokens;
+//    use test_common::{code, span};
+//
+//    #[test]
+//    fn test_long() {
+//        assert_eq!(
+//            parse(&code(
+//                r#"
+//long
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Type::Primitive(PrimitiveType {
+//                    name: span(1, 1, "long"),
+//                    tpe: PrimitiveTypeType::Long
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_array_2d() {
+//        assert_eq!(
+//            parse(&code(
+//                r#"
+//long[][]
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Type::Array(ArrayType {
+//                    tpe: Box::new(Type::Array(ArrayType {
+//                        tpe: Box::new(Type::Primitive(PrimitiveType {
+//                            name: span(1, 1, "long"),
+//                            tpe: PrimitiveTypeType::Long
+//                        })),
+//                        size_opt: None
+//                    })),
+//                    size_opt: None
+//                })
+//            ))
+//        );
+//    }
+//}

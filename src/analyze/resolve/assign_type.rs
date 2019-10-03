@@ -355,605 +355,605 @@ fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::apply;
-    use analyze;
-    use analyze::definition::{Class, Package, Root, TypeParam};
-    use analyze::resolve::merge;
-    use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
-    use parse::tree::{
-        ClassType, CompilationUnit, CompilationUnitItem, EnclosingType, PackagePrefix,
-        ParameterizedType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg, Void,
-        WildcardType,
-    };
-    use std::cell::{Cell, RefCell};
-    use std::convert::AsRef;
-    use std::ops::Deref;
-    use test_common::{code, parse, span};
-    use tokenize::token::Token;
-
-    #[test]
-    fn test_circular_parameterized() {
-        // This case proves that we need to process type params after processing the concrete types.
-        let raws = vec![
-            r#"
-package dev;
-
-class Test extends Super<Test> {
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Super<T extends Test> {
-    class Inner {}
-    T.Inner method() {}
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-
-        apply(&mut root);
-
-        let ret_type = find_class(&root, "dev.Super")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
-                    name: span(5, 5, "T"),
-                    def: root
-                        .find_package("dev")
-                        .unwrap()
-                        .find_class("Super")
-                        .unwrap()
-                        .find_type_param("T")
-                        .unwrap() as *const TypeParam
-                }))),
-                name: span(5, 7, "Inner"),
-                type_args_opt: None,
-                def_opt: None
-            })
-        )
-    }
-
-    #[test]
-    fn test_not_allowed() {
-        // ParameterizedType CANNOT exist as a super class of a class.
-        // However, this is for code intelligence, so we allow it.
-        let raws = vec![
-            r#"
-package dev;
-
-class Test<A extends Super> {
-  class Inner extends A.SuperInner {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Super {
-  class SuperInner {}
-}
-        "#
-            .to_owned(),
-        ];
-
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-
-        apply(&mut root);
-
-        let inner_extend_opt = find_class(&root, "dev.Test.Inner").extend_opt.borrow();
-
-        assert_eq!(
-            inner_extend_opt.as_ref().unwrap(),
-            &ClassType {
-                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
-                    name: span(4, 23, "A"),
-                    def: root
-                        .find_package("dev")
-                        .unwrap()
-                        .find_class("Test")
-                        .unwrap()
-                        .find_type_param("A")
-                        .unwrap() as *const TypeParam
-                }))),
-                name: span(4, 25, "SuperInner"),
-                type_args_opt: None,
-                def_opt: None
-            }
-        )
-    }
-
-    #[test]
-    fn test_select_type_param() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test<A> extends Super {
-  class Inner extends Typed<A> {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Super {
-  class A {}
-  class Typed<A> {}
-}
-        "#
-            .to_owned(),
-        ];
-
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let inner_extend_opt = find_class(&root, "dev.Test.Inner").extend_opt.borrow();
-
-        assert_eq!(
-            inner_extend_opt.as_ref().unwrap(),
-            &ClassType {
-                prefix_opt: None,
-                name: span(4, 23, "Typed"),
-                type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
-                    name: span(4, 29, "A"),
-                    def: root
-                        .find_package("dev")
-                        .unwrap()
-                        .find_class("Test")
-                        .unwrap()
-                        .find_type_param("A")
-                        .unwrap() as *const TypeParam
-                })]),
-                def_opt: Some(
-                    root.find_package("dev")
-                        .unwrap()
-                        .find_class("Super")
-                        .unwrap()
-                        .find("Typed")
-                        .unwrap() as *const Class
-                )
-            }
-        )
-    }
-
-    #[test]
-    fn test_detect_parameterized() {
-        let raws = vec![r#"
-package dev;
-
-class Test<A> {
-    A method() {}
-}
-        "#
-        .to_owned()];
-
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let ret_type = find_class(&root, "dev.Test")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Parameterized(ParameterizedType {
-                name: span(4, 5, "A"),
-                def: root
-                    .find_package("dev")
-                    .unwrap()
-                    .find_class("Test")
-                    .unwrap()
-                    .find_type_param("A")
-                    .unwrap() as *const TypeParam
-            })
-        )
-    }
-
-    #[test]
-    fn test_resolve_from_prefix() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Parent<A> {
-  class Inner {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Test<T> {
-  Parent<T>.Inner method() {}
-}
-        "#
-            .to_owned(),
-        ];
-
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let ret_type = find_class(&root, "dev.Test")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
-                    prefix_opt: None,
-                    name: span(4, 3, "Parent"),
-                    type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
-                        name: span(4, 10, "T"),
-                        def: root
-                            .find_package("dev")
-                            .unwrap()
-                            .find_class("Test")
-                            .unwrap()
-                            .find_type_param("T")
-                            .unwrap() as *const TypeParam
-                    })]),
-                    def_opt: Some(
-                        root.find_package("dev")
-                            .unwrap()
-                            .find_class("Parent")
-                            .unwrap() as *const Class
-                    )
-                }))),
-                name: span(4, 13, "Inner"),
-                type_args_opt: None,
-                def_opt: Some(
-                    root.find_package("dev")
-                        .unwrap()
-                        .find_class("Parent")
-                        .unwrap()
-                        .find("Inner")
-                        .unwrap() as *const Class
-                )
-            })
-        )
-    }
-
-    #[test]
-    fn test_inner_class_of_super_class() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test {
-  class Inner {
-    class InnerOfInner extends Super {
-      SuperInner method() {}
-    } 
-  }
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Super {
-  class SuperInner {}
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let ret_type = find_class(&root, "dev.Test.Inner.InnerOfInner")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: None,
-                name: span(6, 7, "SuperInner"),
-                type_args_opt: None,
-                def_opt: Some(
-                    root.find_package("dev")
-                        .unwrap()
-                        .find_class("Super")
-                        .unwrap()
-                        .find("SuperInner")
-                        .unwrap() as *const Class
-                )
-            })
-        )
-    }
-
-    #[test]
-    fn test_prefix() {
-        let raws = vec![
-            r#"
-package parent.dev2;
-
-class Another {
-  class AnotherInner {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Test {
-  parent.dev2.Another.AnotherInner method() {}
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let ret_type = find_class(&root, "dev.Test")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
-                    prefix_opt: Some(Box::new(EnclosingType::Package(PackagePrefix {
-                        prefix_opt: Some(Box::new(EnclosingType::Package(PackagePrefix {
-                            prefix_opt: None,
-                            name: span(4, 3, "parent"),
-                            def: root.find_package("parent").unwrap() as *const Package
-                        }))),
-                        name: span(4, 10, "dev2"),
-                        def: root
-                            .find_package("parent")
-                            .unwrap()
-                            .find_package("dev2")
-                            .unwrap() as *const Package
-                    }))),
-                    name: span(4, 15, "Another"),
-                    type_args_opt: None,
-                    def_opt: Some(
-                        root.find("parent")
-                            .unwrap()
-                            .find("dev2")
-                            .unwrap()
-                            .find_class("Another")
-                            .unwrap() as *const Class
-                    )
-                }))),
-                name: span(4, 23, "AnotherInner"),
-                type_args_opt: None,
-                def_opt: Some(
-                    root.find("parent")
-                        .unwrap()
-                        .find("dev2")
-                        .unwrap()
-                        .find_class("Another")
-                        .unwrap()
-                        .find("AnotherInner")
-                        .unwrap() as *const Class
-                )
-            })
-        )
-    }
-
-    #[test]
-    fn test_extend() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test {}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Test2 extends Test {
-  Test method() {}
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let ret_type = find_class(&root, "dev.Test2")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: None,
-                name: span(4, 3, "Test"),
-                type_args_opt: None,
-                def_opt: Some(root.find("dev").unwrap().find_class("Test").unwrap() as *const Class)
-            })
-        )
-    }
-
-    #[test]
-    fn test_inner() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test {
-  class Inner {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Test2 extends Test {}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Test3 extends Test2 {
-  Inner method() {}
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let ret_type = find_class(&root, "dev.Test3")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: None,
-                name: span(4, 3, "Inner"),
-                type_args_opt: None,
-                def_opt: Some(
-                    root.find("dev")
-                        .unwrap()
-                        .find_class("Test")
-                        .unwrap()
-                        .find("Inner")
-                        .unwrap() as *const Class
-                )
-            })
-        );
-    }
-
-    #[test]
-    fn test_method_params() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test<A extends Outer> {
-  class Inner {}
-  void method(int a, Arg<Test<A>, A, ? extends A.Inner> c) {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Arg<A, B, C> {}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Outer extends SuperOuter {}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class SuperOuter {
-    class Inner {}
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let mut root = make_root(&units);
-        apply(&mut root);
-
-        let method = find_class(&root, "dev.Test").find_method("method").unwrap();
-
-        assert_eq!(
-            method.return_type.borrow().deref(),
-            &Type::Void(Void {
-                span: span(5, 3, "void")
-            })
-        );
-        assert_eq!(
-            method.params.get(0).unwrap().tpe.borrow().deref(),
-            &Type::Primitive(PrimitiveType {
-                name: span(5, 15, "int"),
-                tpe: PrimitiveTypeType::Int
-            })
-        );
-        assert_eq!(
-            method.params.get(1).unwrap().tpe.borrow().deref(),
-            &Type::Class(ClassType {
-                prefix_opt: None,
-                name: span(5, 22, "Arg"),
-                type_args_opt: Some(vec![
-                    TypeArg::Class(ClassType {
-                        prefix_opt: None,
-                        name: span(5, 26, "Test"),
-                        type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
-                            name: span(5, 31, "A"),
-                            def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                        })]),
-                        def_opt: Some(find_class(&root, "dev.Test"))
-                    }),
-                    TypeArg::Parameterized(ParameterizedType {
-                        name: span(5, 35, "A"),
-                        def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                    }),
-                    TypeArg::Wildcard(WildcardType {
-                        name: span(5, 38, "?"),
-                        super_opt: None,
-                        extends: vec![ReferenceType::Class(ClassType {
-                            prefix_opt: Some(Box::new(EnclosingType::Parameterized(
-                                ParameterizedType {
-                                    name: span(5, 48, "A"),
-                                    def: find_class(&root, "dev.Test")
-                                        .find_type_param("A")
-                                        .unwrap()
-                                }
-                            ))),
-                            name: span(5, 50, "Inner"),
-                            type_args_opt: None,
-                            def_opt: None
-                        })]
-                    })
-                ]),
-                def_opt: Some(find_class(&root, "dev.Arg"))
-            })
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::apply;
+//    use analyze;
+//    use analyze::definition::{Class, Package, Root, TypeParam};
+//    use analyze::resolve::merge;
+//    use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
+//    use parse::tree::{
+//        ClassType, CompilationUnit, CompilationUnitItem, EnclosingType, PackagePrefix,
+//        ParameterizedType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg, Void,
+//        WildcardType,
+//    };
+//    use std::cell::{Cell, RefCell};
+//    use std::convert::AsRef;
+//    use std::ops::Deref;
+//    use test_common::{generate_tokens, parse, span};
+//    use tokenize::token::Token;
+//
+//    #[test]
+//    fn test_circular_parameterized() {
+//        // This case proves that we need to process type params after processing the concrete types.
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test extends Super<Test> {
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Super<T extends Test> {
+//    class Inner {}
+//    T.Inner method() {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//
+//        apply(&mut root);
+//
+//        let ret_type = find_class(&root, "dev.Super")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+//                    name: span(5, 5, "T"),
+//                    def: root
+//                        .find_package("dev")
+//                        .unwrap()
+//                        .find_class("Super")
+//                        .unwrap()
+//                        .find_type_param("T")
+//                        .unwrap() as *const TypeParam
+//                }))),
+//                name: span(5, 7, "Inner"),
+//                type_args_opt: None,
+//                def_opt: None
+//            })
+//        )
+//    }
+//
+//    #[test]
+//    fn test_not_allowed() {
+//        // ParameterizedType CANNOT exist as a super class of a class.
+//        // However, this is for code intelligence, so we allow it.
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test<A extends Super> {
+//  class Inner extends A.SuperInner {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Super {
+//  class SuperInner {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//
+//        apply(&mut root);
+//
+//        let inner_extend_opt = find_class(&root, "dev.Test.Inner").extend_opt.borrow();
+//
+//        assert_eq!(
+//            inner_extend_opt.as_ref().unwrap(),
+//            &ClassType {
+//                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+//                    name: span(4, 23, "A"),
+//                    def: root
+//                        .find_package("dev")
+//                        .unwrap()
+//                        .find_class("Test")
+//                        .unwrap()
+//                        .find_type_param("A")
+//                        .unwrap() as *const TypeParam
+//                }))),
+//                name: span(4, 25, "SuperInner"),
+//                type_args_opt: None,
+//                def_opt: None
+//            }
+//        )
+//    }
+//
+//    #[test]
+//    fn test_select_type_param() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test<A> extends Super {
+//  class Inner extends Typed<A> {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Super {
+//  class A {}
+//  class Typed<A> {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let inner_extend_opt = find_class(&root, "dev.Test.Inner").extend_opt.borrow();
+//
+//        assert_eq!(
+//            inner_extend_opt.as_ref().unwrap(),
+//            &ClassType {
+//                prefix_opt: None,
+//                name: span(4, 23, "Typed"),
+//                type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+//                    name: span(4, 29, "A"),
+//                    def: root
+//                        .find_package("dev")
+//                        .unwrap()
+//                        .find_class("Test")
+//                        .unwrap()
+//                        .find_type_param("A")
+//                        .unwrap() as *const TypeParam
+//                })]),
+//                def_opt: Some(
+//                    root.find_package("dev")
+//                        .unwrap()
+//                        .find_class("Super")
+//                        .unwrap()
+//                        .find("Typed")
+//                        .unwrap() as *const Class
+//                )
+//            }
+//        )
+//    }
+//
+//    #[test]
+//    fn test_detect_parameterized() {
+//        let raws = vec![r#"
+//package dev;
+//
+//class Test<A> {
+//    A method() {}
+//}
+//        "#
+//        .to_owned()];
+//
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let ret_type = find_class(&root, "dev.Test")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Parameterized(ParameterizedType {
+//                name: span(4, 5, "A"),
+//                def: root
+//                    .find_package("dev")
+//                    .unwrap()
+//                    .find_class("Test")
+//                    .unwrap()
+//                    .find_type_param("A")
+//                    .unwrap() as *const TypeParam
+//            })
+//        )
+//    }
+//
+//    #[test]
+//    fn test_resolve_from_prefix() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Parent<A> {
+//  class Inner {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Test<T> {
+//  Parent<T>.Inner method() {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let ret_type = find_class(&root, "dev.Test")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+//                    prefix_opt: None,
+//                    name: span(4, 3, "Parent"),
+//                    type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+//                        name: span(4, 10, "T"),
+//                        def: root
+//                            .find_package("dev")
+//                            .unwrap()
+//                            .find_class("Test")
+//                            .unwrap()
+//                            .find_type_param("T")
+//                            .unwrap() as *const TypeParam
+//                    })]),
+//                    def_opt: Some(
+//                        root.find_package("dev")
+//                            .unwrap()
+//                            .find_class("Parent")
+//                            .unwrap() as *const Class
+//                    )
+//                }))),
+//                name: span(4, 13, "Inner"),
+//                type_args_opt: None,
+//                def_opt: Some(
+//                    root.find_package("dev")
+//                        .unwrap()
+//                        .find_class("Parent")
+//                        .unwrap()
+//                        .find("Inner")
+//                        .unwrap() as *const Class
+//                )
+//            })
+//        )
+//    }
+//
+//    #[test]
+//    fn test_inner_class_of_super_class() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test {
+//  class Inner {
+//    class InnerOfInner extends Super {
+//      SuperInner method() {}
+//    }
+//  }
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Super {
+//  class SuperInner {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let ret_type = find_class(&root, "dev.Test.Inner.InnerOfInner")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: None,
+//                name: span(6, 7, "SuperInner"),
+//                type_args_opt: None,
+//                def_opt: Some(
+//                    root.find_package("dev")
+//                        .unwrap()
+//                        .find_class("Super")
+//                        .unwrap()
+//                        .find("SuperInner")
+//                        .unwrap() as *const Class
+//                )
+//            })
+//        )
+//    }
+//
+//    #[test]
+//    fn test_prefix() {
+//        let raws = vec![
+//            r#"
+//package parent.dev2;
+//
+//class Another {
+//  class AnotherInner {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Test {
+//  parent.dev2.Another.AnotherInner method() {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let ret_type = find_class(&root, "dev.Test")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+//                    prefix_opt: Some(Box::new(EnclosingType::Package(PackagePrefix {
+//                        prefix_opt: Some(Box::new(EnclosingType::Package(PackagePrefix {
+//                            prefix_opt: None,
+//                            name: span(4, 3, "parent"),
+//                            def: root.find_package("parent").unwrap() as *const Package
+//                        }))),
+//                        name: span(4, 10, "dev2"),
+//                        def: root
+//                            .find_package("parent")
+//                            .unwrap()
+//                            .find_package("dev2")
+//                            .unwrap() as *const Package
+//                    }))),
+//                    name: span(4, 15, "Another"),
+//                    type_args_opt: None,
+//                    def_opt: Some(
+//                        root.find("parent")
+//                            .unwrap()
+//                            .find("dev2")
+//                            .unwrap()
+//                            .find_class("Another")
+//                            .unwrap() as *const Class
+//                    )
+//                }))),
+//                name: span(4, 23, "AnotherInner"),
+//                type_args_opt: None,
+//                def_opt: Some(
+//                    root.find("parent")
+//                        .unwrap()
+//                        .find("dev2")
+//                        .unwrap()
+//                        .find_class("Another")
+//                        .unwrap()
+//                        .find("AnotherInner")
+//                        .unwrap() as *const Class
+//                )
+//            })
+//        )
+//    }
+//
+//    #[test]
+//    fn test_extend() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test {}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Test2 extends Test {
+//  Test method() {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let ret_type = find_class(&root, "dev.Test2")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: None,
+//                name: span(4, 3, "Test"),
+//                type_args_opt: None,
+//                def_opt: Some(root.find("dev").unwrap().find_class("Test").unwrap() as *const Class)
+//            })
+//        )
+//    }
+//
+//    #[test]
+//    fn test_inner() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test {
+//  class Inner {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Test2 extends Test {}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Test3 extends Test2 {
+//  Inner method() {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let ret_type = find_class(&root, "dev.Test3")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: None,
+//                name: span(4, 3, "Inner"),
+//                type_args_opt: None,
+//                def_opt: Some(
+//                    root.find("dev")
+//                        .unwrap()
+//                        .find_class("Test")
+//                        .unwrap()
+//                        .find("Inner")
+//                        .unwrap() as *const Class
+//                )
+//            })
+//        );
+//    }
+//
+//    #[test]
+//    fn test_method_params() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test<A extends Outer> {
+//  class Inner {}
+//  void method(int a, Arg<Test<A>, A, ? extends A.Inner> c) {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Arg<A, B, C> {}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Outer extends SuperOuter {}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class SuperOuter {
+//    class Inner {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let mut root = make_root(&units);
+//        apply(&mut root);
+//
+//        let method = find_class(&root, "dev.Test").find_method("method").unwrap();
+//
+//        assert_eq!(
+//            method.return_type.borrow().deref(),
+//            &Type::Void(Void {
+//                span: span(5, 3, "void")
+//            })
+//        );
+//        assert_eq!(
+//            method.params.get(0).unwrap().tpe.borrow().deref(),
+//            &Type::Primitive(PrimitiveType {
+//                name: span(5, 15, "int"),
+//                tpe: PrimitiveTypeType::Int
+//            })
+//        );
+//        assert_eq!(
+//            method.params.get(1).unwrap().tpe.borrow().deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: None,
+//                name: span(5, 22, "Arg"),
+//                type_args_opt: Some(vec![
+//                    TypeArg::Class(ClassType {
+//                        prefix_opt: None,
+//                        name: span(5, 26, "Test"),
+//                        type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+//                            name: span(5, 31, "A"),
+//                            def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
+//                        })]),
+//                        def_opt: Some(find_class(&root, "dev.Test"))
+//                    }),
+//                    TypeArg::Parameterized(ParameterizedType {
+//                        name: span(5, 35, "A"),
+//                        def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
+//                    }),
+//                    TypeArg::Wildcard(WildcardType {
+//                        name: span(5, 38, "?"),
+//                        super_opt: None,
+//                        extends: vec![ReferenceType::Class(ClassType {
+//                            prefix_opt: Some(Box::new(EnclosingType::Parameterized(
+//                                ParameterizedType {
+//                                    name: span(5, 48, "A"),
+//                                    def: find_class(&root, "dev.Test")
+//                                        .find_type_param("A")
+//                                        .unwrap()
+//                                }
+//                            ))),
+//                            name: span(5, 50, "Inner"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        })]
+//                    })
+//                ]),
+//                def_opt: Some(find_class(&root, "dev.Arg"))
+//            })
+//        );
+//    }
+//}

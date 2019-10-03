@@ -65,7 +65,7 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_and_assignment() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a <<= b
             "#
@@ -99,7 +99,7 @@ a <<= b
     #[test]
     fn test_longest_assignment() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a >>>= b
             "#
@@ -122,7 +122,7 @@ a >>>= b
     #[test]
     fn test_assignment() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a = b.a += c.d[0][1] *= 1 == 2
             "#

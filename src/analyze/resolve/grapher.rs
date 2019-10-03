@@ -221,194 +221,194 @@ impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use analyze;
-    use analyze::definition::{Class, Decl, Method, Package, Root};
-    use analyze::resolve::grapher::{Grapher, NodeIndex};
-    use analyze::resolve::merge;
-    use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
-    use parse::tree::CompilationUnit;
-    use std::cell::{Cell, RefCell};
-    use std::collections::HashSet;
-    use std::iter::FromIterator;
-    use test_common::{code, parse, span};
-    use tokenize::token::Token;
-
-    impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
-        fn check_pool(&self, pool: &[&Class<'def>]) {
-            assert_eq!(
-                self.get_classes(&self.pool),
-                self.get_classes(&self.get_node_indices(pool))
-            );
-        }
-        fn check(
-            &self,
-            class: *const Class<'def>,
-            dependents: &[&Class<'def>],
-            dependencies: &[&Class<'def>],
-        ) {
-            let node = self.get(class).unwrap();
-            assert_eq!(
-                self.get_classes(&node.dependents),
-                self.get_classes(&self.get_node_indices(dependents))
-            );
-            assert_eq!(
-                self.get_classes(&node.dependencies),
-                self.get_classes(&self.get_node_indices(dependencies))
-            );
-        }
-
-        fn get_classes(&self, node_indices: &HashSet<NodeIndex>) -> HashSet<&str> {
-            let mut list = HashSet::new();
-            for node_index in node_indices {
-                list.insert(
-                    unsafe { &(*self.nodes.get(*node_index).unwrap().class) }
-                        .name
-                        .fragment,
-                );
-            }
-            list
-        }
-
-        fn get_node_indices(&self, classes: &[&Class<'def>]) -> HashSet<NodeIndex> {
-            let mut set = HashSet::new();
-            for class in classes {
-                set.insert(*self.map.get(&((*class) as *const Class)).unwrap());
-            }
-            set
-        }
-    }
-
-    #[test]
-    fn test_complex_2() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test<A> extends Super {
-  class Inner extends Typed<A> {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Super {
-  class A {}
-  class Typed<A> {}
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let root = make_root(&units);
-
-        let mut grapher = Grapher::new(&root);
-        grapher.collect();
-
-        let test = find_class(&root, "dev.Test");
-        let inner = find_class(&root, "dev.Test.Inner");
-        let super_class = find_class(&root, "dev.Super");
-        let super_a = find_class(&root, "dev.Super.A");
-        let super_typed = find_class(&root, "dev.Super.Typed");
-        assert_eq!(grapher.nodes.len(), 5);
-        grapher.check_pool(&vec![super_class]);
-        grapher.check(test, &vec![inner], &vec![super_class]);
-        grapher.check(inner, &vec![], &vec![test, super_typed]);
-        grapher.check(super_class, &vec![test, super_a, super_typed], &vec![]);
-        grapher.check(super_a, &vec![], &vec![super_class]);
-        grapher.check(super_typed, &vec![inner], &vec![super_class]);
-    }
-
-    #[test]
-    fn test_complex() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test<A> {
-  class Inner {
-    class InnerOfInner extends Super<A> {
-      SuperInner method() {}
-    } 
-  }
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Super<T> {
-  class SuperInner {
-    T method() {}
-  }
-}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let root = make_root(&units);
-
-        let mut grapher = Grapher::new(&root);
-        grapher.collect();
-
-        let test = find_class(&root, "dev.Test");
-        let inner = find_class(&root, "dev.Test.Inner");
-        let inner_of_inner = find_class(&root, "dev.Test.Inner.InnerOfInner");
-        let super_class = find_class(&root, "dev.Super");
-        let super_inner = find_class(&root, "dev.Super.SuperInner");
-        assert_eq!(grapher.nodes.len(), 5);
-        grapher.check_pool(&vec![test, super_class]);
-        grapher.check(test, &vec![inner], &vec![]);
-        grapher.check(inner, &vec![inner_of_inner], &vec![test]);
-        grapher.check(inner_of_inner, &vec![], &vec![inner, super_class]);
-        grapher.check(super_class, &vec![inner_of_inner, super_inner], &vec![]);
-        grapher.check(super_inner, &vec![], &vec![super_class]);
-    }
-
-    #[test]
-    fn test_simple() {
-        let raws = vec![
-            r#"
-package dev;
-
-class Test3 extends Test2 {}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Test {
-  class Inner {}
-}
-        "#
-            .to_owned(),
-            r#"
-package dev;
-
-class Test2 extends Test {}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let root = make_root(&units);
-
-        let mut grapher = Grapher::new(&root);
-        grapher.collect();
-
-        let test = find_class(&root, "dev.Test");
-        let inner = find_class(&root, "dev.Test.Inner");
-        let test2 = find_class(&root, "dev.Test2");
-        let test3 = find_class(&root, "dev.Test3");
-        assert_eq!(grapher.nodes.len(), 4);
-        grapher.check_pool(&vec![test]);
-        grapher.check(test, &vec![test2, inner], &vec![]);
-        grapher.check(inner, &vec![], &vec![test]);
-        grapher.check(test2, &vec![test3], &vec![test]);
-        grapher.check(test3, &vec![], &vec![test2]);
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use analyze;
+//    use analyze::definition::{Class, Decl, Method, Package, Root};
+//    use analyze::resolve::grapher::{Grapher, NodeIndex};
+//    use analyze::resolve::merge;
+//    use analyze::test_common::{find_class, make_root, make_tokenss, make_units};
+//    use parse::tree::CompilationUnit;
+//    use std::cell::{Cell, RefCell};
+//    use std::collections::HashSet;
+//    use std::iter::FromIterator;
+//    use test_common::{generate_tokens, parse, span};
+//    use tokenize::token::Token;
+//
+//    impl<'def, 'def_ref> Grapher<'def, 'def_ref> {
+//        fn check_pool(&self, pool: &[&Class<'def>]) {
+//            assert_eq!(
+//                self.get_classes(&self.pool),
+//                self.get_classes(&self.get_node_indices(pool))
+//            );
+//        }
+//        fn check(
+//            &self,
+//            class: *const Class<'def>,
+//            dependents: &[&Class<'def>],
+//            dependencies: &[&Class<'def>],
+//        ) {
+//            let node = self.get(class).unwrap();
+//            assert_eq!(
+//                self.get_classes(&node.dependents),
+//                self.get_classes(&self.get_node_indices(dependents))
+//            );
+//            assert_eq!(
+//                self.get_classes(&node.dependencies),
+//                self.get_classes(&self.get_node_indices(dependencies))
+//            );
+//        }
+//
+//        fn get_classes(&self, node_indices: &HashSet<NodeIndex>) -> HashSet<&str> {
+//            let mut list = HashSet::new();
+//            for node_index in node_indices {
+//                list.insert(
+//                    unsafe { &(*self.nodes.get(*node_index).unwrap().class) }
+//                        .name
+//                        .fragment,
+//                );
+//            }
+//            list
+//        }
+//
+//        fn get_node_indices(&self, classes: &[&Class<'def>]) -> HashSet<NodeIndex> {
+//            let mut set = HashSet::new();
+//            for class in classes {
+//                set.insert(*self.map.get(&((*class) as *const Class)).unwrap());
+//            }
+//            set
+//        }
+//    }
+//
+//    #[test]
+//    fn test_complex_2() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test<A> extends Super {
+//  class Inner extends Typed<A> {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Super {
+//  class A {}
+//  class Typed<A> {}
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let root = make_root(&units);
+//
+//        let mut grapher = Grapher::new(&root);
+//        grapher.collect();
+//
+//        let test = find_class(&root, "dev.Test");
+//        let inner = find_class(&root, "dev.Test.Inner");
+//        let super_class = find_class(&root, "dev.Super");
+//        let super_a = find_class(&root, "dev.Super.A");
+//        let super_typed = find_class(&root, "dev.Super.Typed");
+//        assert_eq!(grapher.nodes.len(), 5);
+//        grapher.check_pool(&vec![super_class]);
+//        grapher.check(test, &vec![inner], &vec![super_class]);
+//        grapher.check(inner, &vec![], &vec![test, super_typed]);
+//        grapher.check(super_class, &vec![test, super_a, super_typed], &vec![]);
+//        grapher.check(super_a, &vec![], &vec![super_class]);
+//        grapher.check(super_typed, &vec![inner], &vec![super_class]);
+//    }
+//
+//    #[test]
+//    fn test_complex() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test<A> {
+//  class Inner {
+//    class InnerOfInner extends Super<A> {
+//      SuperInner method() {}
+//    }
+//  }
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Super<T> {
+//  class SuperInner {
+//    T method() {}
+//  }
+//}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let root = make_root(&units);
+//
+//        let mut grapher = Grapher::new(&root);
+//        grapher.collect();
+//
+//        let test = find_class(&root, "dev.Test");
+//        let inner = find_class(&root, "dev.Test.Inner");
+//        let inner_of_inner = find_class(&root, "dev.Test.Inner.InnerOfInner");
+//        let super_class = find_class(&root, "dev.Super");
+//        let super_inner = find_class(&root, "dev.Super.SuperInner");
+//        assert_eq!(grapher.nodes.len(), 5);
+//        grapher.check_pool(&vec![test, super_class]);
+//        grapher.check(test, &vec![inner], &vec![]);
+//        grapher.check(inner, &vec![inner_of_inner], &vec![test]);
+//        grapher.check(inner_of_inner, &vec![], &vec![inner, super_class]);
+//        grapher.check(super_class, &vec![inner_of_inner, super_inner], &vec![]);
+//        grapher.check(super_inner, &vec![], &vec![super_class]);
+//    }
+//
+//    #[test]
+//    fn test_simple() {
+//        let raws = vec![
+//            r#"
+//package dev;
+//
+//class Test3 extends Test2 {}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Test {
+//  class Inner {}
+//}
+//        "#
+//            .to_owned(),
+//            r#"
+//package dev;
+//
+//class Test2 extends Test {}
+//        "#
+//            .to_owned(),
+//        ];
+//        let tokenss = make_tokenss(&raws);
+//        let units = make_units(&tokenss);
+//        let root = make_root(&units);
+//
+//        let mut grapher = Grapher::new(&root);
+//        grapher.collect();
+//
+//        let test = find_class(&root, "dev.Test");
+//        let inner = find_class(&root, "dev.Test.Inner");
+//        let test2 = find_class(&root, "dev.Test2");
+//        let test3 = find_class(&root, "dev.Test3");
+//        assert_eq!(grapher.nodes.len(), 4);
+//        grapher.check_pool(&vec![test]);
+//        grapher.check(test, &vec![test2, inner], &vec![]);
+//        grapher.check(inner, &vec![], &vec![test]);
+//        grapher.check(test2, &vec![test3], &vec![test]);
+//        grapher.check(test3, &vec![], &vec![test2]);
+//    }
+//}

@@ -20,7 +20,7 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     use super::parse;
     use parse::tree::{Cast, ClassType, Expr, Name, Type};
@@ -29,7 +29,7 @@ mod tests {
     #[test]
     fn test_multi() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (boolean)(Int)t
             "#

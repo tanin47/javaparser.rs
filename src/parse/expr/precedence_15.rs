@@ -114,12 +114,12 @@ mod tests {
         MethodReferencePrimary, Name, TypeArg,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_method_ref() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 "abc"::length
             "#
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_method_ref_2() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 foo[x]::<A>bar
             "#
@@ -173,7 +173,7 @@ foo[x]::<A>bar
     #[test]
     fn test_method_ref_3() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 foo.bar::zzz
             "#

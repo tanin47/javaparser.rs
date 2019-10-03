@@ -60,6 +60,7 @@ pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, S
                                     first.fragment.len() + second.fragment.len(),
                                 ))
                             },
+                            file: first.file,
                         },
                     ));
                 }
@@ -103,6 +104,7 @@ pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseRes
                                             + third.fragment.len(),
                                     ))
                                 },
+                                file: first.file,
                             },
                         ));
                     }
@@ -158,6 +160,7 @@ pub fn symbol4<'a>(
                                                 + fourth.fragment.len(),
                                         ))
                                     },
+                                    file: first.file,
                                 },
                             ));
                         }

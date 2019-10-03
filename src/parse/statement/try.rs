@@ -88,12 +88,12 @@ mod tests {
     };
     use parse::Tokens;
     use std::cell::RefCell;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_only_try() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 try (in; a.b) {
 }
@@ -126,7 +126,7 @@ try (in; a.b) {
     #[test]
     fn test_multiple_catches() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 try (
   int i = 1;

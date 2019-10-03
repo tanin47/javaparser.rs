@@ -4,7 +4,7 @@ use analyze::resolve::merge;
 use parse::tree::CompilationUnit;
 use parse::Tokens;
 use std::cell::RefCell;
-use test_common::{code, parse, span};
+use test_common::{generate_tokens, span};
 use tokenize::span::Span;
 use tokenize::token::Token;
 
@@ -24,17 +24,18 @@ pub fn mock_class<'def, 'def_ref>(name: &'def_ref Span<'def>) -> Class<'def> {
 
 pub fn make_tokenss(raws: &[String]) -> Vec<Vec<Token>> {
     raws.iter()
-        .map(|raw| code(raw))
+        .map(|raw| generate_tokens(raw))
         .collect::<Vec<Vec<Token>>>()
 }
 
 pub fn make_units<'r: 'unit, 'token, 'unit>(
     tokenss: &'r [Vec<Token<'token>>],
 ) -> Vec<CompilationUnit<'unit>> {
-    tokenss
-        .iter()
-        .map(|tokens| parse(tokens))
-        .collect::<Vec<CompilationUnit>>()
+    panic!()
+    //    tokenss
+    //        .iter()
+    //        .map(|tokens| parse(tokens))
+    //        .collect::<Vec<CompilationUnit>>()
 }
 
 pub fn make_root<'r, 'def>(units: &'r [CompilationUnit<'def>]) -> Root<'def> {

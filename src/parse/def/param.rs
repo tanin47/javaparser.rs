@@ -37,12 +37,12 @@ mod tests {
         Annotated, ArrayType, ClassType, Keyword, MarkerAnnotated, Modifier, Param, Type,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 final @Anno Test... t
             "#
@@ -79,7 +79,7 @@ final @Anno Test... t
     #[test]
     fn test_array() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test[] t[]
             "#

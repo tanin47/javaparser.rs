@@ -1,8 +1,12 @@
+use parse::tree::CompilationUnit;
+use parse::JavaFile;
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Span<'a> {
     pub line: usize,
     pub col: usize,
     pub fragment: &'a str,
+    pub file: *const JavaFile<'a>,
 }
 
 pub trait CharAt {

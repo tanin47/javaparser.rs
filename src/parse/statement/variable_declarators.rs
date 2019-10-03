@@ -80,12 +80,12 @@ mod tests {
     };
     use parse::Tokens;
     use std::cell::RefCell;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 @Anno int a;
             "#
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn test_weird_array() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 int[] a, b[];
             "#
@@ -161,7 +161,7 @@ int[] a, b[];
     #[test]
     fn test_expr() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 int a = 1;
             "#
@@ -188,7 +188,7 @@ int a = 1;
     #[test]
     fn test_multiple() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 int a = 1, b[], c;
             "#

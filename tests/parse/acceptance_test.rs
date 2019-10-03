@@ -1,5 +1,5 @@
 use javaparser::parse;
-use javaparser::test_common::code;
+use javaparser::test_common::generate_tokens;
 use std::fs;
 use std::time::Instant;
 
@@ -18,7 +18,7 @@ fn all() {
         let content = fs::read_to_string(entry.path()).unwrap();
 
         let start = Instant::now();
-        let tokens = code(&content);
+        let tokens = generate_tokens(&content);
         let result = parse::apply(&tokens);
         println!(" ({:?})", start.elapsed());
         assert!(result.is_ok(), {

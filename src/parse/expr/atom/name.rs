@@ -21,12 +21,12 @@ mod tests {
     use either::Either;
     use parse::tree::Name;
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 name_something
             "#

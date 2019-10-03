@@ -117,7 +117,7 @@ fn parse_dot<'a>(parent: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn test_dot_new_member() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a.new Test()
             "#
@@ -157,7 +157,7 @@ a.new Test()
     #[test]
     fn test_name_super_constructor_call() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 test.super()
             "#
@@ -179,7 +179,7 @@ test.super()
     #[test]
     fn test_super_constructor_call() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.this.super()
             "#
@@ -212,7 +212,7 @@ Parent.Test.this.super()
     #[test]
     fn test_super_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.super.hashCode()
             "#
@@ -245,7 +245,7 @@ Parent.Test.super.hashCode()
     #[test]
     fn test_this_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.this.hashCode()
             "#
@@ -278,7 +278,7 @@ Parent.Test.this.hashCode()
     #[test]
     fn test_class_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.class.hashCode()
             "#
@@ -311,7 +311,7 @@ Parent.Test.class.hashCode()
     #[test]
     fn test_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test.class.hashCode()
             "#
@@ -339,7 +339,7 @@ Test.class.hashCode()
     #[test]
     fn test_primitive_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 char.class.hashCode()
             "#
@@ -365,7 +365,7 @@ char.class.hashCode()
     #[test]
     fn test_primitive_array_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 byte[].class.hashCode()
             "#
@@ -394,7 +394,7 @@ byte[].class.hashCode()
     #[test]
     fn test_array_class_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test[].class.hashCode()
             "#
@@ -430,7 +430,7 @@ Parent.Test[].class.hashCode()
     #[test]
     fn test_array_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test[].class
             "#
@@ -456,7 +456,7 @@ Test[].class
     #[test]
     fn test_this_field_access() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 this.field
             "#
@@ -479,7 +479,7 @@ this.field
     #[test]
     fn test_super_field_access() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 super.field
             "#

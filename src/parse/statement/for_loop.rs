@@ -76,12 +76,12 @@ mod tests {
     };
     use parse::Tokens;
     use std::cell::RefCell;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_foreach() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 for(int a:list) a++;
             "#
@@ -118,7 +118,7 @@ for(int a:list) a++;
     #[test]
     fn test_short() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 for(int i=0;i<2;i++) x++;
             "#
@@ -172,7 +172,7 @@ for(int i=0;i<2;i++) x++;
     #[test]
     fn test_long() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 for(;;) {
   x = 1;

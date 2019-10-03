@@ -41,12 +41,12 @@ mod tests {
         Modifier, Param, Type, TypeParam,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_constructor() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 @Anno private constructor() throws Exp {}
             "#
@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn test_constructor_with_params() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 <A> con(Test t, A a) {}
             "#

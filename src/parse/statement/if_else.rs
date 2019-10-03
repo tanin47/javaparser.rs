@@ -36,12 +36,12 @@ mod tests {
     use super::parse;
     use parse::tree::{Block, Expr, IfElse, Int, LiteralString, ReturnStmt, Statement};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_if() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 if (1) {
     return;
@@ -66,7 +66,7 @@ if (1) {
     #[test]
     fn test_if_else() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 if (1) {
     return;
@@ -97,7 +97,7 @@ if (1) {
     #[test]
     fn test_if_else_if() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 if (1) {
     return;
@@ -142,7 +142,7 @@ if (1) {
     #[test]
     fn test_dangling_if() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 if (1) 
   if (2) return 1;

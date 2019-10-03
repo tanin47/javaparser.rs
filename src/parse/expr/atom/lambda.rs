@@ -82,12 +82,12 @@ mod tests {
         Statement, Type,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_single_with_args() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (Test t, a, int i) -> 1
             "#
@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn test_simple() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (x) -> 2
             "#
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn test_simple2() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 x -> 2
             "#
@@ -187,7 +187,7 @@ x -> 2
     #[test]
     fn test_block() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 () -> { return 1; }
             "#

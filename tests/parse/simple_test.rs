@@ -1,9 +1,9 @@
 use javaparser::parse;
-use javaparser::test_common::{code, span};
+use javaparser::test_common::{generate_tokens, span};
 
 #[test]
 fn parse_minimal() {
-    let tokens = code(
+    let tokens = generate_tokens(
         r#"
  /* This file
  */
@@ -30,7 +30,7 @@ class Test {
 
 #[test]
 fn parse_minimal2() {
-    let tokens = code(
+    let tokens = generate_tokens(
         r#"
  /* This file
  */

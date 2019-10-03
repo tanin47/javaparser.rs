@@ -30,12 +30,12 @@ mod tests {
     use parse::expr::atom;
     use parse::tree::{ArrayAccess, Expr, Int, Name};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_multi() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 abc[1][2]
             "#

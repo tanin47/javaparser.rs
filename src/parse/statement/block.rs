@@ -29,12 +29,12 @@ mod tests {
     use super::parse;
     use parse::tree::{Block, Expr, Int, ReturnStmt, Statement};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_method() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 {
     return 1;

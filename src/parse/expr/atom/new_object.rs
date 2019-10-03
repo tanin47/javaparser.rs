@@ -52,12 +52,12 @@ mod tests {
     use parse::expr::atom;
     use parse::tree::{ClassBody, ClassType, Expr, Int, LiteralString, NewObject, TypeArg};
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_type_args() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new <String>Test<Integer>()
             "#
@@ -94,7 +94,7 @@ new <String>Test<Integer>()
     #[test]
     fn test_implicit_type() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test<>()
             "#
@@ -120,7 +120,7 @@ new Test<>()
     #[test]
     fn test_bare() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test()
             "#
@@ -146,7 +146,7 @@ new Test()
     #[test]
     fn test_with_args() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test(1, "a")
             "#
@@ -179,7 +179,7 @@ new Test(1, "a")
     #[test]
     fn test_anonymous() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test() {
 }

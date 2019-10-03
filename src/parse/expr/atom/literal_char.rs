@@ -16,12 +16,12 @@ mod tests {
     use super::parse;
     use parse::tree::{Char, Expr};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_string() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 'a'
             "#

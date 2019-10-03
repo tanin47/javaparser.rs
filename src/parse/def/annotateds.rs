@@ -104,12 +104,12 @@ mod tests {
         MarkerAnnotated, NormalAnnotated, SingleAnnotated,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 @Parent.Anno
 @Anno()

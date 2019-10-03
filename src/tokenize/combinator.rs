@@ -36,7 +36,7 @@ pub fn take_number(original: Span) -> (Span, Span) {
     )
 }
 
-pub fn concat<'a, 'b>(spans: &'a [Span<'a>]) -> Span<'b> {
+pub fn concat<'def, 'def_ref>(spans: &'def_ref [Span<'def>]) -> Span<'def> {
     let mut total_len = 0;
 
     for s in spans {
@@ -61,6 +61,7 @@ pub fn concat<'a, 'b>(spans: &'a [Span<'a>]) -> Span<'b> {
                 total_len,
             ))
         },
+        file: spans[0].file,
     }
 }
 
@@ -75,6 +76,7 @@ pub fn take_one_if_case_insensitive<'a>(c: &'a str, input: Span<'a>) -> (Span<'a
                 line: input.line,
                 col: input.col,
                 fragment: "",
+                file: input.file,
             },
             input,
         )
@@ -88,6 +90,7 @@ pub fn take(size: usize, input: Span) -> (Span, Span) {
                 line: input.line,
                 col: input.col,
                 fragment: "",
+                file: input.file,
             },
             input,
         );
@@ -113,11 +116,13 @@ pub fn take(size: usize, input: Span) -> (Span, Span) {
             line: input.line,
             col: input.col,
             fragment: before,
+            file: input.file,
         },
         Span {
             line,
             col,
             fragment: after,
+            file: input.file,
         },
     )
 }
@@ -152,11 +157,13 @@ where
             line: input.line,
             col: input.col,
             fragment: before,
+            file: input.file,
         },
         Span {
             line,
             col,
             fragment: after,
+            file: input.file,
         },
     )
 }

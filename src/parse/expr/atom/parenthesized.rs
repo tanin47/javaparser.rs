@@ -16,12 +16,12 @@ mod tests {
     use super::parse;
     use parse::tree::{ClassType, Expr, InstanceOf, Int, Name, Type};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_instanceof() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (a instanceof Class)
             "#
@@ -47,7 +47,7 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (123)
             "#
@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn test_multi() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (((123)))
             "#

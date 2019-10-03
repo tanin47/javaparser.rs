@@ -15,7 +15,7 @@ pub fn build<'def, 'def_ref>(modifiers: &'def_ref [parse::tree::Modifier<'def>])
     items
 }
 
-fn build_keyword<'a>(keyword: &'a Keyword<'a>) -> Modifier {
+fn build_keyword<'def, 'def_ref>(keyword: &'def_ref Keyword<'def>) -> Modifier {
     match keyword.name.fragment {
         "abstract" => Modifier::Abstract,
         "default" => Modifier::Default,

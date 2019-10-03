@@ -33,12 +33,12 @@ mod tests {
     use super::parse;
     use parse::tree::{ClassType, TypeArg, TypeParam};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 <A, B extends A, C extends String & Another<A>>
             "#
@@ -88,6 +88,6 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        assert_eq!(parse(&code("")), Ok((&[] as Tokens, vec![])));
+        assert_eq!(parse(&generate_tokens("")), Ok((&[] as Tokens, vec![])));
     }
 }

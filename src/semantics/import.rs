@@ -86,12 +86,13 @@ mod tests {
     use analyze::test_common::{find_class, find_package, make_root, make_tokenss, make_units};
     use parse::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};
     use std::cell::RefCell;
-    use test_common::span;
+    use std::ops::Deref;
+    use test_common::{span, span2};
     use {analyze, semantics};
 
     #[test]
     fn test() {
-        let raws = vec![
+        let (files, root) = semantics_files![
             r#"
 package dev;
 
@@ -99,42 +100,35 @@ import dev2.Super;
 import static dev2.*;
 
 class Test {}
-        "#
-            .to_owned(),
+        "#,
             r#"
 package dev2;
 
 class Super {}
         "#
-            .to_owned(),
         ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let root = analyze::resolve::apply(&units);
-
-        semantics::apply(units.first().unwrap(), &root);
 
         assert_eq!(
-            units.first().unwrap().imports,
+            files.first().unwrap().unit.imports,
             vec![
                 Import {
                     prefix_opt: Some(Box::new(ImportPrefix {
                         prefix_opt: None,
-                        name: span(3, 8, "dev2"),
+                        name: span2(3, 8, "dev2", files.get(0).unwrap().deref()),
                         def_opt: RefCell::new(Some(ImportPrefixDef::Package(
                             root.find_package("dev2").unwrap()
                         )))
                     })),
                     is_static: false,
                     is_wildcard: false,
-                    name: span(3, 13, "Super"),
+                    name: span2(3, 13, "Super", files.get(0).unwrap().deref()),
                     def_opt: RefCell::new(Some(ImportDef::Class(find_class(&root, "dev2.Super"))))
                 },
                 Import {
                     prefix_opt: None,
                     is_static: true,
                     is_wildcard: true,
-                    name: span(4, 15, "dev2"),
+                    name: span2(4, 15, "dev2", files.get(0).unwrap().deref()),
                     def_opt: RefCell::new(Some(ImportDef::Package(
                         root.find_package("dev2").unwrap()
                     )))

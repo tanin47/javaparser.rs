@@ -30,7 +30,7 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{Expr, Int, Name, Ternary};
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_multi() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a ? 1 ? 2 : 3 : 4
             "#

@@ -14,12 +14,12 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
 
 #[cfg(test)]
 mod tests {
-    use analyze::test_common::{make_tokenss, make_units};
     use {analyze, semantics};
 
     #[test]
     fn test_concrete() {
-        let raws = vec![r#"
+        let (files, _) = semantics_files![
+            r#"
 package dev;
 
 class Test<T> {
@@ -29,13 +29,8 @@ class Test<T> {
   }
 }
         "#
-        .to_owned()];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let root = analyze::resolve::apply(&units);
+        ];
 
-        semantics::apply(units.first().unwrap(), &root);
-
-        println!("{:#?}", units.first().unwrap());
+        println!("{:#?}", files.first().unwrap().unit);
     }
 }

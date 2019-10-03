@@ -62,12 +62,12 @@ mod tests {
     };
     use parse::{compilation_unit, Tokens};
     use std::cell::RefCell;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            compilation_unit::parse_item(&code(
+            compilation_unit::parse_item(&generate_tokens(
                 r#"
 @Anno private class Test extends Super {}
             "#
@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn test_type_params() {
         assert_eq!(
-            compilation_unit::parse_item(&code(
+            compilation_unit::parse_item(&generate_tokens(
                 r#"
 class Test<A> implements Super, Super2<A> {}
             "#

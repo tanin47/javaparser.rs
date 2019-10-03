@@ -44,7 +44,7 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn test_method_ref_int_array() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 int[]::size
             "#
@@ -82,7 +82,7 @@ int[]::size
     #[test]
     fn test_constructor_ref() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test<A>::new
             "#
@@ -110,7 +110,7 @@ Test<A>::new
     #[test]
     fn test_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test.class.hashCode()
             "#
@@ -138,7 +138,7 @@ Test.class.hashCode()
     #[test]
     fn test_parenthesized() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (true || false) && t.a || false
             "#

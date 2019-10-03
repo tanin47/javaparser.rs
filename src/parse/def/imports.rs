@@ -53,14 +53,14 @@ mod tests {
     use super::parse;
     use parse::tree::{Import, ImportPrefix};
     use std::cell::RefCell;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
     use tokenize;
     use tokenize::token::Token;
 
     #[test]
     fn test_wildcard() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 import test.a.*; 
 import static c.b; 

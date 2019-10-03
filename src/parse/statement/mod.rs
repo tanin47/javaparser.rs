@@ -91,7 +91,7 @@ pub fn parse(input: Tokens) -> ParseResult<Statement> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_empty() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 ;
             "#
@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn test_return() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 return new Segment[ssize];
             "#
@@ -146,7 +146,7 @@ return new Segment[ssize];
     #[test]
     fn test_labeled_variable_declarator() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 label: int a;
             "#

@@ -80,122 +80,122 @@ pub fn parse(input: Tokens) -> ParseResult<Option<Vec<TypeArg>>> {
     Ok((input, type_args_opt))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse;
-    use parse::tree::{
-        ArrayType, ClassType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg,
-        WildcardType,
-    };
-    use parse::Tokens;
-    use test_common::{code, span};
-
-    #[test]
-    fn test() {
-        assert_eq!(
-            parse(&code(
-                r#"
-<Test<A[]>, B, ? extends C>
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Some(vec![
-                    TypeArg::Class(ClassType {
-                        prefix_opt: None,
-                        name: span(1, 2, "Test"),
-                        type_args_opt: Some(vec![TypeArg::Array(ArrayType {
-                            tpe: Box::new(Type::Class(ClassType {
-                                prefix_opt: None,
-                                name: span(1, 7, "A"),
-                                type_args_opt: None,
-                                def_opt: None
-                            })),
-                            size_opt: None
-                        })]),
-                        def_opt: None
-                    }),
-                    TypeArg::Class(ClassType {
-                        prefix_opt: None,
-                        name: span(1, 13, "B"),
-                        type_args_opt: None,
-                        def_opt: None
-                    }),
-                    TypeArg::Wildcard(WildcardType {
-                        name: span(1, 16, "?"),
-                        super_opt: None,
-                        extends: vec![ReferenceType::Class(ClassType {
-                            prefix_opt: None,
-                            name: span(1, 26, "C"),
-                            type_args_opt: None,
-                            def_opt: None
-                        })]
-                    })
-                ])
-            ))
-        );
-    }
-
-    #[test]
-    fn test_wildcard_super() {
-        assert_eq!(
-            parse(&code(
-                r#"
-<? super int[]>
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Some(vec![TypeArg::Wildcard(WildcardType {
-                    name: span(1, 2, "?"),
-                    super_opt: Some(Box::new(ReferenceType::Array(ArrayType {
-                        tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 10, "int"),
-                            tpe: PrimitiveTypeType::Int
-                        })),
-                        size_opt: None
-                    }))),
-                    extends: vec![]
-                })])
-            ))
-        );
-    }
-
-    #[test]
-    fn test_wildcard_extends() {
-        assert_eq!(
-            parse(&code(
-                r#"
-<? extends boolean[] & S>
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Some(vec![TypeArg::Wildcard(WildcardType {
-                    name: span(1, 2, "?"),
-                    super_opt: None,
-                    extends: vec![
-                        ReferenceType::Array(ArrayType {
-                            tpe: Box::new(Type::Primitive(PrimitiveType {
-                                name: span(1, 12, "boolean"),
-                                tpe: PrimitiveTypeType::Boolean
-                            })),
-                            size_opt: None
-                        }),
-                        ReferenceType::Class(ClassType {
-                            prefix_opt: None,
-                            name: span(1, 24, "S"),
-                            type_args_opt: None,
-                            def_opt: None
-                        }),
-                    ]
-                })])
-            ))
-        );
-    }
-
-    #[test]
-    fn test_array_2d() {
-        assert_eq!(parse(&code("")), Ok((&[] as Tokens, None)));
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::parse;
+//    use parse::tree::{
+//        ArrayType, ClassType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg,
+//        WildcardType,
+//    };
+//    use parse::Tokens;
+//    use test_common::{code, span};
+//
+//    #[test]
+//    fn test() {
+//        assert_eq!(
+//            parse(&code(
+//                r#"
+//<Test<A[]>, B, ? extends C>
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Some(vec![
+//                    TypeArg::Class(ClassType {
+//                        prefix_opt: None,
+//                        name: span(1, 2, "Test"),
+//                        type_args_opt: Some(vec![TypeArg::Array(ArrayType {
+//                            tpe: Box::new(Type::Class(ClassType {
+//                                prefix_opt: None,
+//                                name: span(1, 7, "A"),
+//                                type_args_opt: None,
+//                                def_opt: None
+//                            })),
+//                            size_opt: None
+//                        })]),
+//                        def_opt: None
+//                    }),
+//                    TypeArg::Class(ClassType {
+//                        prefix_opt: None,
+//                        name: span(1, 13, "B"),
+//                        type_args_opt: None,
+//                        def_opt: None
+//                    }),
+//                    TypeArg::Wildcard(WildcardType {
+//                        name: span(1, 16, "?"),
+//                        super_opt: None,
+//                        extends: vec![ReferenceType::Class(ClassType {
+//                            prefix_opt: None,
+//                            name: span(1, 26, "C"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        })]
+//                    })
+//                ])
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_wildcard_super() {
+//        assert_eq!(
+//            parse(&code(
+//                r#"
+//<? super int[]>
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Some(vec![TypeArg::Wildcard(WildcardType {
+//                    name: span(1, 2, "?"),
+//                    super_opt: Some(Box::new(ReferenceType::Array(ArrayType {
+//                        tpe: Box::new(Type::Primitive(PrimitiveType {
+//                            name: span(1, 10, "int"),
+//                            tpe: PrimitiveTypeType::Int
+//                        })),
+//                        size_opt: None
+//                    }))),
+//                    extends: vec![]
+//                })])
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_wildcard_extends() {
+//        assert_eq!(
+//            parse(&code(
+//                r#"
+//<? extends boolean[] & S>
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Some(vec![TypeArg::Wildcard(WildcardType {
+//                    name: span(1, 2, "?"),
+//                    super_opt: None,
+//                    extends: vec![
+//                        ReferenceType::Array(ArrayType {
+//                            tpe: Box::new(Type::Primitive(PrimitiveType {
+//                                name: span(1, 12, "boolean"),
+//                                tpe: PrimitiveTypeType::Boolean
+//                            })),
+//                            size_opt: None
+//                        }),
+//                        ReferenceType::Class(ClassType {
+//                            prefix_opt: None,
+//                            name: span(1, 24, "S"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        }),
+//                    ]
+//                })])
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_array_2d() {
+//        assert_eq!(parse(&code("")), Ok((&[] as Tokens, None)));
+//    }
+//}

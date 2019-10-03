@@ -52,12 +52,12 @@ mod tests {
         PrimitiveTypeType, Type,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_array_class() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test[size]
             "#
@@ -85,7 +85,7 @@ new Test[size]
     #[test]
     fn test_array_primitive() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new int[2][]
             "#
@@ -114,7 +114,7 @@ new int[2][]
     #[test]
     fn test_initializer() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new int[] { 1, {2}}
             "#

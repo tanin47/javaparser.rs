@@ -34,12 +34,12 @@ mod tests {
         MarkerAnnotated, Modifier,
     };
     use parse::{compilation_unit, Tokens};
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            compilation_unit::parse_item(&code(
+            compilation_unit::parse_item(&generate_tokens(
                 r#"
 @Anno private @interface Test {}
             "#

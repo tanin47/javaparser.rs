@@ -42,7 +42,7 @@ pub fn parse(input: Tokens) -> ParseResult<CompilationUnit> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn parse_class_with_package() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
  /* This file
  */
@@ -121,7 +121,7 @@ enum Test3 {}
     #[test]
     fn parse_class_without_package() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
            class Test {}
            "#
@@ -148,7 +148,7 @@ enum Test3 {}
     #[test]
     fn parse_class_with_imports() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 package dev.lilit;
 
@@ -244,6 +244,9 @@ class Test {}
 
     #[test]
     fn parse_package_info() {
-        assert_eq!(parse(&code("package dev.lilit;")), Err(&[] as Tokens,))
+        assert_eq!(
+            parse(&generate_tokens("package dev.lilit;")),
+            Err(&[] as Tokens,)
+        )
     }
 }

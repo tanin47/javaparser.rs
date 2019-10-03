@@ -23,12 +23,12 @@ mod tests {
     use super::parse;
     use parse::tree::{ArrayInitializer, Expr, Int};
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code("{}")),
+            parse(&generate_tokens("{}")),
             Ok((
                 &[] as Tokens,
                 Expr::ArrayInitializer(ArrayInitializer { items: vec![] })
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_nested() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 { 1, {2}}
             "#

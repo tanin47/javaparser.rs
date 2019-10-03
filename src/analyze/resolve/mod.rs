@@ -9,11 +9,11 @@ pub mod grapher;
 pub mod merge;
 pub mod scope;
 
-pub fn apply<'def, 'r>(units: &'r Vec<parse::tree::CompilationUnit<'def>>) -> Root<'def> {
+pub fn apply<'def, 'r>(units: &'r Vec<&parse::tree::CompilationUnit<'def>>) -> Root<'def> {
     let mut root = merge::apply(
         units
             .iter()
-            .map(|unit| analyze::build::apply(unit))
+            .map(|unit| analyze::build::apply(*unit))
             .collect::<Vec<Root>>(),
     );
 

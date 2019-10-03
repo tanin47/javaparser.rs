@@ -60,12 +60,12 @@ mod tests {
         Statement, Type, TypeArg, TypeParam, Void,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_abstract() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 @Anno abstract void method() throws Exception, AnotherException;
             "#
@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn test_array_tail() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 int method()[] {}
             "#
@@ -144,7 +144,7 @@ int method()[] {}
     #[test]
     fn test_method() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 private void method() {}
             "#
@@ -171,7 +171,7 @@ private void method() {}
     #[test]
     fn test_method_with_params() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 <A> void method(Test t, A a) {}
             "#
@@ -222,7 +222,7 @@ private void method() {}
     #[test]
     fn test_method_with_type_params() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 <A, B extends A> void method(Test<A> t, B b) {}
             "#

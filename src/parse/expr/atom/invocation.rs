@@ -67,13 +67,13 @@ mod tests {
     use super::parse;
     use parse::tree::{Expr, Int, Lambda, LiteralString, MethodCall, Param, Type};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
             parse(
-                &code(
+                &generate_tokens(
                     r#"
 method()
             "#
@@ -96,7 +96,7 @@ method()
     fn test_with_args() {
         assert_eq!(
             parse(
-                &code(
+                &generate_tokens(
                     r#"
 method(1, "a")
             "#
@@ -126,7 +126,7 @@ method(1, "a")
     fn test_lambda() {
         assert_eq!(
             parse(
-                &code(
+                &generate_tokens(
                     r#"
 method(1, (x) -> 2)
             "#

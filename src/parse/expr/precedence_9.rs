@@ -56,7 +56,7 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{ClassType, Expr, InstanceOf, Name, Type};
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_instanceof() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a instanceof Class
             "#

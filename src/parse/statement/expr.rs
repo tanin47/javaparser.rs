@@ -21,12 +21,12 @@ mod tests {
         ArrayAccess, Assigned, Assignment, Expr, FieldAccess, Int, MethodCall, Name, Statement,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_return_void() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a = 123;
             "#
@@ -49,7 +49,7 @@ a = 123;
     #[test]
     fn test_complex() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a[0].b.c();
             "#

@@ -31,12 +31,12 @@ mod tests {
     };
     use parse::Tokens;
     use std::cell::RefCell;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 @Anno private int a;
             "#
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_weird_array() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 static int[] a, b[];
             "#
@@ -120,7 +120,7 @@ static int[] a, b[];
     #[test]
     fn test_expr() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 int a = 1;
             "#
@@ -147,7 +147,7 @@ int a = 1;
     #[test]
     fn test_multiple() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 int a = 1, b[], c;
             "#

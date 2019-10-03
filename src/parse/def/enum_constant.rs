@@ -31,12 +31,12 @@ mod tests {
         MarkerAnnotated, Method, Type, Void,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 @Anno FIRST
             "#
@@ -63,7 +63,7 @@ mod tests {
     #[test]
     fn test_with_args_and_body() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 FIRST(1) {
   void method() {}

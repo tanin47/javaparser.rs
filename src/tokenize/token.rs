@@ -1,3 +1,4 @@
+use parse::tree::CompilationUnit;
 use tokenize::Span;
 
 #[derive(Debug, PartialEq, Copy, Clone)]

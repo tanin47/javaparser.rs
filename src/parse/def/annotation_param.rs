@@ -47,12 +47,12 @@ mod tests {
         MarkerAnnotated, Modifier, Type,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_full() {
         assert_eq!(
-            annotation_body::parse_item(&code(
+            annotation_body::parse_item(&generate_tokens(
                 r#"
 @Anno public abstract int field()[] default 1;
             "#
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(
-            annotation_body::parse_item(&code(
+            annotation_body::parse_item(&generate_tokens(
                 r#"
 int field();
             "#

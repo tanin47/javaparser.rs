@@ -113,12 +113,12 @@ mod tests {
     };
     use parse::Tokens;
     use std::cell::RefCell;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_empty() {
         assert_eq!(
-            parse(&code("{}")),
+            parse(&generate_tokens("{}")),
             Ok((&[] as Tokens, AnnotationBody { items: vec![] }))
         );
     }
@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn test_multiple() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 {
   int method();

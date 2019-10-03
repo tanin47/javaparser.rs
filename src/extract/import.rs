@@ -49,6 +49,7 @@ fn apply_prefix<'def, 'def_ref, 'overlay_ref>(
 mod tests {
     use analyze::test_common::{find_class, find_package, make_root, make_tokenss, make_units};
     use extract;
+    use extract::test_common::assert_extract;
     use parse::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};
     use std::cell::RefCell;
     use test_common::span;
@@ -56,30 +57,37 @@ mod tests {
 
     #[test]
     fn test() {
-        let raws = vec![
-            r#"
+        assert_extract(
+            vec![
+                r#"
 package dev;
 
 import dev2.Super;
 import static dev2.*;
 
 class Test {}
-        "#
-            .to_owned(),
-            r#"
+        "#,
+                r#"
 package dev2;
 
 class Super {}
-        "#
-            .to_owned(),
-        ];
-        let tokenss = make_tokenss(&raws);
-        let units = make_units(&tokenss);
-        let root = analyze::resolve::apply(&units);
+        "#,
+            ],
+            vec![
+                r#"
+package dev;
 
-        semantics::apply(units.first().unwrap(), &root);
-        let overlay = extract::apply(units.first().unwrap());
+import [dev2].[1:Super];
+import static [dev2].*;
 
-        println!("{:#?}", overlay);
+class *0:Test* {}
+        "#,
+                r#"
+package dev2;
+
+class *1:Super* {}
+        "#,
+            ],
+        );
     }
 }
