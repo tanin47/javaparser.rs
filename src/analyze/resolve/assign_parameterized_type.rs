@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_circular_parameterized() {
         // This case proves that we need to process type params after processing the concrete types.
-        let (files, root) = assign_parameterized_type_files!(
+        let (files, root) = apply_assign_parameterized_type!(
             r#"
 package dev;
 
@@ -271,7 +271,7 @@ class Super<T extends Test> {
     #[test]
     fn test_multi_extend() {
         // This case proves that we need to process type params after processing the concrete types.
-        let (files, root) = assign_parameterized_type_files!(
+        let (files, root) = apply_assign_parameterized_type!(
             r#"
 package dev;
 
@@ -311,7 +311,7 @@ class Super {
 
     #[test]
     fn test_method_params() {
-        let (files, root) = assign_parameterized_type_files!(
+        let (files, root) = apply_assign_parameterized_type!(
             r#"
 package dev;
 

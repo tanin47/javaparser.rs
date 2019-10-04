@@ -14,23 +14,47 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
 
 #[cfg(test)]
 mod tests {
+    use analyze::test_common::find_class;
+    use parse::tree::{ClassBodyItem, CompilationUnitItem, Statement, Type, TypeParam};
+    use std::ops::Deref;
     use {analyze, semantics};
 
     #[test]
     fn test_concrete() {
-        let (files, _) = semantics_files![
+        let (files, root) = apply_semantics!(
             r#"
 package dev;
 
 class Test<T> {
   void method() {
     T s; 
-    s = null;
   }
 }
         "#
-        ];
+        );
 
-        println!("{:#?}", files.first().unwrap().unit);
+        let class = unwrap!(
+            CompilationUnitItem::Class,
+            &files.first().unwrap().unit.items.get(0).unwrap()
+        );
+        let method = unwrap!(ClassBodyItem::Method, &class.body.items.get(0).unwrap());
+        let var = unwrap!(
+            Statement::VariableDeclarators,
+            &method.block_opt.as_ref().unwrap().stmts.get(0).unwrap()
+        );
+        let tpe = unwrap!(
+            Type::Parameterized,
+            var.declarators
+                .first()
+                .unwrap()
+                .tpe
+                .borrow()
+                .deref()
+                .clone()
+        );
+        assert_eq!(
+            tpe.def,
+            find_class(&root, "dev.Test").type_params.first().unwrap()
+        );
     }
 }

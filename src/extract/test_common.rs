@@ -6,7 +6,7 @@ use std::ops::Deref;
 use {extract, JavaFile};
 
 pub fn assert_extract(sources: Vec<&str>, expecteds: Vec<&str>) {
-    let (files, _) = semantics_files!(vec sources);
+    let (files, _) = apply_semantics!(vec sources);
 
     let mut usagess = vec![];
     let mut defss = vec![];

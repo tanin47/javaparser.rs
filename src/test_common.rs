@@ -37,7 +37,7 @@ pub fn primitive(line: usize, col: usize, name: &str) -> Type {
 }
 
 #[macro_export]
-macro_rules! parse_files {
+macro_rules! apply_parse {
     (vec $sources:expr) => {{
         let mut files = vec![];
 
@@ -52,14 +52,14 @@ macro_rules! parse_files {
         files
     }};
     ($($source:expr),*) => {{
-        parse_files!(vec vec![$($source),*])
+        apply_parse!(vec vec![$($source),*])
     }};
 }
 
 #[macro_export]
-macro_rules! assign_type_files {
+macro_rules! apply_assign_type {
     (vec $x:expr) => {{
-        let files = parse_files!(vec $x);
+        let files = apply_parse!(vec $x);
 
         let mut units = vec![];
         for file in &files {
@@ -72,27 +72,27 @@ macro_rules! assign_type_files {
         (files, root)
     }};
     ($($x:expr),*) => {{
-        assign_type_files!(vec vec![$($x),*])
+        apply_assign_type!(vec vec![$($x),*])
     }};
 }
 
 #[macro_export]
-macro_rules! assign_parameterized_type_files {
+macro_rules! apply_assign_parameterized_type {
     (vec $x:expr) => {{
-        let (files, mut root) = assign_type_files!(vec $x);
+        let (files, mut root) = apply_assign_type!(vec $x);
         ::analyze::resolve::assign_parameterized_type::apply(&mut root);
 
         (files, root)
     }};
     ($($x:expr),*) => {{
-        assign_parameterized_type_files!(vec vec![$($x),*])
+        apply_assign_parameterized_type!(vec vec![$($x),*])
     }};
 }
 
 #[macro_export]
-macro_rules! semantics_files {
+macro_rules! apply_semantics {
     (vec $x:expr) => {{
-        let (files, root) = assign_parameterized_type_files!(vec $x);
+        let (files, root) = apply_assign_parameterized_type!(vec $x);
 
         for file in &files {
             ::semantics::apply(&file.unit, &root);
@@ -101,7 +101,18 @@ macro_rules! semantics_files {
         (files, root)
     }};
     ($($x:expr),*) => {{
-        semantics_files!(vec vec![$($x),*])
+        apply_semantics!(vec vec![$($x),*])
+    }};
+}
+
+#[macro_export]
+macro_rules! unwrap {
+    ($enum:path, $expr:expr) => {{
+        if let $enum(item) = $expr {
+            item
+        } else {
+            panic!()
+        }
     }};
 }
 

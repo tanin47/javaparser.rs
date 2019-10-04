@@ -4,7 +4,6 @@ use std::any::Any;
 use tokenize::span::Span;
 
 #[cfg(test)]
-#[macro_use]
 pub mod test_common;
 
 pub mod block;

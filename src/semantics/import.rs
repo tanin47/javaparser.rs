@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let (files, root) = semantics_files![
+        let (files, root) = apply_semantics![
             r#"
 package dev;
 
