@@ -28,7 +28,9 @@ pub fn build_type_type(name: &str) -> Result<PrimitiveTypeType, ()> {
     }
 }
 
-pub fn parse_no_array(original: Tokens) -> ParseResult<PrimitiveType> {
+pub fn parse_no_array<'def, 'r>(
+    original: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, PrimitiveType<'def>> {
     let (input, name) = any_keyword(original)?;
     if let Ok(tpe) = build_type_type(name.fragment) {
         Ok((input, PrimitiveType { name, tpe }))
@@ -37,7 +39,7 @@ pub fn parse_no_array(original: Tokens) -> ParseResult<PrimitiveType> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Type> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Type<'def>> {
     let (input, tpe) = parse_no_array(input)?;
     array::parse_tail(input, Type::Primitive(tpe))
 }

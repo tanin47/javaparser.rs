@@ -4,7 +4,7 @@ use parse::statement::{block, variable_declarators};
 use parse::tree::{Catch, Expr, StandaloneVariableDeclarator, Statement, Try, TryResource};
 use parse::{expr, tpe, ParseResult, Tokens};
 
-fn parse_catch(input: Tokens) -> ParseResult<Catch> {
+fn parse_catch<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Catch<'def>> {
     let (input, _) = keyword("catch")(input)?;
     let (input, _) = symbol('(')(input)?;
     let (input, modifiers) = modifiers::parse(input)?;
@@ -27,7 +27,7 @@ fn parse_catch(input: Tokens) -> ParseResult<Catch> {
 }
 
 // TODO: This can be optimized to do bottom-up parsing.
-fn parse_resource(input: Tokens) -> ParseResult<TryResource> {
+fn parse_resource<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, TryResource<'def>> {
     if let Ok((input, declarator)) = variable_declarators::parse_standalone(input) {
         return Ok((input, TryResource::Declarator(declarator)));
     } else if let Ok((input, expr)) = expr::parse(input) {
@@ -41,7 +41,9 @@ fn parse_resource(input: Tokens) -> ParseResult<TryResource> {
     Err(input)
 }
 
-fn parse_resources(input: Tokens) -> ParseResult<Vec<TryResource>> {
+fn parse_resources<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<TryResource<'def>>> {
     let (input, _) = match symbol('(')(input) {
         Ok(ok) => ok,
         Err(_) => return Ok((input, vec![])),
@@ -53,7 +55,7 @@ fn parse_resources(input: Tokens) -> ParseResult<Vec<TryResource>> {
     Ok((input, resources))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("try")(input)?;
     let (input, resources) = parse_resources(input)?;
     let (input, try) = block::parse_block(input)?;

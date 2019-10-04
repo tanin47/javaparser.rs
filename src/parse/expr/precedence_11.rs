@@ -4,7 +4,7 @@ use parse::tree::{BinaryOperation, Expr};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn op(input: Tokens) -> ParseResult<Span> {
+fn op<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     if let Ok(ok) = get_and_not_followed_by(symbol('+'), any_symbol("+="))(input) {
         Ok(ok)
     } else if let Ok(ok) = get_and_not_followed_by(symbol('-'), any_symbol("-="))(input) {
@@ -14,7 +14,10 @@ fn op(input: Tokens) -> ParseResult<Span> {
     }
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    left: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, operator)) = op(input) {
         let (input, right) = precedence_12::parse(input)?;
 
@@ -30,7 +33,7 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, left) = precedence_12::parse(input)?;
     parse_tail(left, input)
 }

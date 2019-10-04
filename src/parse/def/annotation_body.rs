@@ -6,43 +6,43 @@ use parse::tree::{AnnotationBody, AnnotationBodyItem, Modifier, Type};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_class<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, AnnotationBodyItem<'a>> {
+fn parse_class<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input, class) = class::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Class(class)))
 }
 
-fn parse_interface<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, AnnotationBodyItem<'a>> {
+fn parse_interface<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input, interface) = interface::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Interface(interface)))
 }
 
-fn parse_annotation<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, AnnotationBodyItem<'a>> {
+fn parse_annotation<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input, annotation) = annotation::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Annotation(annotation)))
 }
 
-fn parse_enum<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, AnnotationBodyItem<'a>> {
+fn parse_enum<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input, enum_def) = enum_def::parse_tail(input, modifiers)?;
     Ok((input, AnnotationBodyItem::Enum(enum_def)))
 }
 
-fn parse_field_declarators<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    tpe: Type<'a>,
-) -> ParseResult<'a, AnnotationBodyItem<'a>> {
+fn parse_field_declarators<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    tpe: Type<'def>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input, field_declarators) = field_declarators::parse(input, modifiers, tpe)?;
     Ok((
         input,
@@ -50,20 +50,20 @@ fn parse_field_declarators<'a>(
     ))
 }
 
-fn parse_param<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    tpe: Type<'a>,
-    name: Span<'a>,
-) -> ParseResult<'a, AnnotationBodyItem<'a>> {
+fn parse_param<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    tpe: Type<'def>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input, param) = annotation_param::parse(input, modifiers, tpe, name)?;
     Ok((input, AnnotationBodyItem::Param(param)))
 }
 
-fn parse_param_or_field_declarators<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, AnnotationBodyItem<'a>> {
+fn parse_param_or_field_declarators<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input_before_name, tpe) = tpe::parse(input)?;
     let (input, name) = identifier(input_before_name)?;
 
@@ -74,7 +74,9 @@ fn parse_param_or_field_declarators<'a>(
     }
 }
 
-pub fn parse_item(input: Tokens) -> ParseResult<AnnotationBodyItem> {
+pub fn parse_item<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, AnnotationBodyItem<'def>> {
     let (input, _) = many0(symbol(';'))(input)?;
     let (input, modifiers) = modifiers::parse(input)?;
 
@@ -91,11 +93,13 @@ pub fn parse_item(input: Tokens) -> ParseResult<AnnotationBodyItem> {
     }
 }
 
-pub fn parse_items(input: Tokens) -> ParseResult<Vec<AnnotationBodyItem>> {
+pub fn parse_items<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<AnnotationBodyItem<'def>>> {
     many0(parse_item)(input)
 }
 
-pub fn parse(input: Tokens) -> ParseResult<AnnotationBody> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, AnnotationBody<'def>> {
     let (input, _) = symbol('{')(input)?;
     let (input, items) = parse_items(input)?;
     let (input, _) = many0(symbol(';'))(input)?;

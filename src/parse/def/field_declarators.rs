@@ -3,11 +3,11 @@ use parse::statement::variable_declarators;
 use parse::tree::{FieldDeclarators, Modifier, Type};
 use parse::{ParseResult, Tokens};
 
-pub fn parse<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    tpe: Type<'a>,
-) -> ParseResult<'a, FieldDeclarators<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    tpe: Type<'def>,
+) -> ParseResult<'def, 'r, FieldDeclarators<'def>> {
     let (input, declarators) =
         separated_nonempty_list(symbol(','), variable_declarators::parse_single(tpe))(input)?;
 

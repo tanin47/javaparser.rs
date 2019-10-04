@@ -4,7 +4,9 @@ use parse::tree::{CompilationUnit, CompilationUnitItem};
 use parse::{ParseResult, Tokens};
 use tokenize::token::Token;
 
-pub fn parse_item(original: Tokens) -> ParseResult<CompilationUnitItem> {
+pub fn parse_item<'def, 'r>(
+    original: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, CompilationUnitItem<'def>> {
     let (input, modifiers) = modifiers::parse(original)?;
 
     if let Ok((input, _)) = class::parse_prefix(input) {
@@ -24,7 +26,7 @@ pub fn parse_item(original: Tokens) -> ParseResult<CompilationUnitItem> {
     }
 }
 
-pub fn parse<'def, 'r>(input: &'r [Token<'def>]) -> ParseResult<'def, 'r, CompilationUnit<'def>> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, CompilationUnit<'def>> {
     let (input, package_opt) = opt(package::parse)(input)?;
 
     let (input, imports) = imports::parse(input)?;

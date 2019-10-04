@@ -19,11 +19,11 @@ pub fn contains_type_args(class: &ClassType) -> bool {
     }
 }
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    name: Span<'a>,
-    prefix_opt: Option<ClassType<'a>>,
-) -> ParseResult<'a, ClassType<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    name: Span<'def>,
+    prefix_opt: Option<ClassType<'def>>,
+) -> ParseResult<'def, 'r, ClassType<'def>> {
     let (input, type_args_opt) = type_args::parse(input)?;
 
     let tpe = ClassType {
@@ -43,20 +43,20 @@ pub fn parse_tail<'a>(
     }
 }
 
-fn parse_no_array_with_prefix<'a>(
-    input: Tokens<'a>,
-    prefix_opt: Option<ClassType<'a>>,
-) -> ParseResult<'a, ClassType<'a>> {
+fn parse_no_array_with_prefix<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    prefix_opt: Option<ClassType<'def>>,
+) -> ParseResult<'def, 'r, ClassType<'def>> {
     let (input, name) = identifier(input)?;
 
     parse_tail(input, name, prefix_opt)
 }
 
-pub fn parse_no_array(input: Tokens) -> ParseResult<ClassType> {
+pub fn parse_no_array<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, ClassType<'def>> {
     parse_no_array_with_prefix(input, None)
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Type> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Type<'def>> {
     let (input, tpe) = parse_no_array(input)?;
     array::parse_tail(input, Type::Class(tpe))
 }
@@ -123,7 +123,7 @@ pub fn parse(input: Tokens) -> ParseResult<Type> {
 //        assert_eq!(
 //            parse(&code(
 //                r#"
-//Test<Another<A>, T[]>
+//Test<Another<A>, T[]<'def>>
 //            "#
 //            )),
 //            Ok((

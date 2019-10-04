@@ -8,7 +8,7 @@ use parse::tree::{
 };
 use parse::{tpe, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     // This doesn't work. Need to rethink it.
     let result = atom::parse(input);
 
@@ -21,14 +21,17 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
     }
 }
 
-fn array_type_tail(input: Tokens) -> ParseResult<()> {
+fn array_type_tail<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, ()> {
     let (input, _) = symbol('[')(input)?;
     let (input, _) = symbol(']')(input)?;
 
     Ok((input, ()))
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    left: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, left) = if let Ok(_) = array_type_tail(input) {
         if let Ok(class_type) = convert_to_type(left) {
             let (input, tpe) = tpe::array::parse_tail(input, Type::Class(class_type))?;
@@ -47,7 +50,10 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr
     }
 }
 
-fn parse_reserved_field_access<'a>(tpe: Type<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+fn parse_reserved_field_access<'def, 'r>(
+    tpe: Type<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('.')(input)?;
     let (input, keyword_or_name) = name::parse(input)?;
 
@@ -58,11 +64,11 @@ fn parse_reserved_field_access<'a>(tpe: Type<'a>, input: Tokens<'a>) -> ParseRes
     parse_reserved_field_access_tail(tpe, keyword, input)
 }
 
-fn parse_reserved_field_access_tail<'a>(
-    tpe: Type<'a>,
-    keyword: Keyword<'a>,
-    input: Tokens<'a>,
-) -> ParseResult<'a, Expr<'a>> {
+fn parse_reserved_field_access_tail<'def, 'r>(
+    tpe: Type<'def>,
+    keyword: Keyword<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let expr = match keyword.name.fragment {
         "this" => Expr::This(This {
             tpe_opt: Some(tpe),
@@ -82,7 +88,10 @@ fn parse_reserved_field_access_tail<'a>(
     parse_tail(expr, input)
 }
 
-fn parse_dot<'a>(parent: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+fn parse_dot<'def, 'r>(
+    parent: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, expr) = if let Ok(_) = symbol('<')(input) {
         invocation::parse(input, Some(parent))?
     } else {

@@ -4,7 +4,7 @@ use parse::statement::variable_declarators;
 use parse::tree::{ForLoop, Foreach, Statement};
 use parse::{expr, statement, ParseResult, Tokens};
 
-fn parse_foreach(input: Tokens) -> ParseResult<Statement> {
+fn parse_foreach<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, declarator) = variable_declarators::parse_standalone(input)?;
 
     let (input, _) = symbol(':')(input)?;
@@ -22,7 +22,7 @@ fn parse_foreach(input: Tokens) -> ParseResult<Statement> {
     ))
 }
 
-fn parse_inits(input: Tokens) -> ParseResult<Vec<Statement>> {
+fn parse_inits<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Statement<'def>>> {
     if let Ok((input, declarators)) = variable_declarators::parse_without_semicolon(input) {
         Ok((input, vec![declarators]))
     } else {
@@ -30,7 +30,7 @@ fn parse_inits(input: Tokens) -> ParseResult<Vec<Statement>> {
     }
 }
 
-fn parse_for_loop(input: Tokens) -> ParseResult<Statement> {
+fn parse_for_loop<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, inits) = parse_inits(input)?;
 
     let (input, _) = symbol(';')(input)?;
@@ -53,7 +53,7 @@ fn parse_for_loop(input: Tokens) -> ParseResult<Statement> {
     ))
 }
 
-pub fn parse(original: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(original: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("for")(original)?;
     let (input, _) = symbol('(')(input)?;
 

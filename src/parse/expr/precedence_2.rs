@@ -3,12 +3,15 @@ use parse::expr::precedence_3;
 use parse::tree::{Expr, Ternary};
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, cond) = precedence_3::parse(input)?;
     parse_tail(cond, input)
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    left: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = match symbol('?')(input) {
         Ok(ok) => ok,
         Err(_) => return precedence_3::parse_tail(left, input),

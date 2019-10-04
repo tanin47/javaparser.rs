@@ -3,19 +3,23 @@ use parse::tpe::{class, primitive, reference};
 use parse::tree::{ClassType, ReferenceType, Type, TypeArg, WildcardType};
 use parse::{ParseResult, Tokens};
 
-pub fn parse_wildcard_extends(input: Tokens) -> ParseResult<Vec<ReferenceType>> {
+pub fn parse_wildcard_extends<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<ReferenceType<'def>>> {
     let (input, _) = keyword("extends")(input)?;
 
     separated_nonempty_list(symbol('&'), reference::parse)(input)
 }
 
-pub fn parse_wildcard_super(input: Tokens) -> ParseResult<ReferenceType> {
+pub fn parse_wildcard_super<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, ReferenceType<'def>> {
     let (input, _) = keyword("super")(input)?;
 
     reference::parse(input)
 }
 
-pub fn parse_wildcard(input: Tokens) -> ParseResult<TypeArg> {
+pub fn parse_wildcard<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, TypeArg<'def>> {
     let (input, name) = symbol('?')(input)?;
 
     let (input, extends, super_opt) = match parse_wildcard_extends(input) {
@@ -39,7 +43,9 @@ pub fn parse_wildcard(input: Tokens) -> ParseResult<TypeArg> {
     ))
 }
 
-pub fn parse_non_wildcard(input: Tokens) -> ParseResult<TypeArg> {
+pub fn parse_non_wildcard<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, TypeArg<'def>> {
     let (input, tpe) = if let Ok(ok) = primitive::parse(input) {
         ok
     } else if let Ok(ok) = class::parse(input) {
@@ -55,7 +61,9 @@ pub fn parse_non_wildcard(input: Tokens) -> ParseResult<TypeArg> {
     }
 }
 
-pub fn parse_wildcard_or_non_wildcard(input: Tokens) -> ParseResult<TypeArg> {
+pub fn parse_wildcard_or_non_wildcard<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, TypeArg<'def>> {
     if let Ok((input, type_arg)) = parse_wildcard(input) {
         Ok((input, type_arg))
     } else if let Ok((input, type_arg)) = parse_non_wildcard(input) {
@@ -65,7 +73,9 @@ pub fn parse_wildcard_or_non_wildcard(input: Tokens) -> ParseResult<TypeArg> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Option<Vec<TypeArg>>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Option<Vec<TypeArg<'def>>>> {
     let (input, type_args_opt) = match symbol('<')(input) {
         Ok((input, _)) => {
             let (input, type_args) =

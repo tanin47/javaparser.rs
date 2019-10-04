@@ -20,7 +20,7 @@ pub mod precedence_7;
 pub mod precedence_8;
 pub mod precedence_9;
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, tpe)) = tpe::parse(input) {
         if let Ok(_) = symbol2(':', ':')(input) {
             match tpe {

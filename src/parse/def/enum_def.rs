@@ -4,10 +4,10 @@ use parse::tree::{ClassBody, Enum, Modifier};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, Enum<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, Enum<'def>> {
     let (input, name) = identifier(input)?;
 
     let (input, implements) = class::parse_implements(input)?;
@@ -41,7 +41,7 @@ pub fn parse_tail<'a>(
     ))
 }
 
-pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
+pub fn parse_prefix<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     keyword("enum")(input)
 }
 

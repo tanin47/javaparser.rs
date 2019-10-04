@@ -5,14 +5,14 @@ use std::cell::RefCell;
 use tokenize::span::Span;
 use tokenize::token::Token;
 
-fn parse_wildcard(input: Tokens) -> ParseResult<Span> {
+fn parse_wildcard<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     let (input, _) = symbol('.')(input)?;
     let (input, wildcard) = symbol('*')(input)?;
 
     Ok((input, wildcard))
 }
 
-fn import(input: Tokens) -> ParseResult<Import> {
+fn import<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Import<'def>> {
     let (input, _) = keyword("import")(input)?;
 
     let (input, static_opt) = opt(keyword("static"))(input)?;
@@ -44,7 +44,7 @@ fn import(input: Tokens) -> ParseResult<Import> {
     ))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Vec<Import>> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Import<'def>>> {
     many0(import)(input)
 }
 

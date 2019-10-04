@@ -3,7 +3,10 @@ use parse::expr::atom::array_initializer;
 use parse::tree::{ArrayType, Expr, NewArray, Type};
 use parse::{expr, tpe, ParseResult, Tokens};
 
-fn parse_array_brackets<'a>(input: Tokens<'a>, tpe: Type<'a>) -> ParseResult<'a, Type<'a>> {
+fn parse_array_brackets<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    tpe: Type<'def>,
+) -> ParseResult<'def, 'r, Type<'def>> {
     let (input, _) = match symbol('[')(input) {
         Ok(result) => result,
         Err(_) => return Ok((input, tpe)),
@@ -28,7 +31,10 @@ fn parse_array_brackets<'a>(input: Tokens<'a>, tpe: Type<'a>) -> ParseResult<'a,
     ))
 }
 
-pub fn parse_tail<'a>(input: Tokens<'a>, tpe: Type<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    tpe: Type<'def>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, tpe) = match parse_array_brackets(input, tpe) {
         Ok((input, Type::Array(array))) => (input, array),
         other => return Err(input),

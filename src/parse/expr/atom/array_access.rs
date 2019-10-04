@@ -2,7 +2,7 @@ use parse::combinator::{opt, symbol};
 use parse::tree::{ArrayAccess, Expr};
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse_index(input: Tokens) -> ParseResult<Expr> {
+pub fn parse_index<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('[')(input)?;
     let (input, index) = expr::parse(input)?;
     let (input, _) = symbol(']')(input)?;
@@ -10,7 +10,10 @@ pub fn parse_index(input: Tokens) -> ParseResult<Expr> {
     Ok((input, index))
 }
 
-pub fn parse_tail<'a>(input: Tokens<'a>, expr: Expr<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    expr: Expr<'def>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, index_opt) = opt(parse_index)(input)?;
 
     match index_opt {

@@ -6,7 +6,9 @@ use parse::{ParseResult, Tokens};
 use std::cell::RefCell;
 use tokenize::span::Span;
 
-pub fn parse_implements(input: Tokens) -> ParseResult<Vec<ClassType>> {
+pub fn parse_implements<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<ClassType<'def>>> {
     if let Ok((input, _)) = keyword("implements")(input) {
         let (input, classes) = separated_nonempty_list(symbol(','), class::parse_no_array)(input)?;
         Ok((input, classes))
@@ -15,7 +17,9 @@ pub fn parse_implements(input: Tokens) -> ParseResult<Vec<ClassType>> {
     }
 }
 
-fn parse_extend(input: Tokens) -> ParseResult<Option<ClassType>> {
+fn parse_extend<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Option<ClassType<'def>>> {
     if let Ok((input, _)) = keyword("extends")(input) {
         let (input, class) = class::parse_no_array(input)?;
         Ok((input, Some(class)))
@@ -24,10 +28,10 @@ fn parse_extend(input: Tokens) -> ParseResult<Option<ClassType>> {
     }
 }
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, Class<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, Class<'def>> {
     let (input, name) = identifier(input)?;
     let (input, type_params) = type_params::parse(input)?;
     let (input, extend_opt) = parse_extend(input)?;
@@ -50,7 +54,7 @@ pub fn parse_tail<'a>(
     ))
 }
 
-pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
+pub fn parse_prefix<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     keyword("class")(input)
 }
 

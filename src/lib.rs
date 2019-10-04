@@ -9,7 +9,7 @@ extern crate either;
 extern crate num_cpus;
 extern crate proc_macro;
 
-use parse::JavaFile;
+use parse::tree::CompilationUnit;
 
 #[cfg(test)]
 #[macro_use]
@@ -20,3 +20,11 @@ pub mod extract;
 pub mod parse;
 pub mod semantics;
 pub mod tokenize;
+
+#[derive(Debug, PartialEq)]
+pub struct JavaFile<'def> {
+    pub unit: CompilationUnit<'def>,
+    pub content: String,
+    pub path: String,
+}
+unsafe impl<'a> Sync for JavaFile<'a> {}

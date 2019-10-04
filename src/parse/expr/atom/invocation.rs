@@ -6,7 +6,7 @@ use parse::tree::{Expr, Keyword, MethodCall, Name, SuperConstructorCall, TypeArg
 use parse::{expr, ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse_args(input: Tokens) -> ParseResult<Vec<Expr>> {
+pub fn parse_args<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Expr<'def>>> {
     let (input, _) = symbol('(')(input)?;
     let (input, args) = separated_list(symbol(','), expr::parse)(input)?;
     let (input, _) = symbol(')')(input)?;
@@ -14,12 +14,12 @@ pub fn parse_args(input: Tokens) -> ParseResult<Vec<Expr>> {
     Ok((input, args))
 }
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    prefix_opt: Option<Expr<'a>>,
-    keyword_or_name: Either<Keyword<'a>, Name<'a>>,
-    type_args_opt: Option<Vec<TypeArg<'a>>>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    prefix_opt: Option<Expr<'def>>,
+    keyword_or_name: Either<Keyword<'def>, Name<'def>>,
+    type_args_opt: Option<Vec<TypeArg<'def>>>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, args) = parse_args(input)?;
 
     match keyword_or_name {
@@ -50,7 +50,10 @@ pub fn parse_tail<'a>(
     }
 }
 
-pub fn parse<'a>(input: Tokens<'a>, prefix_opt: Option<Expr<'a>>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    prefix_opt: Option<Expr<'def>>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, type_args_opt) = if prefix_opt.is_some() {
         type_args::parse(input)?
     } else {

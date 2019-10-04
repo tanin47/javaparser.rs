@@ -3,7 +3,9 @@ use parse::tpe::class;
 use parse::tree::{ClassType, TypeParam};
 use parse::{ParseResult, Tokens};
 
-pub fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
+pub fn parse_extends<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<ClassType<'def>>> {
     if let Ok((input, _)) = keyword("extends")(input) {
         separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
     } else {
@@ -11,14 +13,16 @@ pub fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
     }
 }
 
-pub fn parse_type_param(input: Tokens) -> ParseResult<TypeParam> {
+pub fn parse_type_param<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, TypeParam<'def>> {
     let (input, name) = identifier(input)?;
     let (input, extends) = parse_extends(input)?;
 
     Ok((input, TypeParam { name, extends }))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Vec<TypeParam>> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<TypeParam<'def>>> {
     if let Ok((input, _)) = symbol('<')(input) {
         let (input, type_params) = separated_list(symbol(','), parse_type_param)(input)?;
         let (input, _) = symbol('>')(input)?;

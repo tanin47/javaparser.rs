@@ -4,7 +4,7 @@ use parse::expr::atom::invocation;
 use parse::tree::EnumConstant;
 use parse::{ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<EnumConstant> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, EnumConstant<'def>> {
     let (input, annotateds) = annotateds::parse(input)?;
     let (input, name) = identifier(input)?;
 

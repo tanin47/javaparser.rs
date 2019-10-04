@@ -49,10 +49,10 @@ pub fn convert_to_type(expr: Expr) -> Result<ClassType, ()> {
     }
 }
 
-pub fn parse_tail<'a>(
-    primary: MethodReferencePrimary<'a>,
-    input: Tokens<'a>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    primary: MethodReferencePrimary<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol2(':', ':')(input)?;
 
     let (input, type_args_opt) = type_args::parse(input)?;
@@ -95,7 +95,7 @@ pub fn parse_tail<'a>(
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, expr) = precedence_16::parse(input)?;
 
     if let Ok(_) = symbol2(':', ':')(input) {

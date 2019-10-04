@@ -4,11 +4,11 @@ use parse::tree::{Keyword, Modifier};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse(input: Tokens) -> ParseResult<Vec<Modifier>> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Modifier<'def>>> {
     many0(parse_single)(input)
 }
 
-fn parse_single(input: Tokens) -> ParseResult<Modifier> {
+fn parse_single<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Modifier<'def>> {
     if let Ok((input, annotated)) = annotateds::parse_annotated(input) {
         Ok((input, Modifier::Annotated(annotated)))
     } else if let Ok((input, keyword)) = keyword(input) {
@@ -18,7 +18,7 @@ fn parse_single(input: Tokens) -> ParseResult<Modifier> {
     }
 }
 
-fn keyword(original: Tokens) -> ParseResult<Span> {
+fn keyword<'def, 'r>(original: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     let (input, keyword) = any_keyword(original)?;
 
     match keyword.fragment {

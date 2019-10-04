@@ -3,7 +3,7 @@ use parse::statement::block;
 use parse::tree::{DoWhile, Statement, WhileLoop};
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("do")(input)?;
     let (input, block) = block::parse_block_or_single_statement(input)?;
     let (input, _) = keyword("while")(input)?;

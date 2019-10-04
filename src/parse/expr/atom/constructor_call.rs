@@ -5,7 +5,7 @@ use parse::tree::{Expr, SuperConstructorCall, ThisConstructorCall};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_this_or_super(input: Tokens) -> ParseResult<Span> {
+fn parse_this_or_super<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     let (input, keyword) = any_keyword(input)?;
 
     match keyword.fragment {
@@ -14,7 +14,7 @@ fn parse_this_or_super(input: Tokens) -> ParseResult<Span> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, type_args_opt) = type_args::parse(input)?;
     let (input, this_or_super) = parse_this_or_super(input)?;
     let (input, args) = invocation::parse_args(input)?;

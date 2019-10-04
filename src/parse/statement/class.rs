@@ -3,7 +3,7 @@ use parse::def::{class, modifiers};
 use parse::tree::Statement;
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, modifiers) = modifiers::parse(input)?;
     let (input, _) = class::parse_prefix(input)?;
     let (input, class) = class::parse_tail(input, modifiers)?;

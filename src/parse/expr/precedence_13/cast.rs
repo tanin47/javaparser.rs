@@ -3,7 +3,7 @@ use parse::expr::precedence_13;
 use parse::tree::{Cast, Expr};
 use parse::{tpe, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, tpes) = separated_nonempty_list(symbol('&'), tpe::parse)(input)?;
     let (input, _) = symbol(')')(input)?;

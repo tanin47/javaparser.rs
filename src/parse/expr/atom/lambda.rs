@@ -6,7 +6,9 @@ use parse::statement::block::parse_block;
 use parse::tree::{Block, Expr, Lambda, Param, Type};
 use parse::{expr, ParseResult, Tokens};
 
-fn parse_block_or_single_expr(input: Tokens) -> ParseResult<Either<Block, Expr>> {
+fn parse_block_or_single_expr<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Either<Block<'def>, Expr<'def>>> {
     match parse_block(input) {
         Ok((input, block)) => Ok((input, Either::Left(block))),
         Err(_) => {
@@ -16,7 +18,9 @@ fn parse_block_or_single_expr(input: Tokens) -> ParseResult<Either<Block, Expr>>
     }
 }
 
-fn parse_param_with_type_or_without_type(input: Tokens) -> ParseResult<Param> {
+fn parse_param_with_type_or_without_type<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Param<'def>> {
     match param::parse(input) {
         Ok(result) => Ok(result),
         Err(_) => {
@@ -34,7 +38,7 @@ fn parse_param_with_type_or_without_type(input: Tokens) -> ParseResult<Param> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, params) = if let Ok((input, _)) = symbol('(')(input) {
         let (input, params) =
             separated_list(symbol(','), parse_param_with_type_or_without_type)(input)?;

@@ -6,7 +6,9 @@ use parse::tree::{ClassType, Method, Modifier, Type, TypeParam};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
+pub fn parse_throws<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<ClassType<'def>>> {
     if let Ok((input, _)) = keyword("throws")(input) {
         separated_nonempty_list(symbol(','), tpe::class::parse_no_array)(input)
     } else {
@@ -14,13 +16,13 @@ pub fn parse_throws(input: Tokens) -> ParseResult<Vec<ClassType>> {
     }
 }
 
-pub fn parse<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    type_params: Vec<TypeParam<'a>>,
-    return_type: Type<'a>,
-    name: Span<'a>,
-) -> ParseResult<'a, Method<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    type_params: Vec<TypeParam<'def>>,
+    return_type: Type<'def>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, Method<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, params) = separated_list(symbol(','), param::parse)(input)?;
     let (input, _) = symbol(')')(input)?;

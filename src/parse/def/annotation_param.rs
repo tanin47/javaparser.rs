@@ -4,7 +4,7 @@ use parse::tree::{AnnotationParam, Expr, Modifier, Type};
 use parse::{expr, ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_default(input: Tokens) -> ParseResult<Option<Expr>> {
+fn parse_default<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Option<Expr<'def>>> {
     match keyword("default")(input) {
         Ok((input, _)) => {
             let (input, default) = expr::parse(input)?;
@@ -14,12 +14,12 @@ fn parse_default(input: Tokens) -> ParseResult<Option<Expr>> {
     }
 }
 
-pub fn parse<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    tpe: Type<'a>,
-    name: Span<'a>,
-) -> ParseResult<'a, AnnotationParam<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    tpe: Type<'def>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, AnnotationParam<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, _) = symbol(')')(input)?;
 

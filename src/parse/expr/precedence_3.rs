@@ -3,12 +3,15 @@ use parse::expr::{precedence_3, precedence_4};
 use parse::tree::{BinaryOperation, Expr};
 use parse::{ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, left) = precedence_4::parse(input)?;
     precedence_3::parse_tail(left, input)
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    left: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, operator)) = symbol2('|', '|')(input) {
         let (input, right) = precedence_4::parse(input)?;
 

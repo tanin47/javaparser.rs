@@ -4,31 +4,31 @@ use parse::tpe::type_args;
 use parse::tree::{ClassType, Expr, NewObject, TypeArg};
 use parse::{expr, tpe, ParseResult, Tokens};
 
-pub fn parse_tail<'a>(
-    prefix_opt: Option<Expr<'a>>,
-    input: Tokens<'a>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    prefix_opt: Option<Expr<'def>>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, constructor_type_args_opt) = type_args::parse(input)?;
 
     parse_tail2(prefix_opt, input, constructor_type_args_opt)
 }
 
-pub fn parse_tail2<'a>(
-    prefix_opt: Option<Expr<'a>>,
-    input: Tokens<'a>,
-    constructor_type_args_opt: Option<Vec<TypeArg<'a>>>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail2<'def, 'r>(
+    prefix_opt: Option<Expr<'def>>,
+    input: Tokens<'def, 'r>,
+    constructor_type_args_opt: Option<Vec<TypeArg<'def>>>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, tpe) = tpe::class::parse_no_array(input)?;
 
     parse_tail3(prefix_opt, input, constructor_type_args_opt, tpe)
 }
 
-pub fn parse_tail3<'a>(
-    prefix_opt: Option<Expr<'a>>,
-    input: Tokens<'a>,
-    constructor_type_args_opt: Option<Vec<TypeArg<'a>>>,
-    tpe: ClassType<'a>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail3<'def, 'r>(
+    prefix_opt: Option<Expr<'def>>,
+    input: Tokens<'def, 'r>,
+    constructor_type_args_opt: Option<Vec<TypeArg<'def>>>,
+    tpe: ClassType<'def>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, args) = separated_list(symbol(','), expr::parse)(input)?;
     let (input, _) = symbol(')')(input)?;

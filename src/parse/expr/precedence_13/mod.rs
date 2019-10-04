@@ -6,7 +6,7 @@ pub mod cast;
 pub mod unary;
 pub mod unary_pre;
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok(ok) = unary_pre::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = unary::parse(input) {

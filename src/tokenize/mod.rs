@@ -1,4 +1,3 @@
-use parse::JavaFile;
 use std::io::Write;
 use std::ops::Index;
 use std::{io, slice};
@@ -8,6 +7,7 @@ use tokenize::combinator::{
 use tokenize::span::CharAt;
 use tokenize::span::Span;
 use tokenize::token::Token;
+use JavaFile;
 
 pub mod combinator;
 pub mod span;
@@ -432,10 +432,10 @@ fn multiline_comment(input: Span) -> Result<(Span, Token), Span> {
 
 #[cfg(test)]
 mod tests {
-    use parse::JavaFile;
     use test_common::{generate_tokens, span};
     use tokenize::token::Token;
     use tokenize::Span;
+    use JavaFile;
 
     fn apply(content: &str) -> Result<Vec<Token>, Span> {
         super::apply(content, std::ptr::null())

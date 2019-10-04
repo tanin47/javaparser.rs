@@ -1,10 +1,9 @@
-use extract;
 use extract::{Definition, Usage};
-use parse::JavaFile;
 use std::any::Any;
 use std::collections::HashMap;
 use std::iter::Zip;
 use std::ops::Deref;
+use {extract, JavaFile};
 
 pub fn assert_extract(sources: Vec<&str>, expecteds: Vec<&str>) {
     let (files, _) = semantics_files!(vec sources);

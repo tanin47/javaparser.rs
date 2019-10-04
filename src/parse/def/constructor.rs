@@ -6,12 +6,12 @@ use parse::tree::{Constructor, Modifier, TypeParam};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    type_params: Vec<TypeParam<'a>>,
-    name: Span<'a>,
-) -> ParseResult<'a, Constructor<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    type_params: Vec<TypeParam<'def>>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, Constructor<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, params) = separated_list(symbol(','), param::parse)(input)?;
     let (input, _) = symbol(')')(input)?;

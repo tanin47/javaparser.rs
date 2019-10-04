@@ -8,7 +8,9 @@ use parse::{expr, ParseResult, Tokens};
 use std::cell::Cell;
 use tokenize::span::Span;
 
-fn parse_array_value(input: Tokens) -> ParseResult<AnnotatedValueArray> {
+fn parse_array_value<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, AnnotatedValueArray<'def>> {
     let (input, _) = symbol('{')(input)?;
     let (input, items) = separated_list(symbol(','), parse_value)(input)?;
     let (input, _) = opt(symbol(','))(input)?;
@@ -17,7 +19,7 @@ fn parse_array_value(input: Tokens) -> ParseResult<AnnotatedValueArray> {
     Ok((input, AnnotatedValueArray { items }))
 }
 
-fn parse_value(input: Tokens) -> ParseResult<AnnotatedValue> {
+fn parse_value<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, AnnotatedValue<'def>> {
     if let Ok((input, annotated)) = parse_annotated(input) {
         Ok((input, AnnotatedValue::Annotated(Box::new(annotated))))
     } else if let Ok((input, array)) = parse_array_value(input) {
@@ -28,7 +30,7 @@ fn parse_value(input: Tokens) -> ParseResult<AnnotatedValue> {
     }
 }
 
-fn parse_param(input: Tokens) -> ParseResult<AnnotatedParam> {
+fn parse_param<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, AnnotatedParam<'def>> {
     let (input, name) = identifier(input)?;
     let (input, _) = symbol('=')(input)?;
     let (input, value) = parse_value(input)?;
@@ -36,10 +38,10 @@ fn parse_param(input: Tokens) -> ParseResult<AnnotatedParam> {
     Ok((input, AnnotatedParam { name, value }))
 }
 
-fn parse_class<'a>(
-    prefix_opt: Option<ClassType<'a>>,
-    input: Tokens<'a>,
-) -> ParseResult<'a, ClassType<'a>> {
+fn parse_class<'def, 'r>(
+    prefix_opt: Option<ClassType<'def>>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, ClassType<'def>> {
     let (input, name) = identifier(input)?;
 
     if let Ok((input, _)) = symbol('.')(input) {
@@ -65,7 +67,9 @@ fn parse_class<'a>(
     }
 }
 
-pub fn parse_annotated(input: Tokens) -> ParseResult<Annotated> {
+pub fn parse_annotated<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Annotated<'def>> {
     let (input, _) = symbol('@')(input)?;
     let (input, class) = parse_class(None, input)?;
 
@@ -92,7 +96,7 @@ pub fn parse_annotated(input: Tokens) -> ParseResult<Annotated> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Vec<Annotated>> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Annotated<'def>>> {
     many0(parse_annotated)(input)
 }
 

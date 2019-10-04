@@ -3,7 +3,7 @@ use parse::def::annotateds;
 use parse::tree::Package;
 use parse::{ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Package> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Package<'def>> {
     let (input, annotateds) = annotateds::parse(input)?;
 
     let (input, _) = keyword("package")(input)?;

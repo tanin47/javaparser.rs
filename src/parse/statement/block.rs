@@ -2,7 +2,9 @@ use parse::combinator::{many0, symbol};
 use parse::tree::{Block, Statement};
 use parse::{statement, ParseResult, Tokens};
 
-pub fn parse_block_or_single_statement(input: Tokens) -> ParseResult<Block> {
+pub fn parse_block_or_single_statement<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Block<'def>> {
     if let Ok(ok) = statement::block::parse_block(input) {
         Ok(ok)
     } else {
@@ -11,7 +13,7 @@ pub fn parse_block_or_single_statement(input: Tokens) -> ParseResult<Block> {
     }
 }
 
-pub fn parse_block(input: Tokens) -> ParseResult<Block> {
+pub fn parse_block<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Block<'def>> {
     let (input, _) = symbol('{')(input)?;
     let (input, stmts) = many0(statement::parse)(input)?;
     let (input, _) = symbol('}')(input)?;
@@ -19,7 +21,7 @@ pub fn parse_block(input: Tokens) -> ParseResult<Block> {
     Ok((input, Block { stmts }))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, block) = parse_block(input)?;
     Ok((input, Statement::Block(block)))
 }

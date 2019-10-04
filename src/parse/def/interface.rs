@@ -5,7 +5,7 @@ use parse::tree::{ClassType, Interface, Modifier};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
+fn parse_extends<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<ClassType<'def>>> {
     if let Ok((input, _)) = keyword("extends")(input) {
         let (input, classes) = separated_nonempty_list(symbol(','), class::parse_no_array)(input)?;
         Ok((input, classes))
@@ -14,10 +14,10 @@ fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
     }
 }
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, Interface<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, Interface<'def>> {
     let (input, name) = identifier(input)?;
     let (input, type_params) = type_params::parse(input)?;
 
@@ -38,7 +38,7 @@ pub fn parse_tail<'a>(
     ))
 }
 
-pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
+pub fn parse_prefix<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     keyword("interface")(input)
 }
 

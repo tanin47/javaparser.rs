@@ -6,10 +6,10 @@ use parse::tree::{
 use parse::{expr, tpe, ParseResult, Tokens};
 use std::cell::RefCell;
 
-pub fn parse_single<'a>(
-    original_tpe: Type<'a>,
-) -> impl Fn(Tokens<'a>) -> ParseResult<'a, VariableDeclarator<'a>> {
-    move |input: Tokens<'a>| {
+pub fn parse_single<'def: 'r, 'r>(
+    original_tpe: Type<'def>,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, VariableDeclarator<'def>> {
+    move |input: Tokens<'def, 'r>| {
         let (input, name) = identifier(input)?;
 
         let (input, tpe) = tpe::array::parse_tail(input, original_tpe.clone())?;
@@ -33,7 +33,9 @@ pub fn parse_single<'a>(
     }
 }
 
-pub fn parse_standalone(input: Tokens) -> ParseResult<StandaloneVariableDeclarator> {
+pub fn parse_standalone<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, StandaloneVariableDeclarator<'def>> {
     let (input, modifiers) = modifiers::parse(input)?;
     let (input, tpe) = tpe::parse(input)?;
     let (input, declarator) = parse_single(tpe)(input)?;
@@ -49,7 +51,9 @@ pub fn parse_standalone(input: Tokens) -> ParseResult<StandaloneVariableDeclarat
     ))
 }
 
-pub fn parse_without_semicolon(input: Tokens) -> ParseResult<Statement> {
+pub fn parse_without_semicolon<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, modifiers) = modifiers::parse(input)?;
     let (input, tpe) = tpe::parse(input)?;
 
@@ -64,7 +68,7 @@ pub fn parse_without_semicolon(input: Tokens) -> ParseResult<Statement> {
     ))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, declarators) = parse_without_semicolon(input)?;
     let (input, _) = symbol(';')(input)?;
 

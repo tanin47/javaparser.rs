@@ -1,5 +1,4 @@
-use parse::tree::CompilationUnit;
-use parse::JavaFile;
+use JavaFile;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Span<'a> {

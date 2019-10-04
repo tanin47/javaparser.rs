@@ -1,9 +1,9 @@
 use parse::tpe::primitive::build_type_type;
 use parse::tree::{CompilationUnit, PrimitiveType, Type};
-use parse::{apply_tokens, JavaFile, Tokens};
-use tokenize;
+use parse::{apply_tokens, Tokens};
 use tokenize::span::Span;
 use tokenize::token::Token;
+use {tokenize, JavaFile};
 
 pub fn span(line: usize, col: usize, fragment: &str) -> Span {
     span2(line, col, fragment, std::ptr::null())

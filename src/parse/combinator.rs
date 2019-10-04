@@ -4,8 +4,10 @@ use tokenize::span::CharAt;
 use tokenize::span::Span;
 use tokenize::token::Token;
 
-pub fn any_symbol<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
-    move |input: Tokens<'a>| {
+pub fn any_symbol<'def: 'r, 'r>(
+    s: &'def str,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
+    move |input: Tokens<'def, 'r>| {
         if input.is_empty() {
             return Err(input);
         }
@@ -19,8 +21,10 @@ pub fn any_symbol<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span
     }
 }
 
-pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
-    move |input: Tokens<'a>| {
+pub fn symbol<'def: 'r, 'r>(
+    c: char,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
+    move |input: Tokens<'def, 'r>| {
         if input.is_empty() {
             return Err(input);
         }
@@ -34,8 +38,11 @@ pub fn symbol<'a>(c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
     }
 }
 
-pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
-    move |input: Tokens<'a>| {
+pub fn symbol2<'def: 'r, 'r>(
+    a: char,
+    b: char,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
+    move |input: Tokens<'def, 'r>| {
         if input.len() < 2 {
             return Err(input);
         }
@@ -71,8 +78,12 @@ pub fn symbol2<'a>(a: char, b: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, S
     }
 }
 
-pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
-    move |input: Tokens<'a>| {
+pub fn symbol3<'def: 'r, 'r>(
+    a: char,
+    b: char,
+    c: char,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
+    move |input: Tokens<'def, 'r>| {
         if input.len() < 3 {
             return Err(input);
         }
@@ -116,13 +127,13 @@ pub fn symbol3<'a>(a: char, b: char, c: char) -> impl Fn(Tokens<'a>) -> ParseRes
     }
 }
 
-pub fn symbol4<'a>(
+pub fn symbol4<'def: 'r, 'r>(
     a: char,
     b: char,
     c: char,
     d: char,
-) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
-    move |input: Tokens<'a>| {
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
+    move |input: Tokens<'def, 'r>| {
         if input.len() < 4 {
             return Err(input);
         }
@@ -173,8 +184,10 @@ pub fn symbol4<'a>(
     }
 }
 
-pub fn keyword<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>> {
-    move |input: Tokens<'a>| {
+pub fn keyword<'def: 'r, 'r>(
+    s: &'def str,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
+    move |input: Tokens<'def, 'r>| {
         if input.is_empty() {
             return Err(input);
         }
@@ -189,7 +202,7 @@ pub fn keyword<'a>(s: &'a str) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a
     }
 }
 
-pub fn any_keyword(input: Tokens) -> ParseResult<Span> {
+pub fn any_keyword<'def: 'r, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     if input.is_empty() {
         return Err(input);
     }
@@ -201,7 +214,7 @@ pub fn any_keyword(input: Tokens) -> ParseResult<Span> {
     }
 }
 
-pub fn identifier(input: Tokens) -> ParseResult<Span> {
+pub fn identifier<'def: 'r, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     if input.is_empty() {
         return Err(input);
     }
@@ -213,25 +226,27 @@ pub fn identifier(input: Tokens) -> ParseResult<Span> {
     }
 }
 
-pub fn opt<'a, F, T>(f: F) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Option<T>>
+pub fn opt<'def: 'r, 'r, F, T>(
+    f: F,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Option<T>>
 where
-    F: Fn(Tokens<'a>) -> ParseResult<'a, T>,
+    F: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
-    move |input: Tokens<'a>| match f(input) {
+    move |input: Tokens<'def, 'r>| match f(input) {
         Ok((input, result)) => Ok((input, Some(result))),
         Err(_) => Ok((input, None)),
     }
 }
 
-pub fn get_and_not_followed_by<'a, I, F>(
+pub fn get_and_not_followed_by<'def: 'r, 'r, I, F>(
     item: I,
     followed: F,
-) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>>
 where
-    I: Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>,
-    F: Fn(Tokens<'a>) -> ParseResult<'a, Span<'a>>,
+    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>>,
+    F: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>>,
 {
-    move |original: Tokens<'a>| {
+    move |original: Tokens<'def, 'r>| {
         let (input, result) = item(original)?;
 
         if input.len() > 0
@@ -247,12 +262,15 @@ where
     }
 }
 
-pub fn separated_list<'a, S, I, W, T>(sep: S, item: I) -> impl Fn(Tokens<'a>) -> ParseResult<Vec<T>>
+pub fn separated_list<'def: 'r, 'r, S, I, W, T>(
+    sep: S,
+    item: I,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
-    S: Fn(Tokens<'a>) -> ParseResult<'a, W>,
-    I: Fn(Tokens<'a>) -> ParseResult<'a, T>,
+    S: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, W>,
+    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
-    move |original: Tokens<'a>| {
+    move |original: Tokens<'def, 'r>| {
         let mut input = original;
         let mut before_sep = original;
         let mut items = vec![];
@@ -276,16 +294,16 @@ where
     }
 }
 
-pub fn separated_nonempty_list<'a, S, I, W, T>(
+pub fn separated_nonempty_list<'def: 'r, 'r, S, I, W, T>(
     sep: S,
     item: I,
-) -> impl Fn(Tokens<'a>) -> ParseResult<Vec<T>>
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
-    S: Fn(Tokens<'a>) -> ParseResult<'a, W>,
-    I: Fn(Tokens<'a>) -> ParseResult<'a, T>,
+    S: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, W>,
+    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
     let f = separated_list(sep, item);
-    move |original: Tokens<'a>| {
+    move |original: Tokens<'def, 'r>| {
         let (input, items) = f(original)?;
 
         if items.is_empty() {
@@ -296,11 +314,13 @@ where
     }
 }
 
-pub fn many0<'a, I, T>(item: I) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Vec<T>>
+pub fn many0<'def: 'r, 'r, I, T>(
+    item: I,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
-    I: Fn(Tokens<'a>) -> ParseResult<'a, T>,
+    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
-    move |original: Tokens<'a>| {
+    move |original: Tokens<'def, 'r>| {
         let mut input = original;
         let mut items = vec![];
         loop {
@@ -317,12 +337,14 @@ where
     }
 }
 
-pub fn many1<'a, I, T>(item: I) -> impl Fn(Tokens<'a>) -> ParseResult<'a, Vec<T>>
+pub fn many1<'def: 'r, 'r, I, T>(
+    item: I,
+) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
-    I: Fn(Tokens<'a>) -> ParseResult<'a, T>,
+    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
     let f = many0(item);
-    move |original: Tokens<'a>| {
+    move |original: Tokens<'def, 'r>| {
         let (input, items) = f(original)?;
 
         if items.is_empty() {

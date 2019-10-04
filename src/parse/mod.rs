@@ -3,9 +3,9 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use std::pin::Pin;
 use std::ptr::null;
-use tokenize;
 use tokenize::span::Span;
 use tokenize::token::Token;
+use {tokenize, JavaFile};
 
 pub mod combinator;
 pub mod compilation_unit;
@@ -15,19 +15,12 @@ pub mod statement;
 pub mod tpe;
 pub mod tree;
 
-pub type ParseResult<'def, 'r, T> = Result<(&'r [Token<'def>], T), &'r Tokens<'def>>;
-
-#[derive(Debug, PartialEq)]
-pub struct JavaFile<'def> {
-    pub unit: CompilationUnit<'def>,
-    pub content: String,
-    pub path: String,
-}
-unsafe impl<'a> Sync for JavaFile<'a> {}
+pub type Tokens<'def, 'r> = &'r [Token<'def>];
+pub type ParseResult<'def, 'r, T> = Result<(Tokens<'def, 'r>, T), Tokens<'def, 'r>>;
 
 pub fn apply_tokens<'def, 'r>(
-    input: &'r [Token<'def>],
-) -> Result<CompilationUnit<'def>, &'r [Token<'def>]> {
+    input: Tokens<'def, 'r>,
+) -> Result<CompilationUnit<'def>, Tokens<'def, 'r>> {
     let result = compilation_unit::parse(input);
 
     match result {

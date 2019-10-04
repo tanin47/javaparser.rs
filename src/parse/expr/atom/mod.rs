@@ -17,7 +17,7 @@ pub mod number;
 pub mod parenthesized;
 pub mod string;
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok(ok) = number::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = string::parse(input) {
@@ -37,7 +37,9 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
     }
 }
 
-fn parse_lambda_or_parenthesized(original: Tokens) -> ParseResult<Expr> {
+fn parse_lambda_or_parenthesized<'def, 'r>(
+    original: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('(')(original)?;
 
     if let Ok((input, _)) = symbol(')')(input) {
@@ -82,7 +84,9 @@ fn parse_lambda_or_parenthesized(original: Tokens) -> ParseResult<Expr> {
     parenthesized::parse(original)
 }
 
-fn parse_new_object_or_array(input: Tokens) -> ParseResult<Expr> {
+fn parse_new_object_or_array<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, Some(type_args))) = type_args::parse(input) {
         return new_object::parse_tail2(None, input, Some(type_args));
     }
@@ -100,7 +104,9 @@ fn parse_new_object_or_array(input: Tokens) -> ParseResult<Expr> {
     }
 }
 
-fn parse_prefix_keyword_or_identifier(original: Tokens) -> ParseResult<Expr> {
+fn parse_prefix_keyword_or_identifier<'def, 'r>(
+    original: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, keyword_or_name) = name::parse(original)?;
 
     match keyword_or_name {
