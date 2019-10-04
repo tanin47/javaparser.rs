@@ -2,7 +2,7 @@ use parse::combinator::{keyword, symbol};
 use parse::tree::{Assert, Statement};
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("assert")(input)?;
     let (input, expr) = expr::parse(input)?;
 
@@ -23,12 +23,12 @@ mod tests {
     use super::parse;
     use parse::tree::{Assert, Boolean, Expr, LiteralString, Statement};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 assert true;
             "#
@@ -48,7 +48,7 @@ assert true;
     #[test]
     fn test_error() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 assert true : "error";
             "#

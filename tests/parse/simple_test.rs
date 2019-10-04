@@ -1,9 +1,8 @@
 use javaparser::parse;
-use javaparser::test_common::{code, span};
 
 #[test]
 fn parse_minimal() {
-    let tokens = code(
+    let result = parse::apply(
         r#"
  /* This file
  */
@@ -21,16 +20,15 @@ class Test {
     }
 }
         "#,
+        "test.java",
     );
-
-    let result = parse::apply(&tokens);
 
     assert!(result.is_ok(), format!("{:#?}", result));
 }
 
 #[test]
 fn parse_minimal2() {
-    let tokens = code(
+    let result = parse::apply(
         r#"
  /* This file
  */
@@ -45,8 +43,7 @@ class Test {
     }
 }
         "#,
+        "test.java",
     );
-    let result = parse::apply(&tokens);
-
     assert!(result.is_ok(), format!("{:#?}", result));
 }

@@ -1,13 +1,16 @@
 use parse::combinator::{identifier, many0, opt, separated_list, separated_nonempty_list, symbol};
 use parse::tpe::class;
 use parse::tree::{
-    Annotated, AnnotatedParam, AnnotatedValue, AnnotatedValueArray, ClassType, MarkerAnnotated,
-    NormalAnnotated, SingleAnnotated,
+    Annotated, AnnotatedParam, AnnotatedValue, AnnotatedValueArray, ClassType, EnclosingType,
+    MarkerAnnotated, NormalAnnotated, SingleAnnotated,
 };
 use parse::{expr, ParseResult, Tokens};
+use std::cell::Cell;
 use tokenize::span::Span;
 
-fn parse_array_value(input: Tokens) -> ParseResult<AnnotatedValueArray> {
+fn parse_array_value<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, AnnotatedValueArray<'def>> {
     let (input, _) = symbol('{')(input)?;
     let (input, items) = separated_list(symbol(','), parse_value)(input)?;
     let (input, _) = opt(symbol(','))(input)?;
@@ -16,7 +19,7 @@ fn parse_array_value(input: Tokens) -> ParseResult<AnnotatedValueArray> {
     Ok((input, AnnotatedValueArray { items }))
 }
 
-fn parse_value(input: Tokens) -> ParseResult<AnnotatedValue> {
+fn parse_value<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, AnnotatedValue<'def>> {
     if let Ok((input, annotated)) = parse_annotated(input) {
         Ok((input, AnnotatedValue::Annotated(Box::new(annotated))))
     } else if let Ok((input, array)) = parse_array_value(input) {
@@ -27,7 +30,7 @@ fn parse_value(input: Tokens) -> ParseResult<AnnotatedValue> {
     }
 }
 
-fn parse_param(input: Tokens) -> ParseResult<AnnotatedParam> {
+fn parse_param<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, AnnotatedParam<'def>> {
     let (input, name) = identifier(input)?;
     let (input, _) = symbol('=')(input)?;
     let (input, value) = parse_value(input)?;
@@ -35,18 +38,19 @@ fn parse_param(input: Tokens) -> ParseResult<AnnotatedParam> {
     Ok((input, AnnotatedParam { name, value }))
 }
 
-fn parse_class<'a>(
-    prefix_opt: Option<ClassType<'a>>,
-    input: Tokens<'a>,
-) -> ParseResult<'a, ClassType<'a>> {
+fn parse_class<'def, 'r>(
+    prefix_opt: Option<ClassType<'def>>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, ClassType<'def>> {
     let (input, name) = identifier(input)?;
 
     if let Ok((input, _)) = symbol('.')(input) {
         parse_class(
             Some(ClassType {
-                prefix_opt: prefix_opt.map(Box::new),
+                prefix_opt: prefix_opt.map(|c| Box::new(EnclosingType::Class(c))),
                 name,
                 type_args_opt: None,
+                def_opt: None,
             }),
             input,
         )
@@ -54,15 +58,18 @@ fn parse_class<'a>(
         Ok((
             input,
             ClassType {
-                prefix_opt: prefix_opt.map(Box::new),
+                prefix_opt: prefix_opt.map(|c| Box::new(EnclosingType::Class(c))),
                 name,
                 type_args_opt: None,
+                def_opt: None,
             },
         ))
     }
 }
 
-pub fn parse_annotated(input: Tokens) -> ParseResult<Annotated> {
+pub fn parse_annotated<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Annotated<'def>> {
     let (input, _) = symbol('@')(input)?;
     let (input, class) = parse_class(None, input)?;
 
@@ -89,7 +96,7 @@ pub fn parse_annotated(input: Tokens) -> ParseResult<Annotated> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Vec<Annotated>> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Annotated<'def>>> {
     many0(parse_annotated)(input)
 }
 
@@ -97,16 +104,16 @@ pub fn parse(input: Tokens) -> ParseResult<Vec<Annotated>> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        Annotated, AnnotatedParam, AnnotatedValue, ClassType, Expr, Int, MarkerAnnotated,
-        NormalAnnotated, SingleAnnotated,
+        Annotated, AnnotatedParam, AnnotatedValue, ClassType, EnclosingType, Expr, Int,
+        MarkerAnnotated, NormalAnnotated, SingleAnnotated,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 @Parent.Anno
 @Anno()
@@ -119,20 +126,23 @@ mod tests {
                 vec![
                     Annotated::Marker(MarkerAnnotated {
                         class: ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 9, "Anno"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }
                     }),
                     Annotated::Normal(NormalAnnotated {
                         class: ClassType {
                             prefix_opt: None,
                             name: span(2, 2, "Anno"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         },
                         params: vec![]
                     }),
@@ -140,7 +150,8 @@ mod tests {
                         class: ClassType {
                             prefix_opt: None,
                             name: span(3, 2, "Anno"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         },
                         value: AnnotatedValue::Expr(Expr::Int(Int {
                             value: span(3, 7, "1")
@@ -150,7 +161,8 @@ mod tests {
                         class: ClassType {
                             prefix_opt: None,
                             name: span(4, 2, "Anno"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         },
                         params: vec![AnnotatedParam {
                             name: span(4, 7, "number"),

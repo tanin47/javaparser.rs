@@ -2,7 +2,9 @@ use parse::combinator::{opt, separated_list, symbol};
 use parse::tree::{ArrayInitializer, Expr};
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse_initializer(input: Tokens) -> ParseResult<ArrayInitializer> {
+pub fn parse_initializer<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, ArrayInitializer<'def>> {
     let (input, _) = symbol('{')(input)?;
 
     let (input, items) = separated_list(symbol(','), expr::parse)(input)?;
@@ -13,7 +15,7 @@ pub fn parse_initializer(input: Tokens) -> ParseResult<ArrayInitializer> {
     Ok((input, ArrayInitializer { items }))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, init) = parse_initializer(input)?;
     Ok((input, Expr::ArrayInitializer(init)))
 }
@@ -23,12 +25,12 @@ mod tests {
     use super::parse;
     use parse::tree::{ArrayInitializer, Expr, Int};
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code("{}")),
+            parse(&generate_tokens("{}")),
             Ok((
                 &[] as Tokens,
                 Expr::ArrayInitializer(ArrayInitializer { items: vec![] })
@@ -39,7 +41,7 @@ mod tests {
     #[test]
     fn test_nested() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 { 1, {2}}
             "#

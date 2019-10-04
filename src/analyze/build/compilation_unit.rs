@@ -1,13 +1,11 @@
 use analyze::build::scope::Scope;
 use analyze::build::{class, interface, package};
-use analyze::definition::{
-    Class, CompilationUnit, Decl, Import, Interface, Package, PackageDecl, Root,
-};
+use analyze::definition::{Class, CompilationUnit, Decl, Interface, Package, PackageDecl, Root};
 use either::Either;
 use parse;
 use parse::tree::CompilationUnitItem;
 
-pub fn build<'a>(unit: &'a parse::tree::CompilationUnit<'a>) -> Root<'a> {
+pub fn build<'def, 'r>(unit: &'r parse::tree::CompilationUnit<'def>) -> Root<'def> {
     let mut scope = Scope { paths: vec![] };
 
     let (subpackages, units) = match &unit.package_opt {
@@ -18,33 +16,22 @@ pub fn build<'a>(unit: &'a parse::tree::CompilationUnit<'a>) -> Root<'a> {
     Root { subpackages, units }
 }
 
-fn build_imports(imports: &Vec<parse::tree::Import>) -> Vec<Import> {
+pub fn build_imports<'def, 'r>(
+    imports: &'r Vec<parse::tree::Import<'def>>,
+) -> Vec<*const parse::tree::Import<'def>> {
     let mut new_imports = vec![];
 
     for import in imports {
-        let mut components = vec![];
-
-        for c in &import.components {
-            components.push(c.fragment.to_owned())
-        }
-
-        new_imports.push(Import {
-            components,
-            is_wildcard: import.is_wildcard,
-            is_static: import.is_static,
-        })
+        new_imports.push(import as *const parse::tree::Import)
     }
 
     new_imports
 }
 
-pub fn build_unit<'a, 'b>(
-    unit: &'a parse::tree::CompilationUnit<'a>,
-    scope: &'b mut Scope,
-) -> CompilationUnit<'a>
-where
-    'a: 'b,
-{
+pub fn build_unit<'def, 'scope_ref, 'def_ref>(
+    unit: &'def_ref parse::tree::CompilationUnit<'def>,
+    scope: &'scope_ref mut Scope,
+) -> CompilationUnit<'def> {
     let main = build_decl(&unit.items.first().unwrap(), scope);
     let mut others = vec![];
 
@@ -59,13 +46,10 @@ where
     }
 }
 
-fn build_decl<'a, 'b>(
-    item: &'a parse::tree::CompilationUnitItem<'a>,
-    scope: &'b mut Scope,
-) -> Decl<'a>
-where
-    'a: 'b,
-{
+fn build_decl<'def, 'scope_ref, 'def_ref>(
+    item: &'def_ref parse::tree::CompilationUnitItem<'def>,
+    scope: &'scope_ref mut Scope,
+) -> Decl<'def> {
     match item {
         parse::tree::CompilationUnitItem::Class(c) => Decl::Class(class::build(c, scope)),
         parse::tree::CompilationUnitItem::Interface(i) => {

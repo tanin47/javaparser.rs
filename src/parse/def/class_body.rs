@@ -8,77 +8,79 @@ use parse::tree::{ClassBody, ClassBodyItem, Modifier, Type, TypeParam};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_class<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_class<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, class) = class::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Class(class)))
 }
 
-fn parse_interface<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_interface<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, interface) = interface::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Interface(interface)))
 }
 
-fn parse_annotation<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_annotation<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, annotation) = annotation::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Annotation(annotation)))
 }
 
-fn parse_enum<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_enum<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, enum_def) = enum_def::parse_tail(input, modifiers)?;
     Ok((input, ClassBodyItem::Enum(enum_def)))
 }
 
-fn parse_method<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    type_params: Vec<TypeParam<'a>>,
-    tpe: Type<'a>,
-    name: Span<'a>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_method<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    type_params: Vec<TypeParam<'def>>,
+    tpe: Type<'def>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, method) = method::parse(input, modifiers, type_params, tpe, name)?;
     Ok((input, ClassBodyItem::Method(method)))
 }
 
-fn parse_constructor<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    type_params: Vec<TypeParam<'a>>,
-    name: Span<'a>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_constructor<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    type_params: Vec<TypeParam<'def>>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, constructor) = constructor::parse(input, modifiers, type_params, name)?;
     Ok((input, ClassBodyItem::Constructor(constructor)))
 }
 
-fn parse_field_declarators<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    tpe: Type<'a>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_field_declarators<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    tpe: Type<'def>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, field_declarators) = field_declarators::parse(input, modifiers, tpe)?;
     Ok((input, ClassBodyItem::FieldDeclarators(field_declarators)))
 }
 
-fn parse_static_block(input: Tokens) -> ParseResult<ClassBodyItem> {
+fn parse_static_block<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, block) = block::parse_block(input)?;
     Ok((input, ClassBodyItem::StaticInitializer(block)))
 }
 
-fn parse_method_constructor_or_field<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, ClassBodyItem<'a>> {
+fn parse_method_constructor_or_field<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, type_params) = type_params::parse(input)?;
 
     if let Ok((input, ident)) = identifier(input) {
@@ -97,7 +99,7 @@ fn parse_method_constructor_or_field<'a>(
     }
 }
 
-pub fn parse_item(input: Tokens) -> ParseResult<ClassBodyItem> {
+pub fn parse_item<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
     let (input, _) = many0(symbol(';'))(input)?;
     let (input, modifiers) = modifiers::parse(input)?;
 
@@ -116,11 +118,13 @@ pub fn parse_item(input: Tokens) -> ParseResult<ClassBodyItem> {
     }
 }
 
-pub fn parse_items(input: Tokens) -> ParseResult<Vec<ClassBodyItem>> {
+pub fn parse_items<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<ClassBodyItem<'def>>> {
     many0(parse_item)(input)
 }
 
-pub fn parse(input: Tokens) -> ParseResult<ClassBody> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, ClassBody<'def>> {
     let (input, _) = symbol('{')(input)?;
     let (input, items) = parse_items(input)?;
     let (input, _) = many0(symbol(';'))(input)?;
@@ -134,15 +138,17 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Annotation, AnnotationBody, Block, Class, ClassBody, ClassBodyItem, Constructor, Enum,
-        FieldDeclarators, Interface, Method, PrimitiveType, Type, VariableDeclarator, Void,
+        FieldDeclarators, Interface, Method, PrimitiveType, PrimitiveTypeType, Type,
+        VariableDeclarator, Void,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use std::cell::RefCell;
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_empty() {
         assert_eq!(
-            parse(&code("{}")),
+            parse(&generate_tokens("{}")),
             Ok((&[] as Tokens, ClassBody { items: vec![] }))
         );
     }
@@ -150,7 +156,7 @@ mod tests {
     #[test]
     fn test_multiple() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 {
   void method() {}
@@ -185,14 +191,16 @@ mod tests {
                             type_params: vec![],
                             extend_opt: None,
                             implements: vec![],
-                            body: ClassBody { items: vec![] }
+                            body: ClassBody { items: vec![] },
+                            def_opt: RefCell::new(None)
                         }),
                         ClassBodyItem::FieldDeclarators(FieldDeclarators {
                             modifiers: vec![],
                             declarators: vec![VariableDeclarator {
-                                tpe: Type::Primitive(PrimitiveType {
-                                    name: span(4, 3, "int")
-                                }),
+                                tpe: RefCell::new(Type::Primitive(PrimitiveType {
+                                    name: span(4, 3, "int"),
+                                    tpe: PrimitiveTypeType::Int
+                                })),
                                 name: span(4, 7, "a"),
                                 expr_opt: None
                             }]

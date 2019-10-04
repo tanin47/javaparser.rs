@@ -1,5 +1,4 @@
 use javaparser::parse;
-use javaparser::test_common::code;
 use std::fs;
 use std::time::Instant;
 
@@ -18,16 +17,15 @@ fn all() {
         let content = fs::read_to_string(entry.path()).unwrap();
 
         let start = Instant::now();
-        let tokens = code(&content);
-        let result = parse::apply(&tokens);
+        let file = parse::apply(&content, entry.path().to_str().unwrap());
         println!(" ({:?})", start.elapsed());
-        assert!(result.is_ok(), {
-            let remainder = result.err().unwrap();
+        assert!(file.is_ok(), {
+            let remainder = file.err().unwrap();
             format!(
                 "Parsed {} failed at line {} and column {}",
                 entry.path().file_name().unwrap().to_str().unwrap(),
-                remainder[0].span().line,
-                remainder[0].span().col,
+                remainder.line,
+                remainder.col,
             )
         });
     }

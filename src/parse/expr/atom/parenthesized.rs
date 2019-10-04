@@ -3,7 +3,7 @@ use parse::expr::atom::array_access;
 use parse::tree::Expr;
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, expr) = expr::parse(input)?;
     let (input, _) = symbol(')')(input)?;
@@ -16,12 +16,12 @@ mod tests {
     use super::parse;
     use parse::tree::{ClassType, Expr, InstanceOf, Int, Name, Type};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_instanceof() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (a instanceof Class)
             "#
@@ -36,7 +36,8 @@ mod tests {
                     tpe: Type::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 15, "Class"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     })
                 })
             ))
@@ -46,7 +47,7 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (123)
             "#
@@ -63,7 +64,7 @@ mod tests {
     #[test]
     fn test_multi() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (((123)))
             "#

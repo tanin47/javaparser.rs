@@ -4,7 +4,7 @@ use parse::statement::variable_declarators;
 use parse::tree::{ForLoop, Foreach, Statement};
 use parse::{expr, statement, ParseResult, Tokens};
 
-fn parse_foreach(input: Tokens) -> ParseResult<Statement> {
+fn parse_foreach<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, declarator) = variable_declarators::parse_standalone(input)?;
 
     let (input, _) = symbol(':')(input)?;
@@ -22,7 +22,7 @@ fn parse_foreach(input: Tokens) -> ParseResult<Statement> {
     ))
 }
 
-fn parse_inits(input: Tokens) -> ParseResult<Vec<Statement>> {
+fn parse_inits<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Statement<'def>>> {
     if let Ok((input, declarators)) = variable_declarators::parse_without_semicolon(input) {
         Ok((input, vec![declarators]))
     } else {
@@ -30,7 +30,7 @@ fn parse_inits(input: Tokens) -> ParseResult<Vec<Statement>> {
     }
 }
 
-fn parse_for_loop(input: Tokens) -> ParseResult<Statement> {
+fn parse_for_loop<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, inits) = parse_inits(input)?;
 
     let (input, _) = symbol(';')(input)?;
@@ -53,7 +53,7 @@ fn parse_for_loop(input: Tokens) -> ParseResult<Statement> {
     ))
 }
 
-pub fn parse(original: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(original: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("for")(original)?;
     let (input, _) = symbol('(')(input)?;
 
@@ -71,16 +71,17 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Assigned, Assignment, BinaryOperation, Block, Expr, ForLoop, Foreach, Int, Name,
-        PrimitiveType, ReturnStmt, StandaloneVariableDeclarator, Statement, Type, UnaryOperation,
-        VariableDeclarator, VariableDeclarators,
+        PrimitiveType, PrimitiveTypeType, ReturnStmt, StandaloneVariableDeclarator, Statement,
+        Type, UnaryOperation, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use std::cell::RefCell;
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_foreach() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 for(int a:list) a++;
             "#
@@ -90,9 +91,10 @@ for(int a:list) a++;
                 Statement::Foreach(Foreach {
                     declarator: StandaloneVariableDeclarator {
                         modifiers: vec![],
-                        tpe: Type::Primitive(PrimitiveType {
-                            name: span(1, 5, "int")
-                        }),
+                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
+                            name: span(1, 5, "int"),
+                            tpe: PrimitiveTypeType::Int
+                        })),
                         name: span(1, 9, "a"),
                         expr_opt: None
                     },
@@ -116,7 +118,7 @@ for(int a:list) a++;
     #[test]
     fn test_short() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 for(int i=0;i<2;i++) x++;
             "#
@@ -127,9 +129,10 @@ for(int i=0;i<2;i++) x++;
                     inits: vec![Statement::VariableDeclarators(VariableDeclarators {
                         modifiers: vec![],
                         declarators: vec![VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
-                                name: span(1, 5, "int")
-                            }),
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
+                                name: span(1, 5, "int"),
+                                tpe: PrimitiveTypeType::Int
+                            })),
                             name: span(1, 9, "i"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(1, 11, "0")
@@ -169,7 +172,7 @@ for(int i=0;i<2;i++) x++;
     #[test]
     fn test_long() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 for(;;) {
   x = 1;

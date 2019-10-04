@@ -5,7 +5,7 @@ use parse::tree::{ClassType, Interface, Modifier};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
+fn parse_extends<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<ClassType<'def>>> {
     if let Ok((input, _)) = keyword("extends")(input) {
         let (input, classes) = separated_nonempty_list(symbol(','), class::parse_no_array)(input)?;
         Ok((input, classes))
@@ -14,10 +14,10 @@ fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
     }
 }
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, Interface<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, Interface<'def>> {
     let (input, name) = identifier(input)?;
     let (input, type_params) = type_params::parse(input)?;
 
@@ -38,7 +38,7 @@ pub fn parse_tail<'a>(
     ))
 }
 
-pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
+pub fn parse_prefix<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     keyword("interface")(input)
 }
 
@@ -49,12 +49,12 @@ mod tests {
         Modifier, TypeArg, TypeParam,
     };
     use parse::{compilation_unit, Tokens};
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            compilation_unit::parse_item(&code(
+            compilation_unit::parse_item(&generate_tokens(
                 r#"
 @Anno private interface Test {}
             "#
@@ -67,7 +67,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -86,7 +87,7 @@ mod tests {
     #[test]
     fn test_type_params() {
         assert_eq!(
-            compilation_unit::parse_item(&code(
+            compilation_unit::parse_item(&generate_tokens(
                 r#"
 interface Test<A> extends Super, Super2<A> {}
             "#
@@ -104,7 +105,8 @@ interface Test<A> extends Super, Super2<A> {}
                         ClassType {
                             prefix_opt: None,
                             name: span(1, 27, "Super"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         },
                         ClassType {
                             prefix_opt: None,
@@ -112,8 +114,10 @@ interface Test<A> extends Super, Super2<A> {}
                             type_args_opt: Some(vec![TypeArg::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 41, "A"),
-                                type_args_opt: None
-                            })])
+                                type_args_opt: None,
+                                def_opt: None
+                            })]),
+                            def_opt: None
                         },
                     ],
                     body: ClassBody { items: vec![] }

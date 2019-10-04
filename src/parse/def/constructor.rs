@@ -6,12 +6,12 @@ use parse::tree::{Constructor, Modifier, TypeParam};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    type_params: Vec<TypeParam<'a>>,
-    name: Span<'a>,
-) -> ParseResult<'a, Constructor<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    type_params: Vec<TypeParam<'def>>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, Constructor<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, params) = separated_list(symbol(','), param::parse)(input)?;
     let (input, _) = symbol(')')(input)?;
@@ -41,12 +41,12 @@ mod tests {
         Modifier, Param, Type, TypeParam,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_constructor() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 @Anno private constructor() throws Exp {}
             "#
@@ -59,7 +59,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -72,7 +73,8 @@ mod tests {
                     throws: vec![ClassType {
                         prefix_opt: None,
                         name: span(1, 36, "Exp"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }],
                     block: Block { stmts: vec![] },
                 })
@@ -83,7 +85,7 @@ mod tests {
     #[test]
     fn test_constructor_with_params() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 <A> con(Test t, A a) {}
             "#
@@ -103,7 +105,8 @@ mod tests {
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 9, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 14, "t"),
@@ -113,7 +116,8 @@ mod tests {
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 17, "A"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 19, "a"),

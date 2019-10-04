@@ -3,7 +3,7 @@ use parse::def::{class, modifiers};
 use parse::tree::Statement;
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, modifiers) = modifiers::parse(input)?;
     let (input, _) = class::parse_prefix(input)?;
     let (input, class) = class::parse_tail(input, modifiers)?;
@@ -19,12 +19,13 @@ mod tests {
         MethodCall, Modifier, Name, Statement,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use std::cell::RefCell;
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 strictfp class Test {}
             "#
@@ -40,6 +41,7 @@ strictfp class Test {}
                     extend_opt: None,
                     implements: vec![],
                     body: ClassBody { items: vec![] },
+                    def_opt: RefCell::new(None)
                 })
             ))
         );

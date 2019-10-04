@@ -4,10 +4,10 @@ use parse::tree::{Annotation, Modifier};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, Annotation<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, Annotation<'def>> {
     let (input, name) = identifier(input)?;
 
     let (input, body) = annotation_body::parse(input)?;
@@ -22,7 +22,7 @@ pub fn parse_tail<'a>(
     ))
 }
 
-pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
+pub fn parse_prefix<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     let (input, _) = symbol('@')(input)?;
     keyword("interface")(input)
 }
@@ -34,12 +34,12 @@ mod tests {
         MarkerAnnotated, Modifier,
     };
     use parse::{compilation_unit, Tokens};
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            compilation_unit::parse_item(&code(
+            compilation_unit::parse_item(&generate_tokens(
                 r#"
 @Anno private @interface Test {}
             "#
@@ -52,7 +52,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {

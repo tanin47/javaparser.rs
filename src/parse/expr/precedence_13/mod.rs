@@ -6,7 +6,7 @@ pub mod cast;
 pub mod unary;
 pub mod unary_pre;
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok(ok) = unary_pre::parse(input) {
         Ok(ok)
     } else if let Ok(ok) = unary::parse(input) {
@@ -20,16 +20,16 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
-    use parse::tree::{Cast, Expr, Name, PrimitiveType, Type, UnaryOperation};
+    use parse::tree::{Cast, Expr, Name, PrimitiveType, PrimitiveTypeType, Type, UnaryOperation};
     use parse::Tokens;
 
     #[test]
     fn test_multi() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (int) +a
             "#
@@ -38,7 +38,8 @@ mod tests {
                 &[] as Tokens,
                 Expr::Cast(Cast {
                     tpes: vec![Type::Primitive(PrimitiveType {
-                        name: span(1, 2, "int")
+                        name: span(1, 2, "int"),
+                        tpe: PrimitiveTypeType::Int
                     })],
                     expr: Box::new(Expr::UnaryOperation(UnaryOperation {
                         expr: Box::new(Expr::Name(Name {

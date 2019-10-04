@@ -4,7 +4,7 @@ use parse::tree::{Expr, UnaryOperation};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn op(input: Tokens) -> ParseResult<Span> {
+fn op<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     if let Ok(ok) = symbol('+')(input) {
         Ok(ok)
     } else if let Ok(ok) = symbol('-')(input) {
@@ -18,7 +18,7 @@ fn op(input: Tokens) -> ParseResult<Span> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, operator) = op(input)?;
 
     let (input, expr) = precedence_13::parse(input)?;
@@ -35,7 +35,7 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{Expr, Name, UnaryOperation};
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn test_multi() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 +-a
             "#

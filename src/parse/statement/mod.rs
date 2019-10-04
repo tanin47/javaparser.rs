@@ -20,7 +20,7 @@ pub mod try;
 pub mod variable_declarators;
 pub mod while_loop;
 
-fn parse_label(input: Tokens) -> ParseResult<Span> {
+fn parse_label<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     let (input, label) = identifier(input)?;
 
     if label.fragment == "default" {
@@ -32,7 +32,7 @@ fn parse_label(input: Tokens) -> ParseResult<Span> {
     }
 }
 
-fn parse_statement(input: Tokens) -> ParseResult<Statement> {
+fn parse_statement<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     if let Ok((input, _)) = symbol(';')(input) {
         Ok((input, Statement::Empty))
     } else if let Ok(ok) = assert::parse(input) {
@@ -72,7 +72,7 @@ fn parse_statement(input: Tokens) -> ParseResult<Statement> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, label_opt) = opt(parse_label)(input)?;
     let (input, statement) = parse_statement(input)?;
 
@@ -91,19 +91,20 @@ pub fn parse(input: Tokens) -> ParseResult<Statement> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
-        ArrayType, ClassType, Expr, Labeled, Name, NewArray, PrimitiveType, ReturnStmt, Statement,
-        Type, VariableDeclarator, VariableDeclarators,
+        ArrayType, ClassType, Expr, Labeled, Name, NewArray, PrimitiveType, PrimitiveTypeType,
+        ReturnStmt, Statement, Type, VariableDeclarator, VariableDeclarators,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
 
     #[test]
     fn test_empty() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 ;
             "#
@@ -115,7 +116,7 @@ mod tests {
     #[test]
     fn test_return() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 return new Segment[ssize];
             "#
@@ -128,7 +129,8 @@ return new Segment[ssize];
                             tpe: Box::new(Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 12, "Segment"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: Some(Box::new(Expr::Name(Name {
                                 name: span(1, 20, "ssize")
@@ -144,7 +146,7 @@ return new Segment[ssize];
     #[test]
     fn test_labeled_variable_declarator() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 label: int a;
             "#
@@ -156,9 +158,10 @@ label: int a;
                     statement: Box::new(Statement::VariableDeclarators(VariableDeclarators {
                         modifiers: vec![],
                         declarators: vec![VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(1, 8, "int"),
-                            }),
+                                tpe: PrimitiveTypeType::Int
+                            })),
                             name: span(1, 12, "a"),
                             expr_opt: None
                         }]

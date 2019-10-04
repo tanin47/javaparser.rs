@@ -1,5 +1,6 @@
 use analyze::resolve::scope::EnclosingTypeDef;
-use analyze::tpe::{ClassType, EnclosingType, ParameterizedType, ReferenceType, Type};
+use parse;
+use parse::tree::{ClassType, ParameterizedType, Type, VariableDeclarator};
 use std::cell::{Cell, RefCell};
 use tokenize::span::Span;
 
@@ -36,7 +37,7 @@ impl<'a> Root<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CompilationUnit<'a> {
-    pub imports: Vec<Import>,
+    pub imports: Vec<*const parse::tree::Import<'a>>,
     pub main: Decl<'a>,
     pub others: Vec<Decl<'a>>,
 }
@@ -61,13 +62,6 @@ impl<'a> CompilationUnit<'a> {
 pub enum Decl<'a> {
     Class(Class<'a>),
     Interface(Interface<'a>),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Import {
-    pub components: Vec<String>,
-    pub is_wildcard: bool,
-    pub is_static: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -119,7 +113,7 @@ impl<'a> Package<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Class<'a> {
     pub import_path: String,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'a>>,
     pub extend_opt: RefCell<Option<ClassType<'a>>>,
@@ -177,12 +171,12 @@ impl<'a> Class<'a> {
         None
     }
 
-    pub fn to_type(&self) -> ClassType<'a> {
+    pub fn to_type(&self, name: &Span<'a>) -> ClassType<'a> {
         ClassType {
-            prefix_opt: RefCell::new(None),
-            name: self.name.fragment,
-            type_args: vec![],
-            def_opt: Cell::new(Some(self as *const Class<'a>)),
+            prefix_opt: None,
+            name: name.clone(),
+            type_args_opt: None,
+            def_opt: Some(self as *const Class<'a>),
         }
     }
 }
@@ -190,7 +184,7 @@ impl<'a> Class<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Interface<'a> {
     pub import_path: String,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     pub methods: Vec<Method<'a>>,
     pub field_groups: Vec<FieldGroup<'a>>,
     pub decls: Vec<Decl<'a>>,
@@ -198,7 +192,7 @@ pub struct Interface<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Constructor<'a> {
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -206,7 +200,7 @@ pub struct Method<'a> {
     pub modifiers: Vec<Modifier>,
     pub type_params: Vec<TypeParam<'a>>,
     pub return_type: RefCell<Type<'a>>,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     pub params: Vec<Param<'a>>,
 }
 unsafe impl<'a> Sync for Method<'a> {}
@@ -214,7 +208,7 @@ unsafe impl<'a> Sync for Method<'a> {}
 #[derive(Debug, PartialEq, Clone)]
 pub struct Param<'a> {
     pub tpe: RefCell<Type<'a>>,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -224,7 +218,7 @@ pub enum TypeParamExtend<'a> {
 }
 
 impl<'a> TypeParamExtend<'a> {
-    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
+    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
         match self {
             TypeParamExtend::Class(class) => class.find_inner_class(name),
             TypeParamExtend::Parameterized(parameterized) => parameterized.find_inner_class(name),
@@ -234,17 +228,18 @@ impl<'a> TypeParamExtend<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypeParam<'a> {
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
     pub extends: RefCell<Vec<TypeParamExtend<'a>>>,
 }
 
 impl<'a> TypeParam<'a> {
-    pub fn to_type(&self) -> ParameterizedType<'a> {
-        ParameterizedType {
-            name: self.name.fragment,
-            def_opt: Cell::new(Some(self as *const TypeParam<'a>)),
-        }
-    }
+    // This method makes no sense. We can't use type param's name as the type. That is wrong
+    //    pub fn to_type(&self) -> ParameterizedType<'a> {
+    //        ParameterizedType {
+    //            name: self.name,
+    //            def_opt: self as *const TypeParam<'a>,
+    //        }
+    //    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -272,6 +267,6 @@ pub struct FieldGroup<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Field<'a> {
     pub tpe: RefCell<Type<'a>>,
-    pub name: &'a Span<'a>,
+    pub name: Span<'a>,
 }
 unsafe impl<'a> Sync for Field<'a> {}

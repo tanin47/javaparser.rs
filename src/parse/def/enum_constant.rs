@@ -4,7 +4,7 @@ use parse::expr::atom::invocation;
 use parse::tree::EnumConstant;
 use parse::{ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<EnumConstant> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, EnumConstant<'def>> {
     let (input, annotateds) = annotateds::parse(input)?;
     let (input, name) = identifier(input)?;
 
@@ -31,12 +31,12 @@ mod tests {
         MarkerAnnotated, Method, Type, Void,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 @Anno FIRST
             "#
@@ -48,7 +48,8 @@ mod tests {
                         class: ClassType {
                             prefix_opt: None,
                             name: span(1, 2, "Anno"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }
                     })],
                     name: span(1, 7, "FIRST"),
@@ -62,7 +63,7 @@ mod tests {
     #[test]
     fn test_with_args_and_body() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 FIRST(1) {
   void method() {}

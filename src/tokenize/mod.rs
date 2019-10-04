@@ -7,16 +7,21 @@ use tokenize::combinator::{
 use tokenize::span::CharAt;
 use tokenize::span::Span;
 use tokenize::token::Token;
+use JavaFile;
 
 pub mod combinator;
 pub mod span;
 pub mod token;
 
-pub fn apply(content: &str) -> Result<Vec<Token>, Span> {
+pub fn apply<'def>(
+    content: &'def str,
+    file: *const JavaFile<'def>,
+) -> Result<Vec<Token<'def>>, Span<'def>> {
     let mut input = Span {
         line: 1,
         col: 1,
         fragment: content,
+        file,
     };
     let mut tokens = vec![];
 
@@ -34,7 +39,7 @@ pub fn apply(content: &str) -> Result<Vec<Token>, Span> {
     Ok(tokens)
 }
 
-fn tokenize(input: Span) -> Result<(Span, Option<Token>), Span> {
+fn tokenize<'def>(input: Span<'def>) -> Result<(Span<'def>, Option<Token<'def>>), Span<'def>> {
     let input = skip_space(input);
 
     if input.fragment.is_empty() {
@@ -292,6 +297,7 @@ fn float_or_double_end<'a>(
                         number.fragment.len() + symbol.fragment.len(),
                     ))
                 },
+                file: number.file,
             }),
         ))
     } else if last_char == 'F' {
@@ -306,6 +312,7 @@ fn float_or_double_end<'a>(
                         number.fragment.len() + symbol.fragment.len(),
                     ))
                 },
+                file: number.file,
             }),
         ))
     } else if include_dot_or_e {
@@ -364,6 +371,7 @@ fn float_or_double_dot<'a>(
                 first_number.fragment.len() + symbol.fragment.len() + second_number.fragment.len(),
             ))
         },
+        file: first_number.file,
     };
 
     float_or_double_e(num, input, true)
@@ -424,10 +432,14 @@ fn multiline_comment(input: Span) -> Result<(Span, Token), Span> {
 
 #[cfg(test)]
 mod tests {
-    use super::apply;
-    use test_common::span;
+    use test_common::{generate_tokens, span};
     use tokenize::token::Token;
     use tokenize::Span;
+    use JavaFile;
+
+    fn apply(content: &str) -> Result<Vec<Token>, Span> {
+        super::apply(content, std::ptr::null())
+    }
 
     #[test]
     fn test_oneline_comment() {

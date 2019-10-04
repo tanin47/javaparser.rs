@@ -3,7 +3,9 @@ use parse::tpe::class;
 use parse::tree::{ClassType, TypeParam};
 use parse::{ParseResult, Tokens};
 
-pub fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
+pub fn parse_extends<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<ClassType<'def>>> {
     if let Ok((input, _)) = keyword("extends")(input) {
         separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
     } else {
@@ -11,14 +13,16 @@ pub fn parse_extends(input: Tokens) -> ParseResult<Vec<ClassType>> {
     }
 }
 
-pub fn parse_type_param(input: Tokens) -> ParseResult<TypeParam> {
+pub fn parse_type_param<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, TypeParam<'def>> {
     let (input, name) = identifier(input)?;
     let (input, extends) = parse_extends(input)?;
 
     Ok((input, TypeParam { name, extends }))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Vec<TypeParam>> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<TypeParam<'def>>> {
     if let Ok((input, _)) = symbol('<')(input) {
         let (input, type_params) = separated_list(symbol(','), parse_type_param)(input)?;
         let (input, _) = symbol('>')(input)?;
@@ -33,12 +37,12 @@ mod tests {
     use super::parse;
     use parse::tree::{ClassType, TypeArg, TypeParam};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 <A, B extends A, C extends String & Another<A>>
             "#
@@ -55,7 +59,8 @@ mod tests {
                         extends: vec![ClassType {
                             prefix_opt: None,
                             name: span(1, 15, "A"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }]
                     },
                     TypeParam {
@@ -64,7 +69,8 @@ mod tests {
                             ClassType {
                                 prefix_opt: None,
                                 name: span(1, 28, "String"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             },
                             ClassType {
                                 prefix_opt: None,
@@ -72,8 +78,10 @@ mod tests {
                                 type_args_opt: Some(vec![TypeArg::Class(ClassType {
                                     prefix_opt: None,
                                     name: span(1, 45, "A"),
-                                    type_args_opt: None
-                                })])
+                                    type_args_opt: None,
+                                    def_opt: None
+                                })]),
+                                def_opt: None
                             }
                         ]
                     },
@@ -84,6 +92,6 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        assert_eq!(parse(&code("")), Ok((&[] as Tokens, vec![])));
+        assert_eq!(parse(&generate_tokens("")), Ok((&[] as Tokens, vec![])));
     }
 }

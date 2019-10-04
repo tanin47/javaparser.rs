@@ -20,7 +20,7 @@ pub mod precedence_7;
 pub mod precedence_8;
 pub mod precedence_9;
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, tpe)) = tpe::parse(input) {
         if let Ok(_) = symbol2(':', ':')(input) {
             match tpe {
@@ -44,20 +44,20 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
         ArrayType, BinaryOperation, Boolean, ClassExpr, ClassType, ConstructorReference, Expr,
         FieldAccess, MethodCall, MethodReference, MethodReferencePrimary, Name, PrimitiveType,
-        ReferenceType, Type, TypeArg,
+        PrimitiveTypeType, ReferenceType, Type, TypeArg,
     };
     use parse::Tokens;
 
     #[test]
     fn test_method_ref_int_array() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 int[]::size
             "#
@@ -67,7 +67,8 @@ int[]::size
                 Expr::MethodReference(MethodReference {
                     primary: MethodReferencePrimary::Array(ArrayType {
                         tpe: Box::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "int")
+                            name: span(1, 1, "int"),
+                            tpe: PrimitiveTypeType::Int
                         })),
                         size_opt: None
                     }),
@@ -81,7 +82,7 @@ int[]::size
     #[test]
     fn test_constructor_ref() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test<A>::new
             "#
@@ -95,8 +96,10 @@ Test<A>::new
                         type_args_opt: Some(vec![TypeArg::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 6, "A"),
-                            type_args_opt: None
-                        })])
+                            type_args_opt: None,
+                            def_opt: None
+                        })]),
+                        def_opt: None
                     }),
                     type_args_opt: None,
                 })
@@ -107,7 +110,7 @@ Test<A>::new
     #[test]
     fn test_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test.class.hashCode()
             "#
@@ -119,7 +122,8 @@ Test.class.hashCode()
                         tpe: Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 1, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }),
                         span: span(1, 6, "class")
                     }))),
@@ -134,7 +138,7 @@ Test.class.hashCode()
     #[test]
     fn test_parenthesized() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (true || false) && t.a || false
             "#

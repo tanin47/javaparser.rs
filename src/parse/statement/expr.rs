@@ -2,14 +2,16 @@ use parse::combinator::symbol;
 use parse::tree::Statement;
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, statement) = parse_without_semicolon(input)?;
     let (input, _) = symbol(';')(input)?;
 
     Ok((input, statement))
 }
 
-pub fn parse_without_semicolon(input: Tokens) -> ParseResult<Statement> {
+pub fn parse_without_semicolon<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, expr) = expr::parse(input)?;
     Ok((input, Statement::Expr(expr)))
 }
@@ -21,12 +23,12 @@ mod tests {
         ArrayAccess, Assigned, Assignment, Expr, FieldAccess, Int, MethodCall, Name, Statement,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_return_void() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a = 123;
             "#
@@ -49,7 +51,7 @@ a = 123;
     #[test]
     fn test_complex() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a[0].b.c();
             "#

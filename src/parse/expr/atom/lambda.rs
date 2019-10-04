@@ -6,7 +6,9 @@ use parse::statement::block::parse_block;
 use parse::tree::{Block, Expr, Lambda, Param, Type};
 use parse::{expr, ParseResult, Tokens};
 
-fn parse_block_or_single_expr(input: Tokens) -> ParseResult<Either<Block, Expr>> {
+fn parse_block_or_single_expr<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Either<Block<'def>, Expr<'def>>> {
     match parse_block(input) {
         Ok((input, block)) => Ok((input, Either::Left(block))),
         Err(_) => {
@@ -16,7 +18,9 @@ fn parse_block_or_single_expr(input: Tokens) -> ParseResult<Either<Block, Expr>>
     }
 }
 
-fn parse_param_with_type_or_without_type(input: Tokens) -> ParseResult<Param> {
+fn parse_param_with_type_or_without_type<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Param<'def>> {
     match param::parse(input) {
         Ok(result) => Ok(result),
         Err(_) => {
@@ -34,7 +38,7 @@ fn parse_param_with_type_or_without_type(input: Tokens) -> ParseResult<Param> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, params) = if let Ok((input, _)) = symbol('(')(input) {
         let (input, params) =
             separated_list(symbol(','), parse_param_with_type_or_without_type)(input)?;
@@ -78,15 +82,16 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
 mod tests {
     use super::parse;
     use parse::tree::{
-        Block, ClassType, Expr, Int, Lambda, Param, PrimitiveType, ReturnStmt, Statement, Type,
+        Block, ClassType, Expr, Int, Lambda, Param, PrimitiveType, PrimitiveTypeType, ReturnStmt,
+        Statement, Type,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_single_with_args() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (Test t, a, int i) -> 1
             "#
@@ -100,7 +105,8 @@ mod tests {
                             tpe: Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }),
                             is_varargs: false,
                             name: span(1, 7, "t"),
@@ -114,7 +120,8 @@ mod tests {
                         Param {
                             modifiers: vec![],
                             tpe: Type::Primitive(PrimitiveType {
-                                name: span(1, 13, "int")
+                                name: span(1, 13, "int"),
+                                tpe: PrimitiveTypeType::Int
                             }),
                             is_varargs: false,
                             name: span(1, 17, "i"),
@@ -132,7 +139,7 @@ mod tests {
     #[test]
     fn test_simple() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 (x) -> 2
             "#
@@ -158,7 +165,7 @@ mod tests {
     #[test]
     fn test_simple2() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 x -> 2
             "#
@@ -184,7 +191,7 @@ x -> 2
     #[test]
     fn test_block() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 () -> { return 1; }
             "#

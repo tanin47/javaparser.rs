@@ -3,11 +3,11 @@ use parse::statement::variable_declarators;
 use parse::tree::{FieldDeclarators, Modifier, Type};
 use parse::{ParseResult, Tokens};
 
-pub fn parse<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    tpe: Type<'a>,
-) -> ParseResult<'a, FieldDeclarators<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    tpe: Type<'def>,
+) -> ParseResult<'def, 'r, FieldDeclarators<'def>> {
     let (input, declarators) =
         separated_nonempty_list(symbol(','), variable_declarators::parse_single(tpe))(input)?;
 
@@ -27,15 +27,16 @@ mod tests {
     use parse::def::class_body;
     use parse::tree::{
         Annotated, ArrayType, ClassBodyItem, ClassType, Expr, FieldDeclarators, Int, Keyword,
-        MarkerAnnotated, Modifier, PrimitiveType, Type, VariableDeclarator,
+        MarkerAnnotated, Modifier, PrimitiveType, PrimitiveTypeType, Type, VariableDeclarator,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use std::cell::RefCell;
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 @Anno private int a;
             "#
@@ -48,7 +49,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -56,9 +58,10 @@ mod tests {
                         })
                     ],
                     declarators: vec![VariableDeclarator {
-                        tpe: Type::Primitive(PrimitiveType {
+                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
                             name: span(1, 15, "int"),
-                        }),
+                            tpe: PrimitiveTypeType::Int
+                        })),
                         name: span(1, 19, "a"),
                         expr_opt: None
                     }]
@@ -70,7 +73,7 @@ mod tests {
     #[test]
     fn test_weird_array() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 static int[] a, b[];
             "#
@@ -84,25 +87,27 @@ static int[] a, b[];
                     })],
                     declarators: vec![
                         VariableDeclarator {
-                            tpe: Type::Array(ArrayType {
+                            tpe: RefCell::new(Type::Array(ArrayType {
                                 tpe: Box::new(Type::Primitive(PrimitiveType {
                                     name: span(1, 8, "int"),
+                                    tpe: PrimitiveTypeType::Int
                                 })),
                                 size_opt: None
-                            }),
+                            })),
                             name: span(1, 14, "a"),
                             expr_opt: None
                         },
                         VariableDeclarator {
-                            tpe: Type::Array(ArrayType {
+                            tpe: RefCell::new(Type::Array(ArrayType {
                                 tpe: Box::new(Type::Array(ArrayType {
                                     tpe: Box::new(Type::Primitive(PrimitiveType {
                                         name: span(1, 8, "int"),
+                                        tpe: PrimitiveTypeType::Int
                                     })),
                                     size_opt: None
                                 })),
                                 size_opt: None
-                            }),
+                            })),
                             name: span(1, 17, "b"),
                             expr_opt: None
                         },
@@ -115,7 +120,7 @@ static int[] a, b[];
     #[test]
     fn test_expr() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 int a = 1;
             "#
@@ -125,9 +130,10 @@ int a = 1;
                 ClassBodyItem::FieldDeclarators(FieldDeclarators {
                     modifiers: vec![],
                     declarators: vec![VariableDeclarator {
-                        tpe: Type::Primitive(PrimitiveType {
+                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
                             name: span(1, 1, "int"),
-                        }),
+                            tpe: PrimitiveTypeType::Int
+                        })),
                         name: span(1, 5, "a"),
                         expr_opt: Some(Expr::Int(Int {
                             value: span(1, 9, "1")
@@ -141,7 +147,7 @@ int a = 1;
     #[test]
     fn test_multiple() {
         assert_eq!(
-            class_body::parse_item(&code(
+            class_body::parse_item(&generate_tokens(
                 r#"
 int a = 1, b[], c;
             "#
@@ -152,28 +158,31 @@ int a = 1, b[], c;
                     modifiers: vec![],
                     declarators: vec![
                         VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(1, 1, "int"),
-                            }),
+                                tpe: PrimitiveTypeType::Int
+                            })),
                             name: span(1, 5, "a"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(1, 9, "1")
                             }))
                         },
                         VariableDeclarator {
-                            tpe: Type::Array(ArrayType {
+                            tpe: RefCell::new(Type::Array(ArrayType {
                                 tpe: Box::new(Type::Primitive(PrimitiveType {
                                     name: span(1, 1, "int"),
+                                    tpe: PrimitiveTypeType::Int
                                 })),
                                 size_opt: None
-                            }),
+                            })),
                             name: span(1, 12, "b"),
                             expr_opt: None
                         },
                         VariableDeclarator {
-                            tpe: Type::Primitive(PrimitiveType {
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                 name: span(1, 1, "int"),
-                            }),
+                                tpe: PrimitiveTypeType::Int
+                            })),
                             name: span(1, 17, "c"),
                             expr_opt: None
                         }

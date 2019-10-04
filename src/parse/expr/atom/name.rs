@@ -5,7 +5,9 @@ use parse::tree::{Keyword, Name};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse(input: Tokens) -> ParseResult<Either<Keyword, Name>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Either<Keyword<'def>, Name<'def>>> {
     if let Ok((input, name)) = identifier(input) {
         Ok((input, Either::Right(Name { name })))
     } else if let Ok((input, name)) = any_keyword(input) {
@@ -21,12 +23,12 @@ mod tests {
     use either::Either;
     use parse::tree::Name;
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_bare() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 name_something
             "#

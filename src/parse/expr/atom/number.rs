@@ -2,7 +2,7 @@ use parse::tree::{Double, Expr, Float, Hex, Int, Long};
 use parse::{ParseResult, Tokens};
 use tokenize::token::Token;
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Token::Int(value) = input[0] {
         Ok((&input[1..], Expr::Int(Int { value })))
     } else if let Token::Long(value) = input[0] {
@@ -21,12 +21,12 @@ mod tests {
     use super::parse;
     use parse::tree::{Expr, Int};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_int() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 0xab1cdef123
             "#

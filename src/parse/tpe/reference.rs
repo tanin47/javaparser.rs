@@ -3,7 +3,7 @@ use parse::tpe::{class, primitive};
 use parse::tree::{ReferenceType, Type, Void};
 use parse::{ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<ReferenceType> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, ReferenceType<'def>> {
     let (input, tpe) = if let Ok(ok) = primitive::parse(input) {
         ok
     } else if let Ok(ok) = class::parse(input) {

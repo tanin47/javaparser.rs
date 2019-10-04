@@ -1,15 +1,15 @@
 use analyze::build::scope::Scope;
-use analyze::build::{constructor, field_group, interface, method, tpe, type_param};
+use analyze::build::{constructor, field_group, interface, method, type_param};
 use analyze::definition::{Class, Decl};
 use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
 use parse::tree::ClassBodyItem;
 use std::cell::{Cell, RefCell};
 
-pub fn build<'a, 'b>(class: &'a parse::tree::Class<'a>, scope: &'b mut Scope) -> Class<'a>
-where
-    'a: 'b,
-{
+pub fn build<'def, 'scope_ref, 'def_ref>(
+    class: &'def_ref parse::tree::Class<'def>,
+    scope: &'scope_ref mut Scope,
+) -> Class<'def> {
     scope.wrap(class.name.fragment, |scope| {
         let mut constructors = vec![];
         let mut decls = vec![];
@@ -36,15 +36,15 @@ where
         }
 
         for i in &class.implements {
-            implements.push(tpe::build_class(i))
+            implements.push(i.clone())
         }
 
         Class {
             import_path: scope.get_import_path(),
-            name: &class.name,
+            name: class.name.clone(),
             type_params,
             extend_opt: RefCell::new(match &class.extend_opt {
-                Some(extend) => Some(tpe::build_class(extend)),
+                Some(extend) => Some(extend.clone()),
                 None => None,
             }),
             decls,
@@ -63,14 +63,18 @@ mod tests {
         Class, CompilationUnit, Constructor, Decl, Field, FieldGroup, Method, Package, Root,
         TypeParam,
     };
-    use analyze::tpe::{ClassType, PrimitiveType, ReferenceType, Type, TypeArg, WildcardType};
+    use parse::apply_tokens;
+    use parse::tree::{
+        ClassType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg, Void,
+        WildcardType,
+    };
     use std::cell::{Cell, RefCell};
-    use test_common::{code, parse, span};
+    use test_common::{apply_analyze_build, generate_tokens, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            apply(&parse(&code(
+            apply(&apply_analyze_build(
                 r#"
 class Test<T> extends Super<? extends T> implements Interface<T> {
     Test() {}
@@ -78,43 +82,43 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
     int a;
     class InnerClass extends Other{}
 }
-        "#,
-            ))),
+        "#
+            )),
             Root {
                 subpackages: vec![],
                 units: vec![CompilationUnit {
                     imports: vec![],
                     main: Decl::Class(Class {
                         import_path: "Test".to_owned(),
-                        name: &span(1, 7, "Test"),
+                        name: span(1, 7, "Test"),
                         type_params: vec![TypeParam {
-                            name: &span(1, 12, "T"),
+                            name: span(1, 12, "T"),
                             extends: RefCell::new(vec![])
                         }],
                         extend_opt: RefCell::new(Some(ClassType {
-                            prefix_opt: RefCell::new(None),
-                            name: "Super",
-                            type_args: vec![TypeArg::Wildcard(WildcardType {
-                                name: &span(1, 29, "?"),
+                            prefix_opt: None,
+                            name: span(1, 23, "Super"),
+                            type_args_opt: Some(vec![TypeArg::Wildcard(WildcardType {
+                                name: span(1, 29, "?"),
                                 super_opt: None,
                                 extends: vec![ReferenceType::Class(ClassType {
-                                    prefix_opt: RefCell::new(None),
-                                    name: "T",
-                                    type_args: vec![],
-                                    def_opt: Cell::new(None)
+                                    prefix_opt: None,
+                                    name: span(1, 39, "T"),
+                                    type_args_opt: None,
+                                    def_opt: None
                                 })]
-                            })],
-                            def_opt: Cell::new(None)
+                            })]),
+                            def_opt: None
                         })),
                         decls: vec![Decl::Class(Class {
                             import_path: "Test.InnerClass".to_owned(),
-                            name: &span(5, 11, "InnerClass"),
+                            name: span(5, 11, "InnerClass"),
                             type_params: vec![],
                             extend_opt: RefCell::new(Some(ClassType {
-                                prefix_opt: RefCell::new(None),
-                                name: "Other",
-                                type_args: vec![],
-                                def_opt: Cell::new(None)
+                                prefix_opt: None,
+                                name: span(5, 30, "Other"),
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             decls: vec![],
                             constructors: vec![],
@@ -123,32 +127,37 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                             implements: vec![]
                         })],
                         constructors: vec![Constructor {
-                            name: &span(2, 5, "Test")
+                            name: span(2, 5, "Test")
                         }],
                         methods: vec![Method {
                             modifiers: vec![],
-                            return_type: RefCell::new(Type::Void),
-                            name: &span(3, 10, "method"),
+                            return_type: RefCell::new(Type::Void(Void {
+                                span: span(3, 5, "void")
+                            })),
+                            name: span(3, 10, "method"),
                             type_params: vec![],
                             params: vec![]
                         }],
                         field_groups: vec![FieldGroup {
                             modifiers: vec![],
                             items: vec![Field {
-                                tpe: RefCell::new(Type::Primitive(PrimitiveType::Int)),
-                                name: &span(4, 9, "a")
+                                tpe: RefCell::new(Type::Primitive(PrimitiveType {
+                                    name: span(4, 5, "int"),
+                                    tpe: PrimitiveTypeType::Int
+                                })),
+                                name: span(4, 9, "a")
                             },]
                         }],
                         implements: vec![ClassType {
-                            prefix_opt: RefCell::new(None),
-                            name: "Interface",
-                            type_args: vec![TypeArg::Class(ClassType {
-                                prefix_opt: RefCell::new(None),
-                                name: "T",
-                                type_args: vec![],
-                                def_opt: Cell::new(None)
-                            })],
-                            def_opt: Cell::new(None)
+                            prefix_opt: None,
+                            name: span(1, 53, "Interface"),
+                            type_args_opt: Some(vec![TypeArg::Class(ClassType {
+                                prefix_opt: None,
+                                name: span(1, 63, "T"),
+                                type_args_opt: None,
+                                def_opt: None
+                            })]),
+                            def_opt: None
                         }]
                     }),
                     others: vec![]

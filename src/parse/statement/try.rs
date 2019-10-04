@@ -4,7 +4,7 @@ use parse::statement::{block, variable_declarators};
 use parse::tree::{Catch, Expr, StandaloneVariableDeclarator, Statement, Try, TryResource};
 use parse::{expr, tpe, ParseResult, Tokens};
 
-fn parse_catch(input: Tokens) -> ParseResult<Catch> {
+fn parse_catch<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Catch<'def>> {
     let (input, _) = keyword("catch")(input)?;
     let (input, _) = symbol('(')(input)?;
     let (input, modifiers) = modifiers::parse(input)?;
@@ -27,7 +27,7 @@ fn parse_catch(input: Tokens) -> ParseResult<Catch> {
 }
 
 // TODO: This can be optimized to do bottom-up parsing.
-fn parse_resource(input: Tokens) -> ParseResult<TryResource> {
+fn parse_resource<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, TryResource<'def>> {
     if let Ok((input, declarator)) = variable_declarators::parse_standalone(input) {
         return Ok((input, TryResource::Declarator(declarator)));
     } else if let Ok((input, expr)) = expr::parse(input) {
@@ -41,7 +41,9 @@ fn parse_resource(input: Tokens) -> ParseResult<TryResource> {
     Err(input)
 }
 
-fn parse_resources(input: Tokens) -> ParseResult<Vec<TryResource>> {
+fn parse_resources<'def, 'r>(
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Vec<TryResource<'def>>> {
     let (input, _) = match symbol('(')(input) {
         Ok(ok) => ok,
         Err(_) => return Ok((input, vec![])),
@@ -53,7 +55,7 @@ fn parse_resources(input: Tokens) -> ParseResult<Vec<TryResource>> {
     Ok((input, resources))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("try")(input)?;
     let (input, resources) = parse_resources(input)?;
     let (input, try) = block::parse_block(input)?;
@@ -83,16 +85,17 @@ mod tests {
     use super::parse;
     use parse::tree::{
         Block, Catch, ClassType, Expr, FieldAccess, Int, Keyword, MethodCall, Modifier, Name,
-        PrimitiveType, StandaloneVariableDeclarator, Statement, Throw, Try, TryResource, Type,
-        UnaryOperation,
+        PrimitiveType, PrimitiveTypeType, StandaloneVariableDeclarator, Statement, Throw, Try,
+        TryResource, Type, UnaryOperation,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use std::cell::RefCell;
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_only_try() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 try (in; a.b) {
 }
@@ -125,7 +128,7 @@ try (in; a.b) {
     #[test]
     fn test_multiple_catches() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 try (
   int i = 1;
@@ -156,9 +159,10 @@ try (
                     resources: vec![
                         TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
-                            tpe: Type::Primitive(PrimitiveType {
-                                name: span(2, 3, "int")
-                            }),
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
+                                name: span(2, 3, "int"),
+                                tpe: PrimitiveTypeType::Int
+                            })),
                             name: span(2, 7, "i"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(2, 11, "1")
@@ -166,9 +170,10 @@ try (
                         }),
                         TryResource::Declarator(StandaloneVariableDeclarator {
                             modifiers: vec![],
-                            tpe: Type::Primitive(PrimitiveType {
-                                name: span(3, 3, "int")
-                            }),
+                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
+                                name: span(3, 3, "int"),
+                                tpe: PrimitiveTypeType::Int
+                            })),
                             name: span(3, 7, "a"),
                             expr_opt: Some(Expr::Int(Int {
                                 value: span(3, 11, "2")
@@ -183,12 +188,14 @@ try (
                                 ClassType {
                                     prefix_opt: None,
                                     name: span(6, 10, "Exception"),
-                                    type_args_opt: None
+                                    type_args_opt: None,
+                                    def_opt: None
                                 },
                                 ClassType {
                                     prefix_opt: None,
                                     name: span(6, 22, "Exception2"),
-                                    type_args_opt: None
+                                    type_args_opt: None,
+                                    def_opt: None
                                 }
                             ],
                             block: Block {
@@ -207,7 +214,8 @@ try (
                             class_types: vec![ClassType {
                                 prefix_opt: None,
                                 name: span(8, 16, "Exp"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }],
                             block: Block {
                                 stmts: vec![Statement::Expr(Expr::MethodCall(MethodCall {

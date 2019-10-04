@@ -64,8 +64,7 @@ fn parse_file(path: &Path) -> Result<Duration, ()> {
     let start = Instant::now();
 
     let content = fs::read_to_string(path).unwrap();
-    let tokens = tokenize::apply(&content).ok().unwrap();
-    let result = parse::apply(&tokens);
+    let result = parse::apply(&content, path.to_str().unwrap());
 
     match result {
         Ok(_) => Ok(start.elapsed()),

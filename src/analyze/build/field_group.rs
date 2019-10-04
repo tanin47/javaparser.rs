@@ -2,7 +2,9 @@ use analyze::build::{field, modifier};
 use analyze::definition::FieldGroup;
 use parse;
 
-pub fn build<'a>(field_declarators: &'a parse::tree::FieldDeclarators<'a>) -> FieldGroup<'a> {
+pub fn build<'def, 'def_ref>(
+    field_declarators: &'def_ref parse::tree::FieldDeclarators<'def>,
+) -> FieldGroup<'def> {
     let mut items = vec![];
 
     for declarator in &field_declarators.declarators {

@@ -1,8 +1,9 @@
-use analyze;
 use analyze::definition::{Class, Decl, Package, Root, TypeParam};
-use analyze::tpe::{ClassType, EnclosingType, PackagePrefix};
+use parse::tree::{ClassType, EnclosingType, ImportPrefix, PackagePrefix, ParameterizedType};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use tokenize::span::Span;
+use {analyze, parse};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Scope<'def, 'r>
@@ -55,6 +56,13 @@ impl<'def> EnclosingTypeDef<'def> {
             }
         }
     }
+    pub fn find_package<'a, 'b>(&'a self, name: &str) -> Option<&'b Package<'def>> {
+        match self.find(name) {
+            Some(EnclosingTypeDef::Package(package)) => Some(unsafe { &*package }),
+            Some(EnclosingTypeDef::Class(_)) => panic!(),
+            None => None,
+        }
+    }
     pub fn find_class<'a, 'b>(&'a self, name: &str) -> Option<&'b Class<'def>> {
         match self.find(name) {
             Some(EnclosingTypeDef::Package(_)) => panic!(),
@@ -63,47 +71,52 @@ impl<'def> EnclosingTypeDef<'def> {
         }
     }
 
-    pub fn to_type(&self) -> EnclosingType<'def> {
+    pub fn to_type(&self, name: &Span<'def>) -> EnclosingType<'def> {
         match self {
             EnclosingTypeDef::Package(package) => {
                 let package = unsafe { &(**package) };
                 EnclosingType::Package(PackagePrefix {
-                    prefix_opt: RefCell::new(None),
-                    name: &package.name,
+                    prefix_opt: None,
+                    name: name.clone(),
                     def: package as *const Package,
                 })
             }
             EnclosingTypeDef::Class(class) => {
                 let class = unsafe { &(**class) };
-                EnclosingType::Class(class.to_type())
+                EnclosingType::Class(class.to_type(name))
             }
         }
     }
 }
 
 impl<'def, 'r> Scope<'def, 'r> {
-    pub fn add_import(&mut self, import: &analyze::definition::Import) {
-        let mut imported: EnclosingTypeDef = if let Some(first) = import.components.first() {
-            self.root.find(first.as_str()).unwrap()
-        } else {
-            return;
+    fn resolve_import_prefix(&self, prefix: &'r ImportPrefix<'def>) -> EnclosingTypeDef<'def> {
+        match &prefix.prefix_opt {
+            None => self.root.find(prefix.name.fragment).unwrap(),
+            Some(prefix_prefix) => self.resolve_import_prefix(prefix_prefix),
+        }
+    }
+
+    pub fn add_import(&mut self, import: &'r parse::tree::Import<'def>) {
+        let enclosing_prefix_opt = match &import.prefix_opt {
+            Some(prefix) => Some(self.resolve_import_prefix(prefix)),
+            None => None,
         };
 
-        for component in &import.components[1..] {
-            if let Some(enclosing) = self.resolve_type_def_at(&imported, component) {
-                imported = enclosing;
-            } else {
-                return;
-            }
-        }
+        let enclosing = match enclosing_prefix_opt {
+            Some(prefix) => self
+                .resolve_type_def_at(&prefix, import.name.fragment)
+                .unwrap(),
+            None => self.root.find(import.name.fragment).unwrap(),
+        };
 
         if import.is_wildcard {
             self.wildcard_imports.push(WildcardImport {
-                enclosing: imported,
+                enclosing,
                 is_static: import.is_static,
             });
         } else {
-            let class = if let EnclosingTypeDef::Class(class) = imported {
+            let class = if let EnclosingTypeDef::Class(class) = enclosing {
                 class
             } else {
                 return;
@@ -161,16 +174,19 @@ impl<'def, 'r> Scope<'def, 'r> {
             .map(|p| p as *const Package<'def>)
     }
 
-    pub fn resolve_type(&self, name: &str) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type(&self, name: &Span<'def>) -> Option<EnclosingType<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
-            if let Some(locals) = current.names.get(name) {
+            if let Some(locals) = current.names.get(name.fragment) {
                 for local in locals {
                     match local {
                         Name::TypeParam(type_param) => {
                             let type_param = unsafe { &(**type_param) };
-                            return Some(EnclosingType::Parameterized(type_param.to_type()));
+                            return Some(EnclosingType::Parameterized(ParameterizedType {
+                                name: name.clone(),
+                                def: type_param,
+                            }));
                         }
                     }
                 }
@@ -193,14 +209,17 @@ impl<'def, 'r> Scope<'def, 'r> {
             return Some(result);
         }
 
-        self.root.find(name).map(|e| e.to_type())
+        self.root.find(name.fragment).map(|e| e.to_type(name))
     }
 
-    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type_with_specific_import(
+        &self,
+        name: &Span<'def>,
+    ) -> Option<EnclosingType<'def>> {
         for import in &self.specific_imports {
             let class = unsafe { &(*import.class) };
-            if class.name.fragment == name {
-                return Some(EnclosingType::Class(class.to_type()));
+            if class.name.fragment == name.fragment {
+                return Some(EnclosingType::Class(class.to_type(name)));
             }
         }
 
@@ -210,18 +229,18 @@ impl<'def, 'r> Scope<'def, 'r> {
     pub fn resolve_type_at(
         &self,
         current: &EnclosingTypeDef<'def>,
-        name: &str,
+        name: &Span<'def>,
     ) -> Option<EnclosingType<'def>> {
         match current {
             EnclosingTypeDef::Package(package) => {
                 let package = unsafe { &(**package) };
 
-                if let Some(enclosing) = package.find(name) {
-                    return Some(enclosing.to_type());
+                if let Some(enclosing) = package.find(name.fragment) {
+                    return Some(enclosing.to_type(name));
                 }
             }
             EnclosingTypeDef::Class(class) => {
-                let class = unsafe { &(**class) }.to_type();
+                let class = unsafe { &(**class) }.to_type(name);
 
                 // TODO: the result needs to inherit type args from `class`.
                 // Because `class` is the enclosing type def.

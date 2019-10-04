@@ -4,31 +4,31 @@ use parse::tpe::type_args;
 use parse::tree::{ClassType, Expr, NewObject, TypeArg};
 use parse::{expr, tpe, ParseResult, Tokens};
 
-pub fn parse_tail<'a>(
-    prefix_opt: Option<Expr<'a>>,
-    input: Tokens<'a>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    prefix_opt: Option<Expr<'def>>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, constructor_type_args_opt) = type_args::parse(input)?;
 
     parse_tail2(prefix_opt, input, constructor_type_args_opt)
 }
 
-pub fn parse_tail2<'a>(
-    prefix_opt: Option<Expr<'a>>,
-    input: Tokens<'a>,
-    constructor_type_args_opt: Option<Vec<TypeArg<'a>>>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail2<'def, 'r>(
+    prefix_opt: Option<Expr<'def>>,
+    input: Tokens<'def, 'r>,
+    constructor_type_args_opt: Option<Vec<TypeArg<'def>>>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, tpe) = tpe::class::parse_no_array(input)?;
 
     parse_tail3(prefix_opt, input, constructor_type_args_opt, tpe)
 }
 
-pub fn parse_tail3<'a>(
-    prefix_opt: Option<Expr<'a>>,
-    input: Tokens<'a>,
-    constructor_type_args_opt: Option<Vec<TypeArg<'a>>>,
-    tpe: ClassType<'a>,
-) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail3<'def, 'r>(
+    prefix_opt: Option<Expr<'def>>,
+    input: Tokens<'def, 'r>,
+    constructor_type_args_opt: Option<Vec<TypeArg<'def>>>,
+    tpe: ClassType<'def>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, args) = separated_list(symbol(','), expr::parse)(input)?;
     let (input, _) = symbol(')')(input)?;
@@ -52,12 +52,12 @@ mod tests {
     use parse::expr::atom;
     use parse::tree::{ClassBody, ClassType, Expr, Int, LiteralString, NewObject, TypeArg};
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_type_args() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new <String>Test<Integer>()
             "#
@@ -73,13 +73,16 @@ new <String>Test<Integer>()
                         type_args_opt: Some(vec![TypeArg::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 18, "Integer"),
-                            type_args_opt: None
-                        })])
+                            type_args_opt: None,
+                            def_opt: None
+                        })]),
+                        def_opt: None
                     },
                     constructor_type_args_opt: Some(vec![TypeArg::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 6, "String"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     })]),
                     args: vec![],
                     body_opt: None
@@ -91,7 +94,7 @@ new <String>Test<Integer>()
     #[test]
     fn test_implicit_type() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test<>()
             "#
@@ -103,7 +106,8 @@ new Test<>()
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: Some(vec![])
+                        type_args_opt: Some(vec![]),
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],
@@ -116,7 +120,7 @@ new Test<>()
     #[test]
     fn test_bare() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test()
             "#
@@ -128,7 +132,8 @@ new Test()
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],
@@ -141,7 +146,7 @@ new Test()
     #[test]
     fn test_with_args() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test(1, "a")
             "#
@@ -153,7 +158,8 @@ new Test(1, "a")
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![
@@ -173,7 +179,7 @@ new Test(1, "a")
     #[test]
     fn test_anonymous() {
         assert_eq!(
-            atom::parse(&code(
+            atom::parse(&generate_tokens(
                 r#"
 new Test() {
 }
@@ -186,7 +192,8 @@ new Test() {
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 5, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],

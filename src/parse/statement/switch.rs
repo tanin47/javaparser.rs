@@ -3,7 +3,7 @@ use parse::statement::block;
 use parse::tree::{Case, Statement, Switch, WhileLoop};
 use parse::{expr, statement, ParseResult, Tokens};
 
-fn parse_case(input: Tokens) -> ParseResult<Case> {
+fn parse_case<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Case<'def>> {
     let (input, label_opt) = if let Ok((input, _)) = keyword("case")(input) {
         // TODO: The below only allows EnumConstant and ConstantExpression. We could optimize something here.
         let (input, expr) = expr::parse(input)?;
@@ -21,7 +21,7 @@ fn parse_case(input: Tokens) -> ParseResult<Case> {
     Ok((input, Case { label_opt, stmts }))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Statement> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("switch")(input)?;
     let (input, _) = symbol('(')(input)?;
     let (input, expr) = expr::parse(input)?;
@@ -45,12 +45,12 @@ mod tests {
     use super::parse;
     use parse::tree::{Boolean, Case, Expr, Name, ReturnStmt, Statement, Switch};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_switch() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 switch (x) {
     case DOCUMENTATION_OUTPUT:

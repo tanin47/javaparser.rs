@@ -4,10 +4,10 @@ use parse::tree::{ClassBody, Enum, Modifier};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse_tail<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-) -> ParseResult<'a, Enum<'a>> {
+pub fn parse_tail<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+) -> ParseResult<'def, 'r, Enum<'def>> {
     let (input, name) = identifier(input)?;
 
     let (input, implements) = class::parse_implements(input)?;
@@ -41,7 +41,7 @@ pub fn parse_tail<'a>(
     ))
 }
 
-pub fn parse_prefix(input: Tokens) -> ParseResult<Span> {
+pub fn parse_prefix<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     keyword("enum")(input)
 }
 
@@ -52,12 +52,13 @@ mod tests {
         FieldDeclarators, Keyword, MarkerAnnotated, Modifier, VariableDeclarator,
     };
     use parse::{compilation_unit, Tokens};
-    use test_common::{code, primitive, span};
+    use std::cell::RefCell;
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test() {
         assert_eq!(
-            compilation_unit::parse_item(&code(
+            compilation_unit::parse_item(&generate_tokens(
                 r#"
 @Anno private enum Test implements Super {
   FIRST_CONSTANT;
@@ -73,7 +74,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -84,7 +86,8 @@ mod tests {
                     implements: vec![ClassType {
                         prefix_opt: None,
                         name: span(1, 36, "Super"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }],
                     constants: vec![EnumConstant {
                         annotateds: vec![],
@@ -96,7 +99,7 @@ mod tests {
                         items: vec![ClassBodyItem::FieldDeclarators(FieldDeclarators {
                             modifiers: vec![],
                             declarators: vec![VariableDeclarator {
-                                tpe: primitive(3, 3, "int"),
+                                tpe: RefCell::new(primitive(3, 3, "int")),
                                 name: span(3, 7, "a"),
                                 expr_opt: None
                             }]

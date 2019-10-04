@@ -1,11 +1,10 @@
-use analyze::build::tpe;
 use analyze::definition::Param;
 use parse;
 use std::cell::RefCell;
 
-pub fn build<'a>(param: &'a parse::tree::Param<'a>) -> Param<'a> {
+pub fn build<'def, 'def_ref>(param: &'def_ref parse::tree::Param<'def>) -> Param<'def> {
     Param {
-        tpe: RefCell::new(tpe::build(&param.tpe)),
-        name: &param.name,
+        tpe: RefCell::new(param.tpe.clone()),
+        name: param.name.clone(),
     }
 }

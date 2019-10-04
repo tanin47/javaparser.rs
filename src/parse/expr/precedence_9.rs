@@ -4,7 +4,7 @@ use parse::tree::{BinaryOperation, Expr, InstanceOf};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn op(input: Tokens) -> ParseResult<Span> {
+fn op<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     if let Ok(ok) = symbol2('<', '=')(input) {
         Ok(ok)
     } else if let Ok(ok) = symbol2('>', '=')(input) {
@@ -20,7 +20,10 @@ fn op(input: Tokens) -> ParseResult<Span> {
     }
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    left: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, operator)) = op(input) {
         if operator.fragment == "instanceof" {
             let (input, tpe) = tpe::parse(input)?;
@@ -49,14 +52,14 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, left) = precedence_10::parse(input)?;
     parse_tail(left, input)
 }
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{ClassType, Expr, InstanceOf, Name, Type};
@@ -65,7 +68,7 @@ mod tests {
     #[test]
     fn test_instanceof() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a instanceof Class
             "#
@@ -80,7 +83,8 @@ a instanceof Class
                     tpe: Type::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 14, "Class"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     })
                 })
             ))

@@ -3,7 +3,7 @@ use parse::tree::{Char, Expr};
 use parse::{ParseResult, Tokens};
 use tokenize::token::Token;
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Token::Char(value) = input[0] {
         Ok((&input[1..], Expr::Char(Char { value })))
     } else {
@@ -16,12 +16,12 @@ mod tests {
     use super::parse;
     use parse::tree::{Char, Expr};
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_string() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 'a'
             "#

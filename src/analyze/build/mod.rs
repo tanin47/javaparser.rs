@@ -9,7 +9,7 @@ pub mod modifier;
 pub mod package;
 pub mod param;
 pub mod scope;
-pub mod tpe;
+//pub mod tpe;
 pub mod type_param;
 
 pub use self::compilation_unit::build as apply;

@@ -5,14 +5,14 @@ use parse::tree::Param;
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
 
-pub fn parse_varargs(input: Tokens) -> ParseResult<()> {
+pub fn parse_varargs<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, ()> {
     let (input, _) = symbol('.')(input)?;
     let (input, _) = symbol('.')(input)?;
     let (input, _) = symbol('.')(input)?;
     Ok((input, ()))
 }
 
-pub fn parse(input: Tokens) -> ParseResult<Param> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Param<'def>> {
     let (input, modifiers) = modifiers::parse(input)?;
     let (input, tpe) = tpe::parse(input)?;
     let (input, varargs_opt) = opt(parse_varargs)(input)?;
@@ -37,12 +37,12 @@ mod tests {
         Annotated, ArrayType, ClassType, Keyword, MarkerAnnotated, Modifier, Param, Type,
     };
     use parse::Tokens;
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     #[test]
     fn test_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 final @Anno Test... t
             "#
@@ -58,14 +58,16 @@ final @Anno Test... t
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 8, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                     ],
                     tpe: Type::Class(ClassType {
                         prefix_opt: None,
                         name: span(1, 13, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     }),
                     is_varargs: true,
                     name: span(1, 21, "t"),
@@ -77,7 +79,7 @@ final @Anno Test... t
     #[test]
     fn test_array() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test[] t[]
             "#
@@ -91,7 +93,8 @@ Test[] t[]
                             tpe: Box::new(Type::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: None
                         })),

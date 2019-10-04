@@ -2,7 +2,7 @@ use analyze::definition::Modifier;
 use parse;
 use parse::tree::Keyword;
 
-pub fn build<'a>(modifiers: &'a [parse::tree::Modifier<'a>]) -> Vec<Modifier> {
+pub fn build<'def, 'def_ref>(modifiers: &'def_ref [parse::tree::Modifier<'def>]) -> Vec<Modifier> {
     let mut items = vec![];
 
     for modi in modifiers {
@@ -15,7 +15,7 @@ pub fn build<'a>(modifiers: &'a [parse::tree::Modifier<'a>]) -> Vec<Modifier> {
     items
 }
 
-fn build_keyword<'a>(keyword: &'a Keyword<'a>) -> Modifier {
+fn build_keyword<'def, 'def_ref>(keyword: &'def_ref Keyword<'def>) -> Modifier {
     match keyword.name.fragment {
         "abstract" => Modifier::Abstract,
         "default" => Modifier::Default,

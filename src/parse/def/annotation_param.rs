@@ -4,7 +4,7 @@ use parse::tree::{AnnotationParam, Expr, Modifier, Type};
 use parse::{expr, ParseResult, Tokens};
 use tokenize::span::Span;
 
-fn parse_default(input: Tokens) -> ParseResult<Option<Expr>> {
+fn parse_default<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Option<Expr<'def>>> {
     match keyword("default")(input) {
         Ok((input, _)) => {
             let (input, default) = expr::parse(input)?;
@@ -14,12 +14,12 @@ fn parse_default(input: Tokens) -> ParseResult<Option<Expr>> {
     }
 }
 
-pub fn parse<'a>(
-    input: Tokens<'a>,
-    modifiers: Vec<Modifier<'a>>,
-    tpe: Type<'a>,
-    name: Span<'a>,
-) -> ParseResult<'a, AnnotationParam<'a>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    modifiers: Vec<Modifier<'def>>,
+    tpe: Type<'def>,
+    name: Span<'def>,
+) -> ParseResult<'def, 'r, AnnotationParam<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, _) = symbol(')')(input)?;
 
@@ -47,12 +47,12 @@ mod tests {
         MarkerAnnotated, Modifier, Type,
     };
     use parse::Tokens;
-    use test_common::{code, primitive, span};
+    use test_common::{generate_tokens, primitive, span};
 
     #[test]
     fn test_full() {
         assert_eq!(
-            annotation_body::parse_item(&code(
+            annotation_body::parse_item(&generate_tokens(
                 r#"
 @Anno public abstract int field()[] default 1;
             "#
@@ -65,7 +65,8 @@ mod tests {
                             class: ClassType {
                                 prefix_opt: None,
                                 name: span(1, 2, "Anno"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             }
                         })),
                         Modifier::Keyword(Keyword {
@@ -91,7 +92,7 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(
-            annotation_body::parse_item(&code(
+            annotation_body::parse_item(&generate_tokens(
                 r#"
 int field();
             "#

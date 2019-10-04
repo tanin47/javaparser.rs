@@ -1,9 +1,9 @@
-use analyze::build::{modifier, param, tpe, type_param};
+use analyze::build::{modifier, param, type_param};
 use analyze::definition::Method;
 use parse;
 use std::cell::RefCell;
 
-pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
+pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> Method<'def> {
     let mut type_params = vec![];
     let mut params = vec![];
 
@@ -18,8 +18,8 @@ pub fn build<'a>(method: &'a parse::tree::Method<'a>) -> Method<'a> {
     Method {
         modifiers: modifier::build(&method.modifiers),
         type_params,
-        return_type: RefCell::new(tpe::build(&method.return_type)),
-        name: &method.name,
+        return_type: RefCell::new(method.return_type.clone()),
+        name: method.name.clone(),
         params,
     }
 }

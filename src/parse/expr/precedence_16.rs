@@ -8,7 +8,7 @@ use parse::tree::{
 };
 use parse::{tpe, ParseResult, Tokens};
 
-pub fn parse(input: Tokens) -> ParseResult<Expr> {
+pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     // This doesn't work. Need to rethink it.
     let result = atom::parse(input);
 
@@ -21,14 +21,17 @@ pub fn parse(input: Tokens) -> ParseResult<Expr> {
     }
 }
 
-fn array_type_tail(input: Tokens) -> ParseResult<()> {
+fn array_type_tail<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, ()> {
     let (input, _) = symbol('[')(input)?;
     let (input, _) = symbol(']')(input)?;
 
     Ok((input, ()))
 }
 
-pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+pub fn parse_tail<'def, 'r>(
+    left: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, left) = if let Ok(_) = array_type_tail(input) {
         if let Ok(class_type) = convert_to_type(left) {
             let (input, tpe) = tpe::array::parse_tail(input, Type::Class(class_type))?;
@@ -47,7 +50,10 @@ pub fn parse_tail<'a>(left: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr
     }
 }
 
-fn parse_reserved_field_access<'a>(tpe: Type<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+fn parse_reserved_field_access<'def, 'r>(
+    tpe: Type<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('.')(input)?;
     let (input, keyword_or_name) = name::parse(input)?;
 
@@ -58,11 +64,11 @@ fn parse_reserved_field_access<'a>(tpe: Type<'a>, input: Tokens<'a>) -> ParseRes
     parse_reserved_field_access_tail(tpe, keyword, input)
 }
 
-fn parse_reserved_field_access_tail<'a>(
-    tpe: Type<'a>,
-    keyword: Keyword<'a>,
-    input: Tokens<'a>,
-) -> ParseResult<'a, Expr<'a>> {
+fn parse_reserved_field_access_tail<'def, 'r>(
+    tpe: Type<'def>,
+    keyword: Keyword<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let expr = match keyword.name.fragment {
         "this" => Expr::This(This {
             tpe_opt: Some(tpe),
@@ -82,7 +88,10 @@ fn parse_reserved_field_access_tail<'a>(
     parse_tail(expr, input)
 }
 
-fn parse_dot<'a>(parent: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a>> {
+fn parse_dot<'def, 'r>(
+    parent: Expr<'def>,
+    input: Tokens<'def, 'r>,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, expr) = if let Ok(_) = symbol('<')(input) {
         invocation::parse(input, Some(parent))?
     } else {
@@ -117,19 +126,19 @@ fn parse_dot<'a>(parent: Expr<'a>, input: Tokens<'a>) -> ParseResult<'a, Expr<'a
 
 #[cfg(test)]
 mod tests {
-    use test_common::{code, span};
+    use test_common::{generate_tokens, span};
 
     use super::parse;
     use parse::tree::{
-        ArrayType, ClassExpr, ClassType, Expr, FieldAccess, MethodCall, Name, NewObject,
-        PrimitiveType, Super, SuperConstructorCall, This, Type,
+        ArrayType, ClassExpr, ClassType, EnclosingType, Expr, FieldAccess, MethodCall, Name,
+        NewObject, PrimitiveType, PrimitiveTypeType, Super, SuperConstructorCall, This, Type,
     };
     use parse::Tokens;
 
     #[test]
     fn test_dot_new_member() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 a.new Test()
             "#
@@ -143,7 +152,8 @@ a.new Test()
                     tpe: ClassType {
                         prefix_opt: None,
                         name: span(1, 7, "Test"),
-                        type_args_opt: None
+                        type_args_opt: None,
+                        def_opt: None
                     },
                     constructor_type_args_opt: None,
                     args: vec![],
@@ -156,7 +166,7 @@ a.new Test()
     #[test]
     fn test_name_super_constructor_call() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 test.super()
             "#
@@ -178,7 +188,7 @@ test.super()
     #[test]
     fn test_super_constructor_call() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.this.super()
             "#
@@ -188,13 +198,15 @@ Parent.Test.this.super()
                 Expr::SuperConstructorCall(SuperConstructorCall {
                     prefix_opt: Some(Box::new(Expr::This(This {
                         tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         span: span(1, 13, "this")
                     }))),
@@ -209,7 +221,7 @@ Parent.Test.this.super()
     #[test]
     fn test_super_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.super.hashCode()
             "#
@@ -219,13 +231,15 @@ Parent.Test.super.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::Super(Super {
                         tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         span: span(1, 13, "super")
                     }))),
@@ -240,7 +254,7 @@ Parent.Test.super.hashCode()
     #[test]
     fn test_this_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.this.hashCode()
             "#
@@ -250,13 +264,15 @@ Parent.Test.this.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::This(This {
                         tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         span: span(1, 13, "this")
                     }))),
@@ -271,7 +287,7 @@ Parent.Test.this.hashCode()
     #[test]
     fn test_class_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test.class.hashCode()
             "#
@@ -281,13 +297,15 @@ Parent.Test.class.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(ClassType {
+                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                 prefix_opt: None,
                                 name: span(1, 1, "Parent"),
-                                type_args_opt: None
-                            })),
+                                type_args_opt: None,
+                                def_opt: None
+                            }))),
                             name: span(1, 8, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }),
                         span: span(1, 13, "class")
                     }))),
@@ -302,7 +320,7 @@ Parent.Test.class.hashCode()
     #[test]
     fn test_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test.class.hashCode()
             "#
@@ -314,7 +332,8 @@ Test.class.hashCode()
                         tpe: Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 1, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         }),
                         span: span(1, 6, "class")
                     }))),
@@ -329,7 +348,7 @@ Test.class.hashCode()
     #[test]
     fn test_primitive_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 char.class.hashCode()
             "#
@@ -339,7 +358,8 @@ char.class.hashCode()
                 Expr::MethodCall(MethodCall {
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "char")
+                            name: span(1, 1, "char"),
+                            tpe: PrimitiveTypeType::Char
                         }),
                         span: span(1, 6, "class")
                     }))),
@@ -354,7 +374,7 @@ char.class.hashCode()
     #[test]
     fn test_primitive_array_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 byte[].class.hashCode()
             "#
@@ -365,7 +385,8 @@ byte[].class.hashCode()
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Array(ArrayType {
                             tpe: Box::new(Type::Primitive(PrimitiveType {
-                                name: span(1, 1, "byte")
+                                name: span(1, 1, "byte"),
+                                tpe: PrimitiveTypeType::Byte
                             })),
                             size_opt: None
                         }),
@@ -382,7 +403,7 @@ byte[].class.hashCode()
     #[test]
     fn test_array_class_with_parent() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Parent.Test[].class.hashCode()
             "#
@@ -393,13 +414,15 @@ Parent.Test[].class.hashCode()
                     prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
                         tpe: Type::Array(ArrayType {
                             tpe: Box::new(Type::Class(ClassType {
-                                prefix_opt: Some(Box::new(ClassType {
+                                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
                                     prefix_opt: None,
                                     name: span(1, 1, "Parent"),
-                                    type_args_opt: None
-                                })),
+                                    type_args_opt: None,
+                                    def_opt: None
+                                }))),
                                 name: span(1, 8, "Test"),
-                                type_args_opt: None
+                                type_args_opt: None,
+                                def_opt: None
                             })),
                             size_opt: None
                         }),
@@ -416,7 +439,7 @@ Parent.Test[].class.hashCode()
     #[test]
     fn test_array_class() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 Test[].class
             "#
@@ -428,7 +451,8 @@ Test[].class
                         tpe: Box::new(Type::Class(ClassType {
                             prefix_opt: None,
                             name: span(1, 1, "Test"),
-                            type_args_opt: None
+                            type_args_opt: None,
+                            def_opt: None
                         })),
                         size_opt: None
                     }),
@@ -441,7 +465,7 @@ Test[].class
     #[test]
     fn test_this_field_access() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 this.field
             "#
@@ -464,7 +488,7 @@ this.field
     #[test]
     fn test_super_field_access() {
         assert_eq!(
-            parse(&code(
+            parse(&generate_tokens(
                 r#"
 super.field
             "#
