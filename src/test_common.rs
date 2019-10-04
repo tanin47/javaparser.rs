@@ -1,6 +1,6 @@
 use parse::tpe::primitive::build_type_type;
 use parse::tree::{CompilationUnit, PrimitiveType, Type};
-use parse::{JavaFile, Tokens};
+use parse::{apply_tokens, JavaFile, Tokens};
 use tokenize;
 use tokenize::span::Span;
 use tokenize::token::Token;
@@ -23,10 +23,10 @@ pub fn span2<'def>(
     }
 }
 
-pub fn random_func() {}
-
 pub fn generate_tokens(fragment: &str) -> Vec<Token> {
-    tokenize::apply(fragment, std::ptr::null()).ok().unwrap()
+    tokenize::apply(fragment.trim(), std::ptr::null())
+        .ok()
+        .unwrap()
 }
 
 pub fn primitive(line: usize, col: usize, name: &str) -> Type {
@@ -37,8 +37,8 @@ pub fn primitive(line: usize, col: usize, name: &str) -> Type {
 }
 
 #[macro_export]
-macro_rules! collect_files {
-    ($sources:expr) => {{
+macro_rules! parse_files {
+    (vec $sources:expr) => {{
         let mut files = vec![];
 
         for (index, source) in $sources.iter().enumerate() {
@@ -51,19 +51,48 @@ macro_rules! collect_files {
 
         files
     }};
+    ($($source:expr),*) => {{
+        parse_files!(vec vec![$($source),*])
+    }};
 }
 
 #[macro_export]
-macro_rules! semantics_files {
+macro_rules! assign_type_files {
     (vec $x:expr) => {{
-        let files = collect_files!($x);
+        let files = parse_files!(vec $x);
 
         let mut units = vec![];
         for file in &files {
             units.push(&file.unit);
         }
 
-        let root = ::analyze::resolve::apply(&units);
+        let mut root = ::analyze::resolve::merge(&units);
+        ::analyze::resolve::assign_type::apply(&mut root);
+
+        (files, root)
+    }};
+    ($($x:expr),*) => {{
+        assign_type_files!(vec vec![$($x),*])
+    }};
+}
+
+#[macro_export]
+macro_rules! assign_parameterized_type_files {
+    (vec $x:expr) => {{
+        let (files, mut root) = assign_type_files!(vec $x);
+        ::analyze::resolve::assign_parameterized_type::apply(&mut root);
+
+        (files, root)
+    }};
+    ($($x:expr),*) => {{
+        assign_parameterized_type_files!(vec vec![$($x),*])
+    }};
+}
+
+#[macro_export]
+macro_rules! semantics_files {
+    (vec $x:expr) => {{
+        let (files, root) = assign_parameterized_type_files!(vec $x);
 
         for file in &files {
             ::semantics::apply(&file.unit, &root);
@@ -72,19 +101,11 @@ macro_rules! semantics_files {
         (files, root)
     }};
     ($($x:expr),*) => {{
-        let files = collect_files!(vec![$($x),*]);
-
-        let mut units = vec![];
-        for file in &files {
-            units.push(&file.unit);
-        }
-
-        let root = ::analyze::resolve::apply(&units);
-
-        for file in &files {
-            ::semantics::apply(&file.unit, &root);
-        }
-
-        (files, root)
+        semantics_files!(vec vec![$($x),*])
     }};
+}
+
+pub fn apply_analyze_build(source: &str) -> CompilationUnit {
+    let tokens = generate_tokens(source);
+    apply_tokens(&tokens).ok().unwrap()
 }

@@ -10,17 +10,21 @@ pub mod merge;
 pub mod scope;
 
 pub fn apply<'def, 'r>(units: &'r Vec<&parse::tree::CompilationUnit<'def>>) -> Root<'def> {
-    let mut root = merge::apply(
-        units
-            .iter()
-            .map(|unit| analyze::build::apply(*unit))
-            .collect::<Vec<Root>>(),
-    );
+    let mut root = merge(units);
 
     assign_type::apply(&mut root);
     assign_parameterized_type::apply(&mut root);
 
     root
+}
+
+pub fn merge<'def, 'r>(units: &'r Vec<&parse::tree::CompilationUnit<'def>>) -> Root<'def> {
+    merge::apply(
+        units
+            .iter()
+            .map(|unit| analyze::build::apply(*unit))
+            .collect::<Vec<Root>>(),
+    )
 }
 
 pub fn apply_type<'def, 'def_ref, 'scope_ref>(

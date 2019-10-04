@@ -47,7 +47,7 @@ fn apply_prefix<'def, 'def_ref, 'overlay_ref>(
 
 #[cfg(test)]
 mod tests {
-    use analyze::test_common::{find_class, find_package, make_root, make_tokenss, make_units};
+    use analyze::test_common::{find_class, find_package};
     use extract;
     use extract::test_common::assert_extract;
     use parse::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};

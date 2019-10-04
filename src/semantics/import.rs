@@ -83,7 +83,7 @@ fn get_enclosing_type_def<'def, 'def_ref>(
 
 #[cfg(test)]
 mod tests {
-    use analyze::test_common::{find_class, find_package, make_root, make_tokenss, make_units};
+    use analyze::test_common::{find_class, find_package};
     use parse::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};
     use std::cell::RefCell;
     use std::ops::Deref;

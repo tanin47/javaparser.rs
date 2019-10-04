@@ -2,6 +2,7 @@ use parse::combinator::{many1, opt};
 use parse::def::{annotation, class, enum_def, imports, interface, modifiers, package};
 use parse::tree::{CompilationUnit, CompilationUnitItem};
 use parse::{ParseResult, Tokens};
+use tokenize::token::Token;
 
 pub fn parse_item(original: Tokens) -> ParseResult<CompilationUnitItem> {
     let (input, modifiers) = modifiers::parse(original)?;
@@ -23,7 +24,7 @@ pub fn parse_item(original: Tokens) -> ParseResult<CompilationUnitItem> {
     }
 }
 
-pub fn parse(input: Tokens) -> ParseResult<CompilationUnit> {
+pub fn parse<'def, 'r>(input: &'r [Token<'def>]) -> ParseResult<'def, 'r, CompilationUnit<'def>> {
     let (input, package_opt) = opt(package::parse)(input)?;
 
     let (input, imports) = imports::parse(input)?;

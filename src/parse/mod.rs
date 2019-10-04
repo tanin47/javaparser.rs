@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::ptr::null;
 use tokenize;
+use tokenize::span::Span;
 use tokenize::token::Token;
 
 pub mod combinator;
@@ -14,10 +15,9 @@ pub mod statement;
 pub mod tpe;
 pub mod tree;
 
-pub type Tokens<'a> = &'a [Token<'a>];
+pub type ParseResult<'def, 'r, T> = Result<(&'r [Token<'def>], T), &'r Tokens<'def>>;
 
-pub type ParseResult<'a, T> = Result<(Tokens<'a>, T), Tokens<'a>>;
-
+#[derive(Debug, PartialEq)]
 pub struct JavaFile<'def> {
     pub unit: CompilationUnit<'def>,
     pub content: String,
@@ -25,7 +25,9 @@ pub struct JavaFile<'def> {
 }
 unsafe impl<'a> Sync for JavaFile<'a> {}
 
-pub fn apply_tokens<'def>(input: Tokens<'def>) -> Result<CompilationUnit<'def>, Tokens<'def>> {
+pub fn apply_tokens<'def, 'r>(
+    input: &'r [Token<'def>],
+) -> Result<CompilationUnit<'def>, &'r [Token<'def>]> {
     let result = compilation_unit::parse(input);
 
     match result {
@@ -43,7 +45,7 @@ pub fn apply_tokens<'def>(input: Tokens<'def>) -> Result<CompilationUnit<'def>, 
 pub fn apply<'def, 'input, 'path>(
     input: &'input str,
     path: &'path str,
-) -> Result<Pin<Box<JavaFile<'def>>>, &'def str> {
+) -> Result<Pin<Box<JavaFile<'def>>>, Span<'def>> {
     let mut file = Pin::new(Box::new(JavaFile {
         unit: unsafe { std::mem::MaybeUninit::zeroed().assume_init() },
         content: input.to_owned(),
@@ -51,11 +53,11 @@ pub fn apply<'def, 'input, 'path>(
     }));
     let tokens = match tokenize::apply(unsafe { &*(file.content.as_ref() as *const str) }, &*file) {
         Ok(tokens) => tokens,
-        Err(span) => return Err(span.fragment),
+        Err(span) => return Err(span),
     };
     let unit = match apply_tokens(unsafe { &*(&tokens as *const Vec<Token<'def>>) }) {
         Ok(unit) => unit,
-        Err(tokens) => return Err(tokens.first().unwrap().span().fragment),
+        Err(tokens) => return Err(tokens.first().unwrap().span()),
     };
 
     file.unit = unit;

@@ -2,7 +2,7 @@ use analyze;
 use analyze::definition::{Class, Package, Root};
 use analyze::resolve::merge;
 use parse::tree::CompilationUnit;
-use parse::Tokens;
+use parse::{apply_tokens, Tokens};
 use std::cell::RefCell;
 use test_common::{generate_tokens, span};
 use tokenize::span::Span;
@@ -20,31 +20,6 @@ pub fn mock_class<'def, 'def_ref>(name: &'def_ref Span<'def>) -> Class<'def> {
         field_groups: vec![],
         decls: vec![],
     }
-}
-
-pub fn make_tokenss(raws: &[String]) -> Vec<Vec<Token>> {
-    raws.iter()
-        .map(|raw| generate_tokens(raw))
-        .collect::<Vec<Vec<Token>>>()
-}
-
-pub fn make_units<'r: 'unit, 'token, 'unit>(
-    tokenss: &'r [Vec<Token<'token>>],
-) -> Vec<CompilationUnit<'unit>> {
-    panic!()
-    //    tokenss
-    //        .iter()
-    //        .map(|tokens| parse(tokens))
-    //        .collect::<Vec<CompilationUnit>>()
-}
-
-pub fn make_root<'r, 'def>(units: &'r [CompilationUnit<'def>]) -> Root<'def> {
-    merge::apply(
-        units
-            .iter()
-            .map(|unit| analyze::build::apply(unit))
-            .collect::<Vec<Root<'def>>>(),
-    )
 }
 
 pub fn find_package<'r, 'def>(root: &Root<'def>, path: &str) -> &'r Package<'def> {
