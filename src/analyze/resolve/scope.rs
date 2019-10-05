@@ -218,7 +218,7 @@ impl<'def, 'r> Scope<'def, 'r> {
     ) -> Option<EnclosingType<'def>> {
         for import in &self.specific_imports {
             let class = unsafe { &(*import.class) };
-            if class.name.fragment == name.fragment {
+            if class.name == name.fragment {
                 return Some(EnclosingType::Class(class.to_type(name)));
             }
         }
@@ -268,7 +268,7 @@ impl<'def, 'r> Scope<'def, 'r> {
                 let class = unsafe { &(**class) };
                 for decl in &class.decls {
                     if let Decl::Class(subclass) = decl {
-                        if subclass.name.fragment == name {
+                        if subclass.name == name {
                             return Some(EnclosingTypeDef::Class(subclass));
                         }
                     }

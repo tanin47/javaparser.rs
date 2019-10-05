@@ -1,8 +1,8 @@
 extern crate javaparser;
 
-use javaparser::{parse, tokenize};
-use std::fs;
-use std::time::Instant;
+//use javaparser::{parse, tokenize};
+//use std::fs;
+//use std::time::Instant;
 
 fn main() {
     //    let content = fs::read_to_string("./tests/fixtures/LocalCache.java").unwrap();
