@@ -75,6 +75,7 @@ mod tests {
         ArrayAccess, Assigned, Assignment, BinaryOperation, Expr, FieldAccess, Int, Name,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
 
     #[test]
     fn test_and_assignment() {
@@ -144,7 +145,8 @@ a = b.a += c.d[0][1] *= 1 == 2
                             })),
                             field: Name {
                                 name: span(1, 7, "a")
-                            }
+                            },
+                            tpe_opt: RefCell::new(None)
                         })),
                         operator: span(1, 9, "+="),
                         expr: Box::new(Expr::Assignment(Assignment {
@@ -156,7 +158,8 @@ a = b.a += c.d[0][1] *= 1 == 2
                                         })),
                                         field: Name {
                                             name: span(1, 14, "d")
-                                        }
+                                        },
+                                        tpe_opt: RefCell::new(None)
                                     })),
                                     index: Box::new(Expr::Int(Int {
                                         value: span(1, 16, "0")

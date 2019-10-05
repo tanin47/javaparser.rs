@@ -34,6 +34,7 @@ mod tests {
     use super::parse;
     use parse::tree::{BinaryOperation, Boolean, Expr, FieldAccess, Name};
     use parse::Tokens;
+    use std::cell::RefCell;
 
     #[test]
     fn test_precedence() {
@@ -62,7 +63,8 @@ true || false && t.a || false
                                 })),
                                 field: Name {
                                     name: span(1, 20, "a")
-                                }
+                                },
+                                tpe_opt: RefCell::new(None)
                             }))
                         })),
                     })),

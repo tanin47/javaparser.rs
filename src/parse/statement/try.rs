@@ -115,7 +115,8 @@ try (in; a.b) {
                             })),
                             field: Name {
                                 name: span(1, 12, "b")
-                            }
+                            },
+                            tpe_opt: RefCell::new(None)
                         }),
                     ],
                     catches: vec![],

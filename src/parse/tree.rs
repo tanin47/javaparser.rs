@@ -41,13 +41,13 @@ pub struct ImportPrefix<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ImportDef<'a> {
     Package(*const analyze::definition::Package<'a>),
-    Class(*const Class<'a>),
+    Class(*const analyze::definition::Class<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ImportPrefixDef<'a> {
     Package(*const analyze::definition::Package<'a>),
-    Class(*const Class<'a>),
+    Class(*const analyze::definition::Class<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -232,6 +232,11 @@ impl<'a> Type<'a> {
             Type::Primitive(_) => panic!(),
             Type::UnknownType => panic!(),
         }
+    }
+
+    pub fn find(&self, name: &Span<'a>) -> Option<EnclosingType<'a>> {
+        let def = unsafe { &(*self.def) };
+        def.find(name.fragment).map(|e| e.to_type(name))
     }
 }
 
@@ -662,6 +667,15 @@ pub enum Expr<'a> {
     UnaryOperation(UnaryOperation<'a>),
 }
 
+impl<'a> Expr<'a> {
+    pub fn tpe_opt(&self) -> Option<&Type<'a>> {
+        match self {
+            Expr::FieldAccess(f) => f.tpe_opt.borrow().as_ref(),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct This<'a> {
     pub tpe_opt: Option<Type<'a>>,
@@ -829,6 +843,7 @@ pub struct ClassExpr<'a> {
 pub struct FieldAccess<'a> {
     pub expr: Box<Expr<'a>>,
     pub field: Name<'a>,
+    pub tpe_opt: RefCell<Option<Type<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

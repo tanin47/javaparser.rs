@@ -23,6 +23,7 @@ mod tests {
         ArrayAccess, Assigned, Assignment, Expr, FieldAccess, Int, MethodCall, Name, Statement,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
     use test_common::{generate_tokens, span};
 
     #[test]
@@ -70,7 +71,8 @@ a[0].b.c();
                         })),
                         field: Name {
                             name: span(1, 6, "b")
-                        }
+                        },
+                        tpe_opt: RefCell::new(None)
                     }))),
                     name: span(1, 8, "c"),
                     type_args_opt: None,

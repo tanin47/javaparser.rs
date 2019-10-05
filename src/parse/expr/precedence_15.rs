@@ -114,6 +114,7 @@ mod tests {
         MethodReferencePrimary, Name, TypeArg,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
     use test_common::{generate_tokens, span};
 
     #[test]
@@ -188,7 +189,8 @@ foo.bar::zzz
                             })),
                             field: Name {
                                 name: span(1, 5, "bar")
-                            }
+                            },
+                            tpe_opt: RefCell::new(None)
                         }
                     ))),
                     type_args_opt: None,

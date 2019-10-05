@@ -7,6 +7,7 @@ use parse::tree::{
     ClassExpr, Expr, FieldAccess, Keyword, MethodCall, Super, SuperConstructorCall, This, Type,
 };
 use parse::{tpe, ParseResult, Tokens};
+use std::cell::RefCell;
 
 pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
     // This doesn't work. Need to rethink it.
@@ -115,6 +116,7 @@ fn parse_dot<'def, 'r>(
                     Expr::FieldAccess(FieldAccess {
                         expr: Box::new(parent),
                         field: name,
+                        tpe_opt: RefCell::new(None),
                     }),
                 ),
             }
@@ -134,6 +136,7 @@ mod tests {
         NewObject, PrimitiveType, PrimitiveTypeType, Super, SuperConstructorCall, This, Type,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
 
     #[test]
     fn test_dot_new_member() {
@@ -479,7 +482,8 @@ this.field
                     })),
                     field: Name {
                         name: span(1, 6, "field")
-                    }
+                    },
+                    tpe_opt: RefCell::new(None)
                 })
             ))
         );
@@ -502,7 +506,8 @@ super.field
                     })),
                     field: Name {
                         name: span(1, 7, "field")
-                    }
+                    },
+                    tpe_opt: RefCell::new(None)
                 })
             ))
         );

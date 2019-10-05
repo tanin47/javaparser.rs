@@ -53,6 +53,7 @@ mod tests {
         PrimitiveTypeType, ReferenceType, Type, TypeArg,
     };
     use parse::Tokens;
+    use std::cell::RefCell;
 
     #[test]
     fn test_method_ref_int_array() {
@@ -163,7 +164,8 @@ Test.class.hashCode()
                             })),
                             field: Name {
                                 name: span(1, 22, "a")
-                            }
+                            },
+                            tpe_opt: RefCell::new(None)
                         }))
                     })),
                     operator: span(1, 24, "||"),
