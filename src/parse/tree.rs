@@ -41,13 +41,13 @@ pub struct ImportPrefix<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ImportDef<'a> {
     Package(*const analyze::definition::Package<'a>),
-    Class(*const analyze::definition::Class<'a>),
+    Class(*const Class<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ImportPrefixDef<'a> {
     Package(*const analyze::definition::Package<'a>),
-    Class(*const analyze::definition::Class<'a>),
+    Class(*const Class<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -47,13 +47,7 @@ fn apply_prefix<'def, 'def_ref, 'overlay_ref>(
 
 #[cfg(test)]
 mod tests {
-    use analyze::test_common::{find_class, find_package};
-    use extract;
     use extract::test_common::assert_extract;
-    use parse::tree::{Import, ImportDef, ImportPrefix, ImportPrefixDef};
-    use std::cell::RefCell;
-    use test_common::span;
-    use {analyze, semantics};
 
     #[test]
     fn test() {

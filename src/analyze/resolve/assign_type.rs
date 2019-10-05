@@ -65,7 +65,7 @@ fn work<'def, 'def_ref, 'grapher_ref, 'queue_ref>(
                 println!(
                     "Worker {} works on {}",
                     thread_index,
-                    unsafe { &(*node.class) }.name.fragment
+                    unsafe { &(*node.class) }.name
                 );
                 apply_node(node, grapher, queue);
                 let mut counter = finished.lock().unwrap();

@@ -42,7 +42,7 @@ fn get_def<'def, 'def_ref>(
     match result_opt {
         None => None,
         Some(EnclosingTypeDef::Package(package)) => Some(ImportDef::Package(package)),
-        Some(EnclosingTypeDef::Class(class)) => Some(ImportDef::Class(class)),
+        Some(EnclosingTypeDef::Class(class)) => Some(ImportDef::Class(unsafe { &*class }.parse)),
     }
 }
 
@@ -56,7 +56,9 @@ fn get_prefix_def<'def, 'def_ref>(
     match result_opt {
         None => None,
         Some(EnclosingTypeDef::Package(package)) => Some(ImportPrefixDef::Package(package)),
-        Some(EnclosingTypeDef::Class(class)) => Some(ImportPrefixDef::Class(class)),
+        Some(EnclosingTypeDef::Class(class)) => {
+            Some(ImportPrefixDef::Class(unsafe { &*class }.parse))
+        }
     }
 }
 
@@ -72,8 +74,12 @@ fn get_enclosing_type_def<'def, 'def_ref>(
                 package.find(name)
             }
             Some(ImportPrefixDef::Class(class)) => {
-                let class = unsafe { &(**class) };
-                class.find(name).map(|c| EnclosingTypeDef::Class(c))
+                if let Some(def) = unsafe { &(**class) }.def_opt.borrow().as_ref() {
+                    let def = unsafe { &(**def) };
+                    def.find(name).map(|c| EnclosingTypeDef::Class(c))
+                } else {
+                    None
+                }
             }
             None => None,
         },
@@ -122,7 +128,9 @@ class Super {}
                     is_static: false,
                     is_wildcard: false,
                     name: span2(3, 13, "Super", files.get(0).unwrap().deref()),
-                    def_opt: RefCell::new(Some(ImportDef::Class(find_class(&root, "dev2.Super"))))
+                    def_opt: RefCell::new(Some(ImportDef::Class(
+                        find_class(&root, "dev2.Super").parse
+                    )))
                 },
                 Import {
                     prefix_opt: None,

@@ -40,8 +40,8 @@ pub fn build<'def, 'scope_ref, 'def_ref>(
         }
 
         Class {
-            import_path: scope.get_import_path(),
-            name: class.name.clone(),
+            name: class.name.fragment,
+            parse: class as *const parse::tree::Class<'def>,
             type_params,
             extend_opt: RefCell::new(match &class.extend_opt {
                 Some(extend) => Some(extend.clone()),
@@ -65,32 +65,35 @@ mod tests {
     };
     use parse::apply_tokens;
     use parse::tree::{
-        ClassType, PrimitiveType, PrimitiveTypeType, ReferenceType, Type, TypeArg, Void,
-        WildcardType,
+        ClassBodyItem, ClassType, CompilationUnitItem, PrimitiveType, PrimitiveTypeType,
+        ReferenceType, Type, TypeArg, Void, WildcardType,
     };
     use std::cell::{Cell, RefCell};
     use test_common::{apply_analyze_build, generate_tokens, span};
 
     #[test]
     fn test() {
-        assert_eq!(
-            apply(&apply_analyze_build(
-                r#"
+        let unit = apply_analyze_build(
+            r#"
 class Test<T> extends Super<? extends T> implements Interface<T> {
     Test() {}
     void method() {}
     int a;
     class InnerClass extends Other{}
 }
-        "#
-            )),
+        "#,
+        );
+        let class = unwrap!(CompilationUnitItem::Class, &unit.items.first().unwrap());
+        let subclass = unwrap!(ClassBodyItem::Class, &class.body.items.get(3).unwrap());
+        assert_eq!(
+            apply(&unit),
             Root {
                 subpackages: vec![],
                 units: vec![CompilationUnit {
                     imports: vec![],
                     main: Decl::Class(Class {
-                        import_path: "Test".to_owned(),
-                        name: span(1, 7, "Test"),
+                        name: "Test",
+                        parse: class,
                         type_params: vec![TypeParam {
                             name: span(1, 12, "T"),
                             extends: RefCell::new(vec![])
@@ -111,8 +114,8 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                             def_opt: None
                         })),
                         decls: vec![Decl::Class(Class {
-                            import_path: "Test.InnerClass".to_owned(),
-                            name: span(5, 11, "InnerClass"),
+                            name: "InnerClass",
+                            parse: subclass,
                             type_params: vec![],
                             extend_opt: RefCell::new(Some(ClassType {
                                 prefix_opt: None,

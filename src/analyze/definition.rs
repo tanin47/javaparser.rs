@@ -47,7 +47,7 @@ impl<'a> CompilationUnit<'a> {
     pub fn find(&self, name: &str) -> Option<*const Class<'a>> {
         match &self.main {
             Decl::Class(class) => {
-                if class.name.fragment == name {
+                if class.name == name {
                     return Some(class as *const Class<'a>);
                 }
             }
@@ -111,17 +111,17 @@ impl<'a> Package<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Class<'a> {
-    pub import_path: String,
-    pub name: Span<'a>,
+pub struct Class<'def> {
+    pub name: &'def str,
+    pub parse: *const parse::tree::Class<'def>,
     // TODO: Handle class that can only be accessed within a compilation unit
-    pub type_params: Vec<TypeParam<'a>>,
-    pub extend_opt: RefCell<Option<ClassType<'a>>>,
-    pub implements: Vec<ClassType<'a>>,
-    pub constructors: Vec<Constructor<'a>>,
-    pub methods: Vec<Method<'a>>,
-    pub field_groups: Vec<FieldGroup<'a>>,
-    pub decls: Vec<Decl<'a>>,
+    pub type_params: Vec<TypeParam<'def>>,
+    pub extend_opt: RefCell<Option<ClassType<'def>>>,
+    pub implements: Vec<ClassType<'def>>,
+    pub constructors: Vec<Constructor<'def>>,
+    pub methods: Vec<Method<'def>>,
+    pub field_groups: Vec<FieldGroup<'def>>,
+    pub decls: Vec<Decl<'def>>,
 }
 unsafe impl<'a> Sync for Class<'a> {}
 unsafe impl<'a> Send for Class<'a> {}
@@ -130,7 +130,7 @@ impl<'a> Class<'a> {
     pub fn find<'b>(&self, name: &str) -> Option<&Class<'a>> {
         for decl in &self.decls {
             if let Decl::Class(class) = decl {
-                if class.name.fragment == name {
+                if class.name == name {
                     return Some(class);
                 }
             }

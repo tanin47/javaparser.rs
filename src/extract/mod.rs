@@ -1,5 +1,5 @@
-use analyze::definition::{Class, Method, Package};
-use parse::tree::{CompilationUnit, VariableDeclarator};
+use analyze;
+use parse::tree::{Class, CompilationUnit, Method, VariableDeclarator};
 use std::any::Any;
 use tokenize::span::Span;
 
@@ -12,6 +12,8 @@ pub mod compilation_unit;
 pub mod import;
 pub mod method;
 pub mod package;
+pub mod statement;
+pub mod tpe;
 
 #[derive(Debug, PartialEq)]
 pub struct Usage<'def> {
@@ -21,7 +23,7 @@ pub struct Usage<'def> {
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Definition<'a> {
-    Package(*const Package<'a>),
+    Package(*const analyze::definition::Package<'a>),
     Class(*const Class<'a>),
     Method(*const Method<'a>),
     VariableDeclarator(*const VariableDeclarator<'a>),
