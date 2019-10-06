@@ -2,6 +2,7 @@ use analyze::resolve::scope::Scope;
 use parse::tree::Expr;
 
 pub mod field_access;
+pub mod name;
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
     expr: &'def_ref Expr<'def>,
@@ -26,7 +27,7 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         Expr::Long(_) => {}
         Expr::MethodCall(_) => {}
         Expr::MethodReference(_) => {}
-        Expr::Name(_) => {}
+        Expr::Name(n) => name::apply(n, scope),
         Expr::NewArray(_) => {}
         Expr::NewObject(_) => {}
         Expr::Null(_) => {}
@@ -38,5 +39,6 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         Expr::ThisConstructorCall(_) => {}
         Expr::Ternary(_) => {}
         Expr::UnaryOperation(_) => {}
+        Expr::StaticClass(_) => {}
     }
 }

@@ -1,6 +1,7 @@
 use analyze::resolve::scope::Scope;
 use parse::tree::FieldAccess;
 use semantics::expr;
+use std::ops::Deref;
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
     field_access: &'def_ref FieldAccess<'def>,
@@ -9,9 +10,11 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
     expr::apply(&field_access.expr, scope);
 
     if let Some(tpe) = field_access.expr.tpe_opt() {
-        field_access
-            .tpe_opt
-            .replace(tpe.find(field_access.field.name.fragment));
+        if let Some(field) = tpe.find_field(field_access.field.name.fragment) {
+            field_access
+                .tpe_opt
+                .replace(Some(field.tpe.borrow().deref().clone()));
+        }
     }
 }
 
@@ -45,6 +48,48 @@ package dev;
 
 class Another {
   int num;
+}
+        "#
+        );
+
+        let class = unwrap!(
+            CompilationUnitItem::Class,
+            &files.first().unwrap().unit.items.get(0).unwrap()
+        );
+        let method = unwrap!(ClassBodyItem::Method, &class.body.items.get(1).unwrap());
+        let var = unwrap!(
+            Statement::VariableDeclarators,
+            &method.block_opt.as_ref().unwrap().stmts.get(1).unwrap()
+        );
+
+        let field_access = unwrap!(
+            Expr::FieldAccess,
+            var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
+        );
+        let tpe = unwrap!(
+            Type::Primitive,
+            field_access.tpe_opt.borrow().clone().unwrap()
+        );
+        assert_eq!(
+            tpe,
+            PrimitiveType {
+                name: span2(4, 3, "int", files.get(1).unwrap().deref()),
+                tpe: PrimitiveTypeType::Int
+            }
+        );
+    }
+
+    #[test]
+    fn test_static() {
+        let (files, root) = apply_semantics!(
+            r#"
+package dev;
+
+class Test<T> {
+  static int a;
+  void method() {
+    int b = Test.a;
+  }
 }
         "#
         );

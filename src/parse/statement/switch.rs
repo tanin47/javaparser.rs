@@ -40,50 +40,50 @@ pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Stateme
     ))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse;
-    use parse::tree::{Boolean, Case, Expr, Name, ReturnStmt, Statement, Switch};
-    use parse::Tokens;
-    use test_common::{generate_tokens, span};
-
-    #[test]
-    fn test_switch() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-switch (x) {
-    case DOCUMENTATION_OUTPUT:
-        return true;
-    default:
-        return;
-}
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Statement::Switch(Switch {
-                    expr: Box::new(Expr::Name(Name {
-                        name: span(1, 9, "x")
-                    })),
-                    cases: vec![
-                        Case {
-                            label_opt: Some(Box::new(Expr::Name(Name {
-                                name: span(2, 10, "DOCUMENTATION_OUTPUT")
-                            }))),
-                            stmts: vec![Statement::Return(ReturnStmt {
-                                expr_opt: Some(Expr::Boolean(Boolean {
-                                    value: span(3, 16, "true")
-                                }))
-                            })]
-                        },
-                        Case {
-                            label_opt: None,
-                            stmts: vec![Statement::Return(ReturnStmt { expr_opt: None })]
-                        }
-                    ]
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::parse;
+//    use parse::tree::{Boolean, Case, Expr, Name, ReturnStmt, Statement, Switch};
+//    use parse::Tokens;
+//    use test_common::{generate_tokens, span};
+//
+//    #[test]
+//    fn test_switch() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//switch (x) {
+//    case DOCUMENTATION_OUTPUT:
+//        return true;
+//    default:
+//        return;
+//}
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Statement::Switch(Switch {
+//                    expr: Box::new(Expr::Name(Name {
+//                        name: span(1, 9, "x")
+//                    })),
+//                    cases: vec![
+//                        Case {
+//                            label_opt: Some(Box::new(Expr::Name(Name {
+//                                name: span(2, 10, "DOCUMENTATION_OUTPUT")
+//                            }))),
+//                            stmts: vec![Statement::Return(ReturnStmt {
+//                                expr_opt: Some(Expr::Boolean(Boolean {
+//                                    value: span(3, 16, "true")
+//                                }))
+//                            })]
+//                        },
+//                        Case {
+//                            label_opt: None,
+//                            stmts: vec![Statement::Return(ReturnStmt { expr_opt: None })]
+//                        }
+//                    ]
+//                })
+//            ))
+//        );
+//    }
+//}

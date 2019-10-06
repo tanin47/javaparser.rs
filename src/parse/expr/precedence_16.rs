@@ -126,390 +126,390 @@ fn parse_dot<'def, 'r>(
     parse_tail(expr, input)
 }
 
-#[cfg(test)]
-mod tests {
-    use test_common::{generate_tokens, span};
-
-    use super::parse;
-    use parse::tree::{
-        ArrayType, ClassExpr, ClassType, EnclosingType, Expr, FieldAccess, MethodCall, Name,
-        NewObject, PrimitiveType, PrimitiveTypeType, Super, SuperConstructorCall, This, Type,
-    };
-    use parse::Tokens;
-    use std::cell::RefCell;
-
-    #[test]
-    fn test_dot_new_member() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-a.new Test()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::NewObject(NewObject {
-                    prefix_opt: Some(Box::new(Expr::Name(Name {
-                        name: span(1, 1, "a")
-                    }))),
-                    tpe: ClassType {
-                        prefix_opt: None,
-                        name: span(1, 7, "Test"),
-                        type_args_opt: None,
-                        def_opt: None
-                    },
-                    constructor_type_args_opt: None,
-                    args: vec![],
-                    body_opt: None
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_name_super_constructor_call() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-test.super()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::SuperConstructorCall(SuperConstructorCall {
-                    prefix_opt: Some(Box::new(Expr::Name(Name {
-                        name: span(1, 1, "test")
-                    }))),
-                    type_args_opt: None,
-                    name: span(1, 6, "super"),
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_super_constructor_call() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-Parent.Test.this.super()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::SuperConstructorCall(SuperConstructorCall {
-                    prefix_opt: Some(Box::new(Expr::This(This {
-                        tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
-                                prefix_opt: None,
-                                name: span(1, 1, "Parent"),
-                                type_args_opt: None,
-                                def_opt: None
-                            }))),
-                            name: span(1, 8, "Test"),
-                            type_args_opt: None,
-                            def_opt: None
-                        })),
-                        span: span(1, 13, "this")
-                    }))),
-                    type_args_opt: None,
-                    name: span(1, 18, "super"),
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_super_with_parent() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-Parent.Test.super.hashCode()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::Super(Super {
-                        tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
-                                prefix_opt: None,
-                                name: span(1, 1, "Parent"),
-                                type_args_opt: None,
-                                def_opt: None
-                            }))),
-                            name: span(1, 8, "Test"),
-                            type_args_opt: None,
-                            def_opt: None
-                        })),
-                        span: span(1, 13, "super")
-                    }))),
-                    name: span(1, 19, "hashCode"),
-                    type_args_opt: None,
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_this_with_parent() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-Parent.Test.this.hashCode()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::This(This {
-                        tpe_opt: Some(Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
-                                prefix_opt: None,
-                                name: span(1, 1, "Parent"),
-                                type_args_opt: None,
-                                def_opt: None
-                            }))),
-                            name: span(1, 8, "Test"),
-                            type_args_opt: None,
-                            def_opt: None
-                        })),
-                        span: span(1, 13, "this")
-                    }))),
-                    name: span(1, 18, "hashCode"),
-                    type_args_opt: None,
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_class_with_parent() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-Parent.Test.class.hashCode()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
-                        tpe: Type::Class(ClassType {
-                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
-                                prefix_opt: None,
-                                name: span(1, 1, "Parent"),
-                                type_args_opt: None,
-                                def_opt: None
-                            }))),
-                            name: span(1, 8, "Test"),
-                            type_args_opt: None,
-                            def_opt: None
-                        }),
-                        span: span(1, 13, "class")
-                    }))),
-                    name: span(1, 19, "hashCode"),
-                    type_args_opt: None,
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_class() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-Test.class.hashCode()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
-                        tpe: Type::Class(ClassType {
-                            prefix_opt: None,
-                            name: span(1, 1, "Test"),
-                            type_args_opt: None,
-                            def_opt: None
-                        }),
-                        span: span(1, 6, "class")
-                    }))),
-                    name: span(1, 12, "hashCode"),
-                    type_args_opt: None,
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_primitive_class() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-char.class.hashCode()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
-                        tpe: Type::Primitive(PrimitiveType {
-                            name: span(1, 1, "char"),
-                            tpe: PrimitiveTypeType::Char
-                        }),
-                        span: span(1, 6, "class")
-                    }))),
-                    type_args_opt: None,
-                    name: span(1, 12, "hashCode"),
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_primitive_array_class() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-byte[].class.hashCode()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
-                        tpe: Type::Array(ArrayType {
-                            tpe: Box::new(Type::Primitive(PrimitiveType {
-                                name: span(1, 1, "byte"),
-                                tpe: PrimitiveTypeType::Byte
-                            })),
-                            size_opt: None
-                        }),
-                        span: span(1, 8, "class")
-                    }))),
-                    type_args_opt: None,
-                    name: span(1, 14, "hashCode"),
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_array_class_with_parent() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-Parent.Test[].class.hashCode()
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodCall(MethodCall {
-                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
-                        tpe: Type::Array(ArrayType {
-                            tpe: Box::new(Type::Class(ClassType {
-                                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
-                                    prefix_opt: None,
-                                    name: span(1, 1, "Parent"),
-                                    type_args_opt: None,
-                                    def_opt: None
-                                }))),
-                                name: span(1, 8, "Test"),
-                                type_args_opt: None,
-                                def_opt: None
-                            })),
-                            size_opt: None
-                        }),
-                        span: span(1, 15, "class")
-                    }))),
-                    type_args_opt: None,
-                    name: span(1, 21, "hashCode"),
-                    args: vec![]
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_array_class() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-Test[].class
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::Class(ClassExpr {
-                    tpe: Type::Array(ArrayType {
-                        tpe: Box::new(Type::Class(ClassType {
-                            prefix_opt: None,
-                            name: span(1, 1, "Test"),
-                            type_args_opt: None,
-                            def_opt: None
-                        })),
-                        size_opt: None
-                    }),
-                    span: span(1, 8, "class")
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_this_field_access() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-this.field
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::FieldAccess(FieldAccess {
-                    expr: Box::new(Expr::This(This {
-                        tpe_opt: None,
-                        span: span(1, 1, "this"),
-                    })),
-                    field: Name {
-                        name: span(1, 6, "field")
-                    },
-                    tpe_opt: RefCell::new(None)
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_super_field_access() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-super.field
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::FieldAccess(FieldAccess {
-                    expr: Box::new(Expr::Super(Super {
-                        tpe_opt: None,
-                        span: span(1, 1, "super"),
-                    })),
-                    field: Name {
-                        name: span(1, 7, "field")
-                    },
-                    tpe_opt: RefCell::new(None)
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use test_common::{generate_tokens, span};
+//
+//    use super::parse;
+//    use parse::tree::{
+//        ArrayType, ClassExpr, ClassType, EnclosingType, Expr, FieldAccess, MethodCall, Name,
+//        NewObject, PrimitiveType, PrimitiveTypeType, Super, SuperConstructorCall, This, Type,
+//    };
+//    use parse::Tokens;
+//    use std::cell::RefCell;
+//
+//    #[test]
+//    fn test_dot_new_member() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//a.new Test()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::NewObject(NewObject {
+//                    prefix_opt: Some(Box::new(Expr::Name(Name {
+//                        name: span(1, 1, "a")
+//                    }))),
+//                    tpe: ClassType {
+//                        prefix_opt: None,
+//                        name: span(1, 7, "Test"),
+//                        type_args_opt: None,
+//                        def_opt: None
+//                    },
+//                    constructor_type_args_opt: None,
+//                    args: vec![],
+//                    body_opt: None
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_name_super_constructor_call() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//test.super()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::SuperConstructorCall(SuperConstructorCall {
+//                    prefix_opt: Some(Box::new(Expr::Name(Name {
+//                        name: span(1, 1, "test")
+//                    }))),
+//                    type_args_opt: None,
+//                    name: span(1, 6, "super"),
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_super_constructor_call() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//Parent.Test.this.super()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::SuperConstructorCall(SuperConstructorCall {
+//                    prefix_opt: Some(Box::new(Expr::This(This {
+//                        tpe_opt: Some(Type::Class(ClassType {
+//                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+//                                prefix_opt: None,
+//                                name: span(1, 1, "Parent"),
+//                                type_args_opt: None,
+//                                def_opt: None
+//                            }))),
+//                            name: span(1, 8, "Test"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        })),
+//                        span: span(1, 13, "this")
+//                    }))),
+//                    type_args_opt: None,
+//                    name: span(1, 18, "super"),
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_super_with_parent() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//Parent.Test.super.hashCode()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodCall(MethodCall {
+//                    prefix_opt: Some(Box::new(Expr::Super(Super {
+//                        tpe_opt: Some(Type::Class(ClassType {
+//                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+//                                prefix_opt: None,
+//                                name: span(1, 1, "Parent"),
+//                                type_args_opt: None,
+//                                def_opt: None
+//                            }))),
+//                            name: span(1, 8, "Test"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        })),
+//                        span: span(1, 13, "super")
+//                    }))),
+//                    name: span(1, 19, "hashCode"),
+//                    type_args_opt: None,
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_this_with_parent() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//Parent.Test.this.hashCode()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodCall(MethodCall {
+//                    prefix_opt: Some(Box::new(Expr::This(This {
+//                        tpe_opt: Some(Type::Class(ClassType {
+//                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+//                                prefix_opt: None,
+//                                name: span(1, 1, "Parent"),
+//                                type_args_opt: None,
+//                                def_opt: None
+//                            }))),
+//                            name: span(1, 8, "Test"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        })),
+//                        span: span(1, 13, "this")
+//                    }))),
+//                    name: span(1, 18, "hashCode"),
+//                    type_args_opt: None,
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_class_with_parent() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//Parent.Test.class.hashCode()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodCall(MethodCall {
+//                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+//                        tpe: Type::Class(ClassType {
+//                            prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+//                                prefix_opt: None,
+//                                name: span(1, 1, "Parent"),
+//                                type_args_opt: None,
+//                                def_opt: None
+//                            }))),
+//                            name: span(1, 8, "Test"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        }),
+//                        span: span(1, 13, "class")
+//                    }))),
+//                    name: span(1, 19, "hashCode"),
+//                    type_args_opt: None,
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_class() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//Test.class.hashCode()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodCall(MethodCall {
+//                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+//                        tpe: Type::Class(ClassType {
+//                            prefix_opt: None,
+//                            name: span(1, 1, "Test"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        }),
+//                        span: span(1, 6, "class")
+//                    }))),
+//                    name: span(1, 12, "hashCode"),
+//                    type_args_opt: None,
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_primitive_class() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//char.class.hashCode()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodCall(MethodCall {
+//                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+//                        tpe: Type::Primitive(PrimitiveType {
+//                            name: span(1, 1, "char"),
+//                            tpe: PrimitiveTypeType::Char
+//                        }),
+//                        span: span(1, 6, "class")
+//                    }))),
+//                    type_args_opt: None,
+//                    name: span(1, 12, "hashCode"),
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_primitive_array_class() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//byte[].class.hashCode()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodCall(MethodCall {
+//                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+//                        tpe: Type::Array(ArrayType {
+//                            tpe: Box::new(Type::Primitive(PrimitiveType {
+//                                name: span(1, 1, "byte"),
+//                                tpe: PrimitiveTypeType::Byte
+//                            })),
+//                            size_opt: None
+//                        }),
+//                        span: span(1, 8, "class")
+//                    }))),
+//                    type_args_opt: None,
+//                    name: span(1, 14, "hashCode"),
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_array_class_with_parent() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//Parent.Test[].class.hashCode()
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodCall(MethodCall {
+//                    prefix_opt: Some(Box::new(Expr::Class(ClassExpr {
+//                        tpe: Type::Array(ArrayType {
+//                            tpe: Box::new(Type::Class(ClassType {
+//                                prefix_opt: Some(Box::new(EnclosingType::Class(ClassType {
+//                                    prefix_opt: None,
+//                                    name: span(1, 1, "Parent"),
+//                                    type_args_opt: None,
+//                                    def_opt: None
+//                                }))),
+//                                name: span(1, 8, "Test"),
+//                                type_args_opt: None,
+//                                def_opt: None
+//                            })),
+//                            size_opt: None
+//                        }),
+//                        span: span(1, 15, "class")
+//                    }))),
+//                    type_args_opt: None,
+//                    name: span(1, 21, "hashCode"),
+//                    args: vec![]
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_array_class() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//Test[].class
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::Class(ClassExpr {
+//                    tpe: Type::Array(ArrayType {
+//                        tpe: Box::new(Type::Class(ClassType {
+//                            prefix_opt: None,
+//                            name: span(1, 1, "Test"),
+//                            type_args_opt: None,
+//                            def_opt: None
+//                        })),
+//                        size_opt: None
+//                    }),
+//                    span: span(1, 8, "class")
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_this_field_access() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//this.field
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::FieldAccess(FieldAccess {
+//                    expr: Box::new(Expr::This(This {
+//                        tpe_opt: None,
+//                        span: span(1, 1, "this"),
+//                    })),
+//                    field: Name {
+//                        name: span(1, 6, "field")
+//                    },
+//                    tpe_opt: RefCell::new(None)
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_super_field_access() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//super.field
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::FieldAccess(FieldAccess {
+//                    expr: Box::new(Expr::Super(Super {
+//                        tpe_opt: None,
+//                        span: span(1, 1, "super"),
+//                    })),
+//                    field: Name {
+//                        name: span(1, 7, "field")
+//                    },
+//                    tpe_opt: RefCell::new(None)
+//                })
+//            ))
+//        );
+//    }
+//}

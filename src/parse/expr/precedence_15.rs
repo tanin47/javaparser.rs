@@ -106,97 +106,97 @@ pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'d
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse;
-    use parse::tree::{
-        ArrayAccess, ClassType, Expr, FieldAccess, LiteralString, MethodReference,
-        MethodReferencePrimary, Name, TypeArg,
-    };
-    use parse::Tokens;
-    use std::cell::RefCell;
-    use test_common::{generate_tokens, span};
-
-    #[test]
-    fn test_method_ref() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-"abc"::length
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodReference(MethodReference {
-                    primary: MethodReferencePrimary::Expr(Box::new(Expr::String(LiteralString {
-                        value: span(1, 1, "\"abc\"")
-                    }))),
-                    type_args_opt: None,
-                    name: span(1, 8, "length")
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_method_ref_2() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-foo[x]::<A>bar
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodReference(MethodReference {
-                    primary: MethodReferencePrimary::Expr(Box::new(Expr::ArrayAccess(
-                        ArrayAccess {
-                            expr: Box::new(Expr::Name(Name {
-                                name: span(1, 1, "foo")
-                            })),
-                            index: Box::new(Expr::Name(Name {
-                                name: span(1, 5, "x")
-                            }))
-                        }
-                    ))),
-                    type_args_opt: Some(vec![TypeArg::Class(ClassType {
-                        prefix_opt: None,
-                        name: span(1, 10, "A"),
-                        type_args_opt: None,
-                        def_opt: None
-                    })]),
-                    name: span(1, 12, "bar")
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_method_ref_3() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-foo.bar::zzz
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::MethodReference(MethodReference {
-                    primary: MethodReferencePrimary::Expr(Box::new(Expr::FieldAccess(
-                        FieldAccess {
-                            expr: Box::new(Expr::Name(Name {
-                                name: span(1, 1, "foo")
-                            })),
-                            field: Name {
-                                name: span(1, 5, "bar")
-                            },
-                            tpe_opt: RefCell::new(None)
-                        }
-                    ))),
-                    type_args_opt: None,
-                    name: span(1, 10, "zzz")
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::parse;
+//    use parse::tree::{
+//        ArrayAccess, ClassType, Expr, FieldAccess, LiteralString, MethodReference,
+//        MethodReferencePrimary, Name, TypeArg,
+//    };
+//    use parse::Tokens;
+//    use std::cell::RefCell;
+//    use test_common::{generate_tokens, span};
+//
+//    #[test]
+//    fn test_method_ref() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//"abc"::length
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodReference(MethodReference {
+//                    primary: MethodReferencePrimary::Expr(Box::new(Expr::String(LiteralString {
+//                        value: span(1, 1, "\"abc\"")
+//                    }))),
+//                    type_args_opt: None,
+//                    name: span(1, 8, "length")
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_method_ref_2() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//foo[x]::<A>bar
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodReference(MethodReference {
+//                    primary: MethodReferencePrimary::Expr(Box::new(Expr::ArrayAccess(
+//                        ArrayAccess {
+//                            expr: Box::new(Expr::Name(Name {
+//                                name: span(1, 1, "foo")
+//                            })),
+//                            index: Box::new(Expr::Name(Name {
+//                                name: span(1, 5, "x")
+//                            }))
+//                        }
+//                    ))),
+//                    type_args_opt: Some(vec![TypeArg::Class(ClassType {
+//                        prefix_opt: None,
+//                        name: span(1, 10, "A"),
+//                        type_args_opt: None,
+//                        def_opt: None
+//                    })]),
+//                    name: span(1, 12, "bar")
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_method_ref_3() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//foo.bar::zzz
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::MethodReference(MethodReference {
+//                    primary: MethodReferencePrimary::Expr(Box::new(Expr::FieldAccess(
+//                        FieldAccess {
+//                            expr: Box::new(Expr::Name(Name {
+//                                name: span(1, 1, "foo")
+//                            })),
+//                            field: Name {
+//                                name: span(1, 5, "bar")
+//                            },
+//                            tpe_opt: RefCell::new(None)
+//                        }
+//                    ))),
+//                    type_args_opt: None,
+//                    name: span(1, 10, "zzz")
+//                })
+//            ))
+//        );
+//    }
+//}

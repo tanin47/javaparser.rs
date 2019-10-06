@@ -1,5 +1,9 @@
 use analyze;
+use analyze::definition::{Field, FieldGroup};
+use std::borrow::Borrow;
 use std::cell::{Cell, Ref, RefCell};
+use std::collections::HashMap;
+use std::ops::Deref;
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -208,6 +212,7 @@ pub enum Type<'a> {
     Array(ArrayType<'a>),
     Parameterized(ParameterizedType<'a>),
     Void(Void<'a>),
+    Wildcard(WildcardType<'a>),
     UnknownType,
 }
 
@@ -217,6 +222,19 @@ impl<'a> Type<'a> {
             Type::Array(arr) => TypeArg::Array(arr),
             Type::Class(class) => TypeArg::Class(class),
             Type::Parameterized(parameterized) => TypeArg::Parameterized(parameterized),
+            Type::Wildcard(w) => TypeArg::Wildcard(w),
+            Type::Void(_) => panic!(),
+            Type::Primitive(_) => panic!(),
+            Type::UnknownType => panic!(),
+        }
+    }
+
+    pub fn to_enclosing_type(self) -> EnclosingType<'a> {
+        match self {
+            Type::Class(class) => EnclosingType::Class(class),
+            Type::Parameterized(parameterized) => EnclosingType::Parameterized(parameterized),
+            Type::Wildcard(w) => panic!(),
+            Type::Array(arr) => panic!(),
             Type::Void(_) => panic!(),
             Type::Primitive(_) => panic!(),
             Type::UnknownType => panic!(),
@@ -228,15 +246,18 @@ impl<'a> Type<'a> {
             Type::Array(arr) => ReferenceType::Array(arr),
             Type::Class(class) => ReferenceType::Class(class),
             Type::Parameterized(parameterized) => ReferenceType::Parameterized(parameterized),
+            Type::Wildcard(w) => panic!(),
             Type::Void(_) => panic!(),
             Type::Primitive(_) => panic!(),
             Type::UnknownType => panic!(),
         }
     }
 
-    pub fn find(&self, name: &Span<'a>) -> Option<EnclosingType<'a>> {
-        let def = unsafe { &(*self.def) };
-        def.find(name.fragment).map(|e| e.to_type(name))
+    pub fn find_field(&self, name: &str) -> Option<Field<'a>> {
+        match self {
+            Type::Class(class) => class.find_field(name),
+            _ => None,
+        }
     }
 }
 
@@ -333,6 +354,17 @@ pub enum TypeArg<'a> {
     Wildcard(WildcardType<'a>),
 }
 
+impl<'a> TypeArg<'a> {
+    pub fn to_type(&self) -> Type<'a> {
+        match self {
+            TypeArg::Parameterized(p) => Type::Parameterized(p.clone()),
+            TypeArg::Class(c) => Type::Class(c.clone()),
+            TypeArg::Array(a) => Type::Array(a.clone()),
+            TypeArg::Wildcard(w) => Type::Wildcard(w.clone()),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct WildcardType<'a> {
     pub name: Span<'a>,
@@ -418,6 +450,158 @@ impl<'a> ClassType<'a> {
         };
 
         None
+    }
+
+    pub fn find_field(&self, name: &str) -> Option<Field<'a>> {
+        let def = if let Some(def) = self.def_opt {
+            unsafe { &*def }
+        } else {
+            return None;
+        };
+
+        for group in &def.field_groups {
+            for item in &group.items {
+                if item.name.fragment == name {
+                    // substitute parameterized type
+                    return Some(Field {
+                        name: item.name.clone(),
+                        tpe: RefCell::new(self.realize(item.tpe.borrow().deref())),
+                    });
+                }
+            }
+        }
+
+        None
+    }
+
+    fn realize_enclosing(&self, tpe: &EnclosingType<'a>) -> EnclosingType<'a> {
+        match tpe {
+            EnclosingType::Package(_) => tpe.clone(),
+            EnclosingType::Class(c) => EnclosingType::Class(self.realize_class(c)),
+            EnclosingType::Parameterized(p) => self.realize_parameterized(p).to_enclosing_type(),
+        }
+    }
+
+    fn realize_type_arg(&self, type_arg: &TypeArg<'a>) -> TypeArg<'a> {
+        match type_arg {
+            TypeArg::Class(c) => TypeArg::Class(self.realize_class(c)),
+            TypeArg::Parameterized(p) => self.realize_parameterized(p).to_type_arg(),
+            TypeArg::Array(a) => TypeArg::Array(self.realize_array(a)),
+            TypeArg::Wildcard(w) => TypeArg::Wildcard(self.realize_wildcard(w)),
+        }
+    }
+
+    fn realize_wildcard(&self, wildcard: &WildcardType<'a>) -> WildcardType<'a> {
+        WildcardType {
+            name: wildcard.name.clone(),
+            extends: {
+                let mut extends = vec![];
+                for ex in &wildcard.extends {
+                    extends.push(self.realize_reference(ex));
+                }
+                extends
+            },
+            super_opt: wildcard
+                .super_opt
+                .as_ref()
+                .map(|s| Box::new(self.realize_reference((*s).as_ref()))),
+        }
+    }
+
+    fn realize_reference(&self, reference: &ReferenceType<'a>) -> ReferenceType<'a> {
+        match reference {
+            ReferenceType::Parameterized(p) => self.realize_parameterized(p).to_reference_type(),
+            ReferenceType::Class(c) => ReferenceType::Class(self.realize_class(c)),
+            ReferenceType::Array(a) => ReferenceType::Array(self.realize_array(a)),
+        }
+    }
+
+    fn realize_parameterized_from_prefix(
+        &self,
+        parameterized: &ParameterizedType<'a>,
+    ) -> Option<Type<'a>> {
+        match &self.prefix_opt {
+            Some(prefix) => match (*prefix).as_ref() {
+                EnclosingType::Package(_) => None,
+                EnclosingType::Parameterized(_) => None,
+                EnclosingType::Class(c) => Some(c.realize_parameterized(parameterized)),
+            },
+            None => None,
+        }
+    }
+
+    fn realize_parameterized_from_current(
+        &self,
+        parameterized: &ParameterizedType<'a>,
+    ) -> Option<Type<'a>> {
+        let def = if let Some(def) = self.def_opt {
+            unsafe { &*def }
+        } else {
+            return None;
+        };
+
+        let type_args = if let Some(type_args) = &self.type_args_opt {
+            type_args
+        } else {
+            return None;
+        };
+
+        for (param, arg) in def.type_params.iter().zip(type_args.iter()) {
+            if param.name.fragment == parameterized.name.fragment {
+                return Some(arg.to_type());
+            }
+        }
+
+        None
+    }
+
+    fn realize_parameterized(&self, parameterized: &ParameterizedType<'a>) -> Type<'a> {
+        if let Some(realized) = self.realize_parameterized_from_current(parameterized) {
+            return realized;
+        }
+
+        if let Some(realized) = self.realize_parameterized_from_prefix(parameterized) {
+            return realized;
+        }
+
+        return Type::Parameterized(parameterized.clone());
+    }
+
+    fn realize_class(&self, class: &ClassType<'a>) -> ClassType<'a> {
+        ClassType {
+            prefix_opt: class
+                .prefix_opt
+                .as_ref()
+                .map(|p| Box::new(self.realize_enclosing(&p))),
+            name: class.name.clone(),
+            type_args_opt: class.type_args_opt.as_ref().map(|type_args| {
+                let mut realizeds = vec![];
+                for t in type_args {
+                    realizeds.push(self.realize_type_arg(t))
+                }
+                realizeds
+            }),
+            def_opt: class.def_opt.clone(),
+        }
+    }
+
+    fn realize_array(&self, array: &ArrayType<'a>) -> ArrayType<'a> {
+        ArrayType {
+            tpe: Box::new(self.realize(&array.tpe)),
+            size_opt: array.size_opt.clone(),
+        }
+    }
+
+    pub fn realize(&self, tpe: &Type<'a>) -> Type<'a> {
+        match tpe {
+            Type::Parameterized(p) => self.realize_parameterized(p),
+            Type::Class(c) => Type::Class(self.realize_class(c)),
+            Type::Array(a) => Type::Array(self.realize_array(a)),
+            Type::Wildcard(w) => Type::Wildcard(self.realize_wildcard(w)),
+            Type::Primitive(_) => tpe.clone(),
+            Type::Void(_) => tpe.clone(),
+            Type::UnknownType => Type::UnknownType,
+        }
     }
 }
 
@@ -658,6 +842,7 @@ pub enum Expr<'a> {
     NewObject(NewObject<'a>),
     Null(Null<'a>),
     Class(ClassExpr<'a>),
+    StaticClass(StaticClass<'a>),
     String(LiteralString<'a>),
     Super(Super<'a>),
     SuperConstructorCall(SuperConstructorCall<'a>),
@@ -668,12 +853,24 @@ pub enum Expr<'a> {
 }
 
 impl<'a> Expr<'a> {
-    pub fn tpe_opt(&self) -> Option<&Type<'a>> {
+    pub fn tpe_opt(&self) -> Option<Type<'a>> {
         match self {
-            Expr::FieldAccess(f) => f.tpe_opt.borrow().as_ref(),
+            Expr::FieldAccess(f) => f.tpe_opt.borrow().as_ref().map(|f| f.clone()),
+            Expr::Name(n) => {
+                if let Some(resolved) = n.resolved_opt.get() {
+                    resolved.tpe_opt()
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StaticClass<'a> {
+    pub class: ClassType<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -734,6 +931,24 @@ pub struct Keyword<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Name<'a> {
     pub name: Span<'a>,
+    pub resolved_opt: Cell<Option<ResolvedName<'a>>>,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum ResolvedName<'def> {
+    Package(*const Package<'def>),
+    Class(*const Class<'def>),
+    Variable(*const VariableDeclarator<'def>),
+    TypeParam(*const analyze::definition::TypeParam<'def>),
+}
+
+impl<'def> ResolvedName<'def> {
+    pub fn tpe_opt(&self) -> Option<Type<'def>> {
+        match self {
+            ResolvedName::Variable(v) => Some(unsafe { &**v }.tpe.borrow().deref().clone()),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -28,53 +28,53 @@ pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'d
     ))
 }
 
-#[cfg(test)]
-mod tests {
-    use test_common::{generate_tokens, span};
-
-    use super::parse;
-    use parse::tree::{Expr, Name, UnaryOperation};
-    use parse::Tokens;
-
-    #[test]
-    fn test_increment() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-++abc
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::UnaryOperation(UnaryOperation {
-                    expr: Box::new(Expr::Name(Name {
-                        name: span(1, 3, "abc")
-                    })),
-                    operator: span(1, 1, "++"),
-                    is_post: false
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_decrement() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
---abc
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::UnaryOperation(UnaryOperation {
-                    expr: Box::new(Expr::Name(Name {
-                        name: span(1, 3, "abc")
-                    })),
-                    operator: span(1, 1, "--"),
-                    is_post: false
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use test_common::{generate_tokens, span};
+//
+//    use super::parse;
+//    use parse::tree::{Expr, Name, UnaryOperation};
+//    use parse::Tokens;
+//
+//    #[test]
+//    fn test_increment() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//++abc
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::UnaryOperation(UnaryOperation {
+//                    expr: Box::new(Expr::Name(Name {
+//                        name: span(1, 3, "abc")
+//                    })),
+//                    operator: span(1, 1, "++"),
+//                    is_post: false
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_decrement() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//--abc
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::UnaryOperation(UnaryOperation {
+//                    expr: Box::new(Expr::Name(Name {
+//                        name: span(1, 3, "abc")
+//                    })),
+//                    operator: span(1, 1, "--"),
+//                    is_post: false
+//                })
+//            ))
+//        );
+//    }
+//}

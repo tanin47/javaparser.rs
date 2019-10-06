@@ -28,37 +28,37 @@ pub fn parse_tail<'def, 'r>(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use parse::expr::atom;
-    use parse::tree::{ArrayAccess, Expr, Int, Name};
-    use parse::Tokens;
-    use test_common::{generate_tokens, span};
-
-    #[test]
-    fn test_multi() {
-        assert_eq!(
-            atom::parse(&generate_tokens(
-                r#"
-abc[1][2]
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::ArrayAccess(ArrayAccess {
-                    expr: Box::new(Expr::ArrayAccess(ArrayAccess {
-                        expr: Box::new(Expr::Name(Name {
-                            name: span(1, 1, "abc")
-                        })),
-                        index: Box::new(Expr::Int(Int {
-                            value: span(1, 5, "1")
-                        }))
-                    })),
-                    index: Box::new(Expr::Int(Int {
-                        value: span(1, 8, "2")
-                    }))
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use parse::expr::atom;
+//    use parse::tree::{ArrayAccess, Expr, Int, Name};
+//    use parse::Tokens;
+//    use test_common::{generate_tokens, span};
+//
+//    #[test]
+//    fn test_multi() {
+//        assert_eq!(
+//            atom::parse(&generate_tokens(
+//                r#"
+//abc[1][2]
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::ArrayAccess(ArrayAccess {
+//                    expr: Box::new(Expr::ArrayAccess(ArrayAccess {
+//                        expr: Box::new(Expr::Name(Name {
+//                            name: span(1, 1, "abc")
+//                        })),
+//                        index: Box::new(Expr::Int(Int {
+//                            value: span(1, 5, "1")
+//                        }))
+//                    })),
+//                    index: Box::new(Expr::Int(Int {
+//                        value: span(1, 8, "2")
+//                    }))
+//                })
+//            ))
+//        );
+//    }
+//}

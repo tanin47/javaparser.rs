@@ -40,34 +40,34 @@ pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'d
     parse_tail(left, input)
 }
 
-#[cfg(test)]
-mod tests {
-    use test_common::{generate_tokens, span};
-
-    use super::parse;
-    use parse::tree::{BinaryOperation, Expr, Int, Name};
-    use parse::Tokens;
-
-    #[test]
-    fn test_less_than_less_than() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-a << 1
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::BinaryOperation(BinaryOperation {
-                    left: Box::new(Expr::Name(Name {
-                        name: span(1, 1, "a")
-                    })),
-                    operator: span(1, 3, "<<"),
-                    right: Box::new(Expr::Int(Int {
-                        value: span(1, 6, "1")
-                    })),
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use test_common::{generate_tokens, span};
+//
+//    use super::parse;
+//    use parse::tree::{BinaryOperation, Expr, Int, Name};
+//    use parse::Tokens;
+//
+//    #[test]
+//    fn test_less_than_less_than() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//a << 1
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::BinaryOperation(BinaryOperation {
+//                    left: Box::new(Expr::Name(Name {
+//                        name: span(1, 1, "a")
+//                    })),
+//                    operator: span(1, 3, "<<"),
+//                    right: Box::new(Expr::Int(Int {
+//                        value: span(1, 6, "1")
+//                    })),
+//                })
+//            ))
+//        );
+//    }
+//}
