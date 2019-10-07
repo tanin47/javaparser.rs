@@ -69,6 +69,8 @@ mod tests {
         ReferenceType, Type, TypeArg, Void, WildcardType,
     };
     use std::cell::{Cell, RefCell};
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
     use test_common::{apply_analyze_build, generate_tokens, span};
 
     #[test]
@@ -133,7 +135,7 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                             name: span(2, 5, "Test")
                         }],
                         methods: vec![Method {
-                            modifiers: vec![],
+                            modifiers: HashSet::new(),
                             return_type: RefCell::new(Type::Void(Void {
                                 span: span(3, 5, "void")
                             })),
@@ -142,7 +144,7 @@ class Test<T> extends Super<? extends T> implements Interface<T> {
                             params: vec![]
                         }],
                         field_groups: vec![FieldGroup {
-                            modifiers: vec![],
+                            modifiers: HashSet::new(),
                             items: vec![Field {
                                 tpe: RefCell::new(Type::Primitive(PrimitiveType {
                                     name: span(4, 5, "int"),

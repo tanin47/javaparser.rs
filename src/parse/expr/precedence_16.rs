@@ -4,7 +4,8 @@ use parse::expr::atom;
 use parse::expr::atom::{array_access, invocation, name, new_object};
 use parse::expr::precedence_15::convert_to_type;
 use parse::tree::{
-    ClassExpr, Expr, FieldAccess, Keyword, MethodCall, Super, SuperConstructorCall, This, Type,
+    ClassExpr, Expr, FieldAccess, FieldAccessPrefix, Keyword, MethodCall, Super,
+    SuperConstructorCall, This, Type,
 };
 use parse::{tpe, ParseResult, Tokens};
 use std::cell::RefCell;
@@ -114,8 +115,8 @@ fn parse_dot<'def, 'r>(
                 Either::Right(name) => (
                     input,
                     Expr::FieldAccess(FieldAccess {
-                        expr: Box::new(parent),
-                        field: name,
+                        prefix: RefCell::new(Box::new(FieldAccessPrefix::Expr(parent))),
+                        name: name.name,
                         tpe_opt: RefCell::new(None),
                     }),
                 ),

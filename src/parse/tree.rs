@@ -216,6 +216,11 @@ pub enum Type<'a> {
     UnknownType,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct InvocationContext {
+    pub only_static: bool,
+}
+
 impl<'a> Type<'a> {
     pub fn to_type_arg(self) -> TypeArg<'a> {
         match self {
@@ -253,9 +258,10 @@ impl<'a> Type<'a> {
         }
     }
 
-    pub fn find_field(&self, name: &str) -> Option<Field<'a>> {
+    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
         match self {
-            Type::Class(class) => class.find_field(name),
+            Type::Class(c) => c.find_field(name, context),
+            Type::Parameterized(p) => p.find_field(name, context),
             _ => None,
         }
     }
@@ -284,6 +290,21 @@ impl<'a> PackagePrefix<'a> {
     pub fn find(&self, name: &Span<'a>) -> Option<EnclosingType<'a>> {
         let def = unsafe { &(*self.def) };
         def.find(name.fragment).map(|e| e.to_type(name))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum StaticType<'a> {
+    Class(ClassType<'a>),
+    Parameterized(ParameterizedType<'a>),
+}
+
+impl<'a> StaticType<'a> {
+    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
+        match self {
+            StaticType::Class(c) => c.find_field(name, context),
+            StaticType::Parameterized(p) => p.find_field(name, context),
+        }
     }
 }
 
@@ -452,7 +473,7 @@ impl<'a> ClassType<'a> {
         None
     }
 
-    pub fn find_field(&self, name: &str) -> Option<Field<'a>> {
+    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
         let def = if let Some(def) = self.def_opt {
             unsafe { &*def }
         } else {
@@ -460,9 +481,16 @@ impl<'a> ClassType<'a> {
         };
 
         for group in &def.field_groups {
+            if context.only_static
+                && !group
+                    .modifiers
+                    .contains(&analyze::definition::Modifier::Static)
+            {
+                continue;
+            }
+
             for item in &group.items {
                 if item.name.fragment == name {
-                    // substitute parameterized type
                     return Some(Field {
                         name: item.name.clone(),
                         tpe: RefCell::new(self.realize(item.tpe.borrow().deref())),
@@ -470,6 +498,8 @@ impl<'a> ClassType<'a> {
                 }
             }
         }
+
+        // TODO: go to super types
 
         None
     }
@@ -624,6 +654,18 @@ impl<'a> ParameterizedType<'a> {
         for extend in type_param.extends.borrow().iter() {
             if let Some(inner) = extend.find_inner_class(name) {
                 return Some(inner);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
+        let def = unsafe { &*self.def };
+
+        for extend in def.extends.borrow().deref() {
+            if let Some(field) = extend.find_field(name, context) {
+                return Some(field);
             }
         }
 
@@ -863,6 +905,7 @@ impl<'a> Expr<'a> {
                     None
                 }
             }
+            Expr::StaticClass(s) => None,
             _ => None,
         }
     }
@@ -870,7 +913,7 @@ impl<'a> Expr<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct StaticClass<'a> {
-    pub class: ClassType<'a>,
+    pub tpe: StaticType<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -936,8 +979,8 @@ pub struct Name<'a> {
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ResolvedName<'def> {
-    Package(*const Package<'def>),
-    Class(*const Class<'def>),
+    Package(*const analyze::definition::Package<'def>),
+    Class(*const analyze::definition::Class<'def>),
     Variable(*const VariableDeclarator<'def>),
     TypeParam(*const analyze::definition::TypeParam<'def>),
 }
@@ -1056,9 +1099,15 @@ pub struct ClassExpr<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FieldAccess<'a> {
-    pub expr: Box<Expr<'a>>,
-    pub field: Name<'a>,
+    pub prefix: RefCell<Box<FieldAccessPrefix<'a>>>,
+    pub name: Span<'a>,
     pub tpe_opt: RefCell<Option<Type<'a>>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum FieldAccessPrefix<'a> {
+    Package(PackagePrefix<'a>),
+    Expr(Expr<'a>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

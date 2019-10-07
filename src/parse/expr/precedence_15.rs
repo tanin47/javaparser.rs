@@ -4,27 +4,30 @@ use parse::expr::atom::name;
 use parse::expr::precedence_16;
 use parse::tpe::type_args;
 use parse::tree::{
-    ClassType, ConstructorReference, EnclosingType, Expr, FieldAccess, MethodReference,
-    MethodReferencePrimary, ReferenceType,
+    ClassType, ConstructorReference, EnclosingType, Expr, FieldAccess, FieldAccessPrefix,
+    MethodReference, MethodReferencePrimary, ReferenceType,
 };
 use parse::{ParseResult, Tokens};
 use std::cell::Cell;
 
-fn convert_field_to_class(field: FieldAccess) -> Result<ClassType, ()> {
-    let prefix = match *field.expr {
-        Expr::FieldAccess(parent) => convert_field_to_class(parent)?,
-        Expr::Name(parent) => ClassType {
-            prefix_opt: None,
-            name: parent.name,
-            type_args_opt: None,
-            def_opt: None,
+fn convert_field_to_class<'def, 'r>(field: &'r FieldAccess<'def>) -> Result<ClassType<'def>, ()> {
+    let prefix = match field.prefix.borrow().as_ref() {
+        FieldAccessPrefix::Expr(e) => match e {
+            Expr::FieldAccess(parent) => convert_field_to_class(parent)?,
+            Expr::Name(parent) => ClassType {
+                prefix_opt: None,
+                name: parent.name,
+                type_args_opt: None,
+                def_opt: None,
+            },
+            _ => return Err(()),
         },
         _ => return Err(()),
     };
 
     Ok(ClassType {
         prefix_opt: Some(Box::new(EnclosingType::Class(prefix))),
-        name: field.field.name,
+        name: field.name,
         type_args_opt: None,
         def_opt: None,
     })
@@ -39,7 +42,7 @@ pub fn convert_to_type(expr: Expr) -> Result<ClassType, ()> {
             def_opt: None,
         }),
         Expr::FieldAccess(field) => {
-            if let Ok(class) = convert_field_to_class(field) {
+            if let Ok(class) = convert_field_to_class(&field) {
                 Ok(class)
             } else {
                 Err(())

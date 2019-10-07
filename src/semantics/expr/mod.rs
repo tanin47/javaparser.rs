@@ -40,5 +40,5 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         Expr::Ternary(_) => {}
         Expr::UnaryOperation(_) => {}
         Expr::StaticClass(_) => {}
-    }
+    };
 }

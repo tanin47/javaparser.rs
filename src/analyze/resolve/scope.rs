@@ -191,11 +191,11 @@ impl<'def, 'r> Scope<'def, 'r> {
     }
 
     // Resolve a name (e.g. type param, variable, arg, class, package) in a method's body
-    pub fn resolve_name(&self, name: &str) -> Option<ResolvedName<'def>> {
+    pub fn resolve_name(&self, name: &Span<'def>) -> Option<ResolvedName<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
-            if let Some(locals) = current.names.get(name) {
+            if let Some(locals) = current.names.get(name.fragment) {
                 for local in locals {
                     match local {
                         Name::TypeParam(type_param) => {
@@ -207,8 +207,27 @@ impl<'def, 'r> Scope<'def, 'r> {
                     }
                 }
             }
+
+            if let Some(enclosing) = &current.enclosing_opt {
+                if let Some(result) = self.resolve_type_at(enclosing, name) {
+                    return match result {
+                        EnclosingType::Package(p) => Some(ResolvedName::Package(p.def)),
+                        EnclosingType::Class(c) => Some(ResolvedName::Class(c.def_opt.unwrap())),
+                        EnclosingType::Parameterized(_) => panic!(),
+                    };
+                }
+
+                // We search until the closest package. Java only allows referring to a package using its full path.
+                // There's no such thing as a relative path for package.
+                if let EnclosingTypeDef::Package(_) = enclosing {
+                    break;
+                }
+            }
         }
-        None
+        self.root.find(name.fragment).map(|e| match e {
+            EnclosingTypeDef::Package(p) => ResolvedName::Package(p),
+            EnclosingTypeDef::Class(c) => ResolvedName::Class(c),
+        })
     }
 
     // Resolve a type (e.g. type param, class, package) for or method's return type, field's type, super class type, and etc.
