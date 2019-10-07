@@ -117,7 +117,7 @@ fn parse_dot<'def, 'r>(
                     Expr::FieldAccess(FieldAccess {
                         prefix: RefCell::new(Box::new(FieldAccessPrefix::Expr(parent))),
                         name: name.name,
-                        tpe_opt: RefCell::new(None),
+                        def_opt: RefCell::new(None),
                     }),
                 ),
             }

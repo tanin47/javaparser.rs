@@ -1,4 +1,6 @@
-use analyze::definition::{Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root};
+use analyze::definition::{
+    Class, CompilationUnit, Decl, FieldDef, FieldGroup, Method, Package, Root,
+};
 use analyze::resolve::grapher::{Grapher, Node};
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
 use crossbeam_queue::SegQueue;
@@ -163,7 +165,7 @@ fn apply_field_group<'def, 'def_ref, 'scope_ref>(
 }
 
 fn apply_field<'def, 'def_ref, 'scope_ref>(
-    field: &'def_ref Field<'def>,
+    field: &'def_ref FieldDef<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
     resolve_and_replace_type(&field.tpe, scope);
