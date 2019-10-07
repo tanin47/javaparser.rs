@@ -5,6 +5,7 @@ use parse;
 pub mod block;
 pub mod class;
 pub mod compilation_unit;
+pub mod expr;
 pub mod import;
 pub mod method;
 pub mod statement;

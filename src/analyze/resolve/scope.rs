@@ -1,5 +1,8 @@
 use analyze::definition::{Class, Decl, Package, Root, TypeParam};
-use parse::tree::{ClassType, EnclosingType, ImportPrefix, PackagePrefix, ParameterizedType};
+use parse::tree::{
+    ClassType, EnclosingType, ImportPrefix, PackagePrefix, ParameterizedType, ResolvedName,
+    VariableDeclarator,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use tokenize::span::Span;
@@ -39,6 +42,7 @@ unsafe impl<'def> Send for Level<'def> {}
 #[derive(Debug, PartialEq, Clone)]
 pub enum Name<'def> {
     TypeParam(*const TypeParam<'def>),
+    Variable(*const VariableDeclarator<'def>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -90,14 +94,14 @@ impl<'def> EnclosingTypeDef<'def> {
 }
 
 impl<'def, 'r> Scope<'def, 'r> {
-    fn resolve_import_prefix(&self, prefix: &'r ImportPrefix<'def>) -> EnclosingTypeDef<'def> {
+    fn resolve_import_prefix<'s>(&self, prefix: &'s ImportPrefix<'def>) -> EnclosingTypeDef<'def> {
         match &prefix.prefix_opt {
             None => self.root.find(prefix.name.fragment).unwrap(),
             Some(prefix_prefix) => self.resolve_import_prefix(prefix_prefix),
         }
     }
 
-    pub fn add_import(&mut self, import: &'r parse::tree::Import<'def>) {
+    pub fn add_import<'s>(&mut self, import: &'s parse::tree::Import<'def>) {
         let enclosing_prefix_opt = match &import.prefix_opt {
             Some(prefix) => Some(self.resolve_import_prefix(prefix)),
             None => None,
@@ -129,18 +133,30 @@ impl<'def, 'r> Scope<'def, 'r> {
         };
     }
 
-    pub fn add_type_param(&mut self, type_param: &'r TypeParam<'def>) {
+    fn add_name(&mut self, name: &str, value: Name<'def>) {
         let level = self.levels.last_mut().unwrap();
 
-        if let None = level.names.get_mut(type_param.name.fragment) {
-            level
-                .names
-                .insert(String::from(type_param.name.fragment), vec![]);
+        if let None = level.names.get_mut(name) {
+            level.names.insert(String::from(name), vec![]);
         }
 
-        let list = level.names.get_mut(type_param.name.fragment).unwrap();
+        let list = level.names.get_mut(name).unwrap();
 
-        list.insert(0, Name::TypeParam(type_param as *const TypeParam<'def>))
+        list.insert(0, value)
+    }
+
+    pub fn add_type_param<'s>(&mut self, type_param: &'s TypeParam<'def>) {
+        self.add_name(
+            type_param.name.fragment,
+            Name::TypeParam(type_param as *const TypeParam<'def>),
+        );
+    }
+
+    pub fn add_variable<'s>(&mut self, variable: &'s VariableDeclarator<'def>) {
+        self.add_name(
+            variable.name.fragment,
+            Name::Variable(variable as *const VariableDeclarator<'def>),
+        );
     }
 
     pub fn enter_package(&mut self, package: &'r Package<'def>) {
@@ -174,6 +190,47 @@ impl<'def, 'r> Scope<'def, 'r> {
             .map(|p| p as *const Package<'def>)
     }
 
+    // Resolve a name (e.g. type param, variable, arg, class, package) in a method's body
+    pub fn resolve_name(&self, name: &Span<'def>) -> Option<ResolvedName<'def>> {
+        for i in 0..self.levels.len() {
+            let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
+
+            if let Some(locals) = current.names.get(name.fragment) {
+                for local in locals {
+                    match local {
+                        Name::TypeParam(type_param) => {
+                            return Some(ResolvedName::TypeParam(*type_param));
+                        }
+                        Name::Variable(v) => {
+                            return Some(ResolvedName::Variable(*v));
+                        }
+                    }
+                }
+            }
+
+            if let Some(enclosing) = &current.enclosing_opt {
+                if let Some(result) = self.resolve_type_at(enclosing, name) {
+                    return match result {
+                        EnclosingType::Package(p) => Some(ResolvedName::Package(p.def)),
+                        EnclosingType::Class(c) => Some(ResolvedName::Class(c.def_opt.unwrap())),
+                        EnclosingType::Parameterized(_) => panic!(),
+                    };
+                }
+
+                // We search until the closest package. Java only allows referring to a package using its full path.
+                // There's no such thing as a relative path for package.
+                if let EnclosingTypeDef::Package(_) = enclosing {
+                    break;
+                }
+            }
+        }
+        self.root.find(name.fragment).map(|e| match e {
+            EnclosingTypeDef::Package(p) => ResolvedName::Package(p),
+            EnclosingTypeDef::Class(c) => ResolvedName::Class(c),
+        })
+    }
+
+    // Resolve a type (e.g. type param, class, package) for or method's return type, field's type, super class type, and etc.
     pub fn resolve_type(&self, name: &Span<'def>) -> Option<EnclosingType<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
@@ -188,6 +245,7 @@ impl<'def, 'r> Scope<'def, 'r> {
                                 def: type_param,
                             }));
                         }
+                        _ => (),
                     }
                 }
             }

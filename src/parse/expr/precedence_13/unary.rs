@@ -33,36 +33,36 @@ pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'d
     ))
 }
 
-#[cfg(test)]
-mod tests {
-    use test_common::{generate_tokens, span};
-
-    use super::parse;
-    use parse::tree::{Expr, Name, UnaryOperation};
-    use parse::Tokens;
-
-    #[test]
-    fn test_multi() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-+-a
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Expr::UnaryOperation(UnaryOperation {
-                    expr: Box::new(Expr::UnaryOperation(UnaryOperation {
-                        expr: Box::new(Expr::Name(Name {
-                            name: span(1, 3, "a")
-                        })),
-                        operator: span(1, 2, "-"),
-                        is_post: false
-                    })),
-                    operator: span(1, 1, "+"),
-                    is_post: false
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use test_common::{generate_tokens, span};
+//
+//    use super::parse;
+//    use parse::tree::{Expr, Name, UnaryOperation};
+//    use parse::Tokens;
+//
+//    #[test]
+//    fn test_multi() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//+-a
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Expr::UnaryOperation(UnaryOperation {
+//                    expr: Box::new(Expr::UnaryOperation(UnaryOperation {
+//                        expr: Box::new(Expr::Name(Name {
+//                            name: span(1, 3, "a")
+//                        })),
+//                        operator: span(1, 2, "-"),
+//                        is_post: false
+//                    })),
+//                    operator: span(1, 1, "+"),
+//                    is_post: false
+//                })
+//            ))
+//        );
+//    }
+//}

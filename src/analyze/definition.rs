@@ -1,7 +1,8 @@
 use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
-use parse::tree::{ClassType, ParameterizedType, Type, VariableDeclarator};
+use parse::tree::{ClassType, InvocationContext, ParameterizedType, Type, VariableDeclarator};
 use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -197,7 +198,7 @@ pub struct Constructor<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Method<'a> {
-    pub modifiers: Vec<Modifier>,
+    pub modifiers: HashSet<Modifier>,
     pub type_params: Vec<TypeParam<'a>>,
     pub return_type: RefCell<Type<'a>>,
     pub name: Span<'a>,
@@ -224,6 +225,15 @@ impl<'a> TypeParamExtend<'a> {
             TypeParamExtend::Parameterized(parameterized) => parameterized.find_inner_class(name),
         }
     }
+
+    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
+        match self {
+            TypeParamExtend::Class(class) => class.find_field(name, context),
+            TypeParamExtend::Parameterized(parameterized) => {
+                parameterized.find_field(name, context)
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -242,7 +252,7 @@ impl<'a> TypeParam<'a> {
     //    }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Modifier {
     Abstract,
     Default,
@@ -260,7 +270,7 @@ pub enum Modifier {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FieldGroup<'a> {
-    pub modifiers: Vec<Modifier>,
+    pub modifiers: HashSet<Modifier>,
     pub items: Vec<Field<'a>>,
 }
 

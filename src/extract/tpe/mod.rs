@@ -11,6 +11,7 @@ pub fn apply<'def, 'def_ref, 'overlay_ref>(
         Type::Class(c) => class::apply(c, overlay),
         Type::Primitive(_) => {}
         Type::Array(_) => {}
+        Type::Wildcard(_) => {}
         Type::Parameterized(_) => {}
         Type::Void(_) => {}
         Type::UnknownType => {}

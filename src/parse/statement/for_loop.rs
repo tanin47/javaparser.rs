@@ -66,142 +66,142 @@ pub fn parse<'def, 'r>(original: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Stat
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse;
-    use parse::tree::{
-        Assigned, Assignment, BinaryOperation, Block, Expr, ForLoop, Foreach, Int, Name,
-        PrimitiveType, PrimitiveTypeType, ReturnStmt, StandaloneVariableDeclarator, Statement,
-        Type, UnaryOperation, VariableDeclarator, VariableDeclarators,
-    };
-    use parse::Tokens;
-    use std::cell::RefCell;
-    use test_common::{generate_tokens, span};
-
-    #[test]
-    fn test_foreach() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-for(int a:list) a++;
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Statement::Foreach(Foreach {
-                    declarator: StandaloneVariableDeclarator {
-                        modifiers: vec![],
-                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
-                            name: span(1, 5, "int"),
-                            tpe: PrimitiveTypeType::Int
-                        })),
-                        name: span(1, 9, "a"),
-                        expr_opt: None
-                    },
-                    expr: Expr::Name(Name {
-                        name: span(1, 11, "list")
-                    }),
-                    block: Block {
-                        stmts: vec![Statement::Expr(Expr::UnaryOperation(UnaryOperation {
-                            expr: Box::new(Expr::Name(Name {
-                                name: span(1, 17, "a"),
-                            })),
-                            operator: span(1, 18, "++"),
-                            is_post: true
-                        }))]
-                    }
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_short() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-for(int i=0;i<2;i++) x++;
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Statement::ForLoop(ForLoop {
-                    inits: vec![Statement::VariableDeclarators(VariableDeclarators {
-                        modifiers: vec![],
-                        declarators: vec![VariableDeclarator {
-                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
-                                name: span(1, 5, "int"),
-                                tpe: PrimitiveTypeType::Int
-                            })),
-                            name: span(1, 9, "i"),
-                            expr_opt: Some(Expr::Int(Int {
-                                value: span(1, 11, "0")
-                            }))
-                        }]
-                    })],
-                    cond_opt: Some(Expr::BinaryOperation(BinaryOperation {
-                        left: Box::new(Expr::Name(Name {
-                            name: span(1, 13, "i")
-                        })),
-                        operator: span(1, 14, "<"),
-                        right: Box::new(Expr::Int(Int {
-                            value: span(1, 15, "2")
-                        }))
-                    })),
-                    updates: vec![Statement::Expr(Expr::UnaryOperation(UnaryOperation {
-                        expr: Box::new(Expr::Name(Name {
-                            name: span(1, 17, "i")
-                        })),
-                        operator: span(1, 18, "++"),
-                        is_post: true
-                    }))],
-                    block: Block {
-                        stmts: vec![Statement::Expr(Expr::UnaryOperation(UnaryOperation {
-                            expr: Box::new(Expr::Name(Name {
-                                name: span(1, 22, "x"),
-                            })),
-                            operator: span(1, 23, "++"),
-                            is_post: true
-                        }))]
-                    }
-                })
-            ))
-        );
-    }
-
-    #[test]
-    fn test_long() {
-        assert_eq!(
-            parse(&generate_tokens(
-                r#"
-for(;;) {
-  x = 1;
-  return;
-}
-            "#
-            )),
-            Ok((
-                &[] as Tokens,
-                Statement::ForLoop(ForLoop {
-                    inits: vec![],
-                    cond_opt: None,
-                    updates: vec![],
-                    block: Block {
-                        stmts: vec![
-                            Statement::Expr(Expr::Assignment(Assignment {
-                                assigned: Box::new(Assigned::Name(Name {
-                                    name: span(2, 3, "x"),
-                                })),
-                                operator: span(2, 5, "="),
-                                expr: Box::new(Expr::Int(Int {
-                                    value: span(2, 7, "1")
-                                }))
-                            })),
-                            Statement::Return(ReturnStmt { expr_opt: None }),
-                        ]
-                    }
-                })
-            ))
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::parse;
+//    use parse::tree::{
+//        Assigned, Assignment, BinaryOperation, Block, Expr, ForLoop, Foreach, Int, Name,
+//        PrimitiveType, PrimitiveTypeType, ReturnStmt, StandaloneVariableDeclarator, Statement,
+//        Type, UnaryOperation, VariableDeclarator, VariableDeclarators,
+//    };
+//    use parse::Tokens;
+//    use std::cell::RefCell;
+//    use test_common::{generate_tokens, span};
+//
+//    #[test]
+//    fn test_foreach() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//for(int a:list) a++;
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Statement::Foreach(Foreach {
+//                    declarator: StandaloneVariableDeclarator {
+//                        modifiers: vec![],
+//                        tpe: RefCell::new(Type::Primitive(PrimitiveType {
+//                            name: span(1, 5, "int"),
+//                            tpe: PrimitiveTypeType::Int
+//                        })),
+//                        name: span(1, 9, "a"),
+//                        expr_opt: None
+//                    },
+//                    expr: Expr::Name(Name {
+//                        name: span(1, 11, "list")
+//                    }),
+//                    block: Block {
+//                        stmts: vec![Statement::Expr(Expr::UnaryOperation(UnaryOperation {
+//                            expr: Box::new(Expr::Name(Name {
+//                                name: span(1, 17, "a"),
+//                            })),
+//                            operator: span(1, 18, "++"),
+//                            is_post: true
+//                        }))]
+//                    }
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_short() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//for(int i=0;i<2;i++) x++;
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Statement::ForLoop(ForLoop {
+//                    inits: vec![Statement::VariableDeclarators(VariableDeclarators {
+//                        modifiers: vec![],
+//                        declarators: vec![VariableDeclarator {
+//                            tpe: RefCell::new(Type::Primitive(PrimitiveType {
+//                                name: span(1, 5, "int"),
+//                                tpe: PrimitiveTypeType::Int
+//                            })),
+//                            name: span(1, 9, "i"),
+//                            expr_opt: Some(Expr::Int(Int {
+//                                value: span(1, 11, "0")
+//                            }))
+//                        }]
+//                    })],
+//                    cond_opt: Some(Expr::BinaryOperation(BinaryOperation {
+//                        left: Box::new(Expr::Name(Name {
+//                            name: span(1, 13, "i")
+//                        })),
+//                        operator: span(1, 14, "<"),
+//                        right: Box::new(Expr::Int(Int {
+//                            value: span(1, 15, "2")
+//                        }))
+//                    })),
+//                    updates: vec![Statement::Expr(Expr::UnaryOperation(UnaryOperation {
+//                        expr: Box::new(Expr::Name(Name {
+//                            name: span(1, 17, "i")
+//                        })),
+//                        operator: span(1, 18, "++"),
+//                        is_post: true
+//                    }))],
+//                    block: Block {
+//                        stmts: vec![Statement::Expr(Expr::UnaryOperation(UnaryOperation {
+//                            expr: Box::new(Expr::Name(Name {
+//                                name: span(1, 22, "x"),
+//                            })),
+//                            operator: span(1, 23, "++"),
+//                            is_post: true
+//                        }))]
+//                    }
+//                })
+//            ))
+//        );
+//    }
+//
+//    #[test]
+//    fn test_long() {
+//        assert_eq!(
+//            parse(&generate_tokens(
+//                r#"
+//for(;;) {
+//  x = 1;
+//  return;
+//}
+//            "#
+//            )),
+//            Ok((
+//                &[] as Tokens,
+//                Statement::ForLoop(ForLoop {
+//                    inits: vec![],
+//                    cond_opt: None,
+//                    updates: vec![],
+//                    block: Block {
+//                        stmts: vec![
+//                            Statement::Expr(Expr::Assignment(Assignment {
+//                                assigned: Box::new(Assigned::Name(Name {
+//                                    name: span(2, 3, "x"),
+//                                })),
+//                                operator: span(2, 5, "="),
+//                                expr: Box::new(Expr::Int(Int {
+//                                    value: span(2, 7, "1")
+//                                }))
+//                            })),
+//                            Statement::Return(ReturnStmt { expr_opt: None }),
+//                        ]
+//                    }
+//                })
+//            ))
+//        );
+//    }
+//}

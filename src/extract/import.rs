@@ -14,7 +14,7 @@ pub fn apply<'def, 'def_ref, 'overlay_ref>(
         match def {
             ImportDef::Class(class) => overlay.usages.push(Usage {
                 span: import.name.clone(),
-                def: Definition::Class(*class),
+                def: Definition::Class(unsafe { &**class }.parse),
             }),
             ImportDef::Package(p) => overlay.usages.push(Usage {
                 span: import.name.clone(),
@@ -31,7 +31,7 @@ fn apply_prefix<'def, 'def_ref, 'overlay_ref>(
         match def {
             ImportPrefixDef::Class(class) => overlay.usages.push(Usage {
                 span: import.name.clone(),
-                def: Definition::Class(*class),
+                def: Definition::Class(unsafe { &**class }.parse),
             }),
             ImportPrefixDef::Package(p) => overlay.usages.push(Usage {
                 span: import.name.clone(),

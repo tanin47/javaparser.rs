@@ -1,6 +1,7 @@
 use analyze::resolve;
 use analyze::resolve::scope::Scope;
 use parse::tree::{VariableDeclarator, VariableDeclarators};
+use semantics::expr;
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
     declarator: &'def_ref VariableDeclarators<'def>,
@@ -9,6 +10,12 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
     for decl in &declarator.declarators {
         let resolved = resolve::apply_type(&decl.tpe.borrow(), scope);
         decl.tpe.replace(resolved);
+
+        scope.add_variable(decl);
+
+        if let Some(ex) = &decl.expr_opt {
+            expr::apply(ex, scope);
+        }
     }
 }
 

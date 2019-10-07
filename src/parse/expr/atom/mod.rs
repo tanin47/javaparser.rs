@@ -65,7 +65,14 @@ fn parse_lambda_or_parenthesized<'def, 'r>(
     }
 
     // a param name with type
-    if let Ok((_, Either::Right(Name { name: _ }))) = name::parse(input) {
+    if let Ok((
+        _,
+        Either::Right(Name {
+            name: _,
+            resolved_opt: _,
+        }),
+    )) = name::parse(input)
+    {
         return lambda::parse(original);
     }
 
@@ -76,7 +83,14 @@ fn parse_lambda_or_parenthesized<'def, 'r>(
 
     // The first param has typed with type arg
     if let Ok((input, Some(_))) = tpe::type_args::parse(input) {
-        if let Ok((_, Either::Right(Name { name: _ }))) = name::parse(input) {
+        if let Ok((
+            _,
+            Either::Right(Name {
+                name: _,
+                resolved_opt: _,
+            }),
+        )) = name::parse(input)
+        {
             return lambda::parse(original);
         }
     }

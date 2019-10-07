@@ -1,13 +1,18 @@
 use analyze::definition::Modifier;
 use parse;
 use parse::tree::Keyword;
+use std::collections::HashSet;
 
-pub fn build<'def, 'def_ref>(modifiers: &'def_ref [parse::tree::Modifier<'def>]) -> Vec<Modifier> {
-    let mut items = vec![];
+pub fn build<'def, 'def_ref>(
+    modifiers: &'def_ref [parse::tree::Modifier<'def>],
+) -> HashSet<Modifier> {
+    let mut items = HashSet::new();
 
     for modi in modifiers {
         match modi {
-            parse::tree::Modifier::Keyword(k) => items.push(build_keyword(k)),
+            parse::tree::Modifier::Keyword(k) => {
+                items.insert(build_keyword(k));
+            }
             _ => (),
         };
     }
