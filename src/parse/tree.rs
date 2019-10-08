@@ -1,5 +1,5 @@
 use analyze;
-use analyze::definition::{Field, FieldGroup};
+use analyze::definition::{Field, FieldDef, FieldGroup};
 use std::borrow::Borrow;
 use std::cell::{Cell, Ref, RefCell};
 use std::collections::HashMap;
@@ -306,6 +306,12 @@ impl<'a> StaticType<'a> {
             StaticType::Parameterized(p) => p.find_field(name, context),
         }
     }
+    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
+        match self {
+            StaticType::Class(c) => c.find_inner_class(name),
+            StaticType::Parameterized(p) => p.find_inner_class(name),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -492,8 +498,8 @@ impl<'a> ClassType<'a> {
             for item in &group.items {
                 if item.name.fragment == name {
                     return Some(Field {
-                        name: item.name.clone(),
-                        tpe: RefCell::new(self.realize(item.tpe.borrow().deref())),
+                        tpe: self.realize(item.tpe.borrow().deref()),
+                        def: item,
                     });
                 }
             }
@@ -897,7 +903,7 @@ pub enum Expr<'a> {
 impl<'a> Expr<'a> {
     pub fn tpe_opt(&self) -> Option<Type<'a>> {
         match self {
-            Expr::FieldAccess(f) => f.tpe_opt.borrow().as_ref().map(|f| f.clone()),
+            Expr::FieldAccess(f) => f.def_opt.borrow().as_ref().map(|f| f.tpe.clone()),
             Expr::Name(n) => {
                 if let Some(resolved) = n.resolved_opt.get() {
                     resolved.tpe_opt()
@@ -1101,7 +1107,7 @@ pub struct ClassExpr<'a> {
 pub struct FieldAccess<'a> {
     pub prefix: RefCell<Box<FieldAccessPrefix<'a>>>,
     pub name: Span<'a>,
-    pub tpe_opt: RefCell<Option<Type<'a>>>,
+    pub def_opt: RefCell<Option<Field<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

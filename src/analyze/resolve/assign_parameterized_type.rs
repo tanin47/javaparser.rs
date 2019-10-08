@@ -1,5 +1,5 @@
 use analyze::definition::{
-    Class, CompilationUnit, Decl, Field, FieldGroup, Method, Package, Root, TypeParamExtend,
+    Class, CompilationUnit, Decl, FieldDef, FieldGroup, Method, Package, Root, TypeParamExtend,
 };
 use analyze::resolve::assign_type::{
     resolve_and_replace_type, resolve_class_or_parameterized_type, resolve_type,
@@ -176,7 +176,7 @@ fn apply_field_group<'def, 'def_ref, 'scope_ref>(
 }
 
 fn apply_field<'def, 'def_ref, 'scope_ref>(
-    field: &'def_ref Field<'def>,
+    field: &'def_ref FieldDef<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
     resolve_and_replace_type(&field.tpe, scope);

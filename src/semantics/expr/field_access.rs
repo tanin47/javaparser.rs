@@ -29,21 +29,33 @@ pub fn apply_field_access<'def, 'def_ref, 'scope_ref>(
     match field_access.prefix.borrow().as_ref() {
         FieldAccessPrefix::Package(p) => {
             if let Some(tpe) = p.find(&field_access.name) {
-                if let EnclosingType::Package(p) = tpe {
-                    return Some(FieldAccessPrefix::Package(p));
-                } else {
-                    field_access.tpe_opt.replace(Some(tpe.to_type()));
+                match tpe {
+                    EnclosingType::Package(p) => return Some(FieldAccessPrefix::Package(p)),
+                    EnclosingType::Class(c) => {
+                        return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
+                            tpe: StaticType::Class(c),
+                        })));
+                    }
+                    EnclosingType::Parameterized(p) => {
+                        return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
+                            tpe: StaticType::Parameterized(p),
+                        })));
+                    }
                 }
             }
         }
         FieldAccessPrefix::Expr(Expr::StaticClass(static_class)) => {
+            // TODO: using field_access.name makes no sense.
+            if let Some(class) = static_class.tpe.find_inner_class(&field_access.name) {
+                return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
+                    tpe: StaticType::Class(class),
+                })));
+            }
             if let Some(field) = static_class.tpe.find_field(
                 field_access.name.fragment,
                 &InvocationContext { only_static: true },
             ) {
-                field_access
-                    .tpe_opt
-                    .replace(Some(field.tpe.borrow().deref().clone()));
+                field_access.def_opt.replace(Some(field));
             }
         }
         FieldAccessPrefix::Expr(e) => {
@@ -52,9 +64,7 @@ pub fn apply_field_access<'def, 'def_ref, 'scope_ref>(
                     field_access.name.fragment,
                     &InvocationContext { only_static: false },
                 ) {
-                    field_access
-                        .tpe_opt
-                        .replace(Some(field.tpe.borrow().deref().clone()));
+                    field_access.def_opt.replace(Some(field));
                 }
             }
         }
@@ -83,7 +93,6 @@ fn apply_prefix<'def, 'def_ref, 'scope_ref>(
         }
         Expr::Name(n) => {
             if let Some(resolved) = scope.resolve_name(&n.name) {
-                println!("Resolve {:#?}", resolved);
                 match resolved {
                     ResolvedName::Package(p) => {
                         return Some(FieldAccessPrefix::Package(PackagePrefix {
@@ -125,6 +134,49 @@ mod tests {
     use std::ops::Deref;
     use test_common::span2;
     use {analyze, semantics};
+
+    #[ignore]
+    #[test]
+    fn test_array_field() {
+        let (files, root) = apply_semantics!(
+            r#"
+package dev;
+
+class Test {
+  void method() {
+    int[] s;
+    int a = s.length;
+  }
+}
+        "#
+        );
+
+        let class = unwrap!(
+            CompilationUnitItem::Class,
+            &files.first().unwrap().unit.items.get(0).unwrap()
+        );
+        let method = unwrap!(ClassBodyItem::Method, &class.body.items.get(0).unwrap());
+        let var = unwrap!(
+            Statement::VariableDeclarators,
+            &method.block_opt.as_ref().unwrap().stmts.get(1).unwrap()
+        );
+
+        let field_access = unwrap!(
+            Expr::FieldAccess,
+            var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
+        );
+        let tpe = unwrap!(
+            Type::Primitive,
+            field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
+        );
+        assert_eq!(
+            tpe,
+            PrimitiveType {
+                name: span2(4, 3, "int", files.get(1).unwrap().deref()),
+                tpe: PrimitiveTypeType::Int
+            }
+        );
+    }
 
     #[test]
     fn test_both_instance_and_static() {
@@ -168,7 +220,7 @@ class Another {
             );
             let tpe = unwrap!(
                 Type::Primitive,
-                field_access.tpe_opt.borrow().clone().unwrap()
+                field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
             );
             assert_eq!(
                 tpe,
@@ -190,7 +242,7 @@ class Another {
 
             let tpe = unwrap!(
                 Type::Primitive,
-                field_access.tpe_opt.borrow().clone().unwrap()
+                field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
             );
             assert_eq!(
                 tpe,
@@ -214,6 +266,7 @@ class Test {
   void method() {
     int b = Test.a;
     int d = Test.c; // Unable to get the field
+    int e = dev.Test.a;
   }
 }
         "#
@@ -235,7 +288,7 @@ class Test {
             );
             let tpe = unwrap!(
                 Type::Primitive,
-                field_access.tpe_opt.borrow().clone().unwrap()
+                field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
             );
             assert_eq!(
                 tpe,
@@ -254,7 +307,28 @@ class Test {
                 Expr::FieldAccess,
                 var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
             );
-            assert_eq!(None, field_access.tpe_opt.borrow().clone());
+            assert_eq!(None, field_access.def_opt.borrow().as_ref());
+        }
+        {
+            let var = unwrap!(
+                Statement::VariableDeclarators,
+                &method.block_opt.as_ref().unwrap().stmts.get(2).unwrap()
+            );
+            let field_access = unwrap!(
+                Expr::FieldAccess,
+                var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
+            );
+            let tpe = unwrap!(
+                Type::Primitive,
+                field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
+            );
+            assert_eq!(
+                tpe,
+                PrimitiveType {
+                    name: span2(4, 10, "int", files.get(0).unwrap().deref()),
+                    tpe: PrimitiveTypeType::Int
+                }
+            );
         }
     }
 
@@ -292,7 +366,7 @@ class Test<T extends Test> {
             );
             let tpe = unwrap!(
                 Type::Primitive,
-                field_access.tpe_opt.borrow().clone().unwrap()
+                field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
             );
             assert_eq!(
                 tpe,
@@ -312,7 +386,7 @@ class Test<T extends Test> {
                 Expr::FieldAccess,
                 var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
             );
-            assert_eq!(None, field_access.tpe_opt.borrow().clone());
+            assert_eq!(None, field_access.def_opt.borrow().as_ref());
         }
     }
 }

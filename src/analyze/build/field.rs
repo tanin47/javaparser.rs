@@ -1,14 +1,15 @@
 use analyze::build::modifier;
-use analyze::definition::{Field, FieldGroup};
+use analyze::definition::{FieldDef, FieldGroup};
 use parse;
 use std::cell::RefCell;
 
 pub fn build<'def, 'def_ref>(
     field: &'def_ref parse::tree::VariableDeclarator<'def>,
-) -> Field<'def> {
-    Field {
+) -> FieldDef<'def> {
+    FieldDef {
         tpe: field.tpe.clone(),
         name: field.name.clone(),
+        parse: field,
     }
 }
 

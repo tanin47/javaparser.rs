@@ -140,7 +140,7 @@ impl<'a> Class<'a> {
         None
     }
 
-    pub fn find_field(&self, name: &str) -> Option<&Field<'a>> {
+    pub fn find_field(&self, name: &str) -> Option<&FieldDef<'a>> {
         for group in &self.field_groups {
             for field in &group.items {
                 if field.name.fragment == name {
@@ -271,12 +271,20 @@ pub enum Modifier {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FieldGroup<'a> {
     pub modifiers: HashSet<Modifier>,
-    pub items: Vec<Field<'a>>,
+    pub items: Vec<FieldDef<'a>>,
+    pub parse: *const parse::tree::FieldDeclarators<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Field<'a> {
+pub struct FieldDef<'a> {
     pub tpe: RefCell<Type<'a>>,
     pub name: Span<'a>,
+    pub parse: *const parse::tree::VariableDeclarator<'a>,
 }
-unsafe impl<'a> Sync for Field<'a> {}
+unsafe impl<'a> Sync for FieldDef<'a> {}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Field<'a> {
+    pub tpe: Type<'a>,
+    pub def: *const FieldDef<'a>,
+}
