@@ -135,6 +135,7 @@ mod tests {
     use test_common::span2;
     use {analyze, semantics};
 
+    #[ignore]
     #[test]
     fn test_array_field() {
         let (files, root) = apply_semantics!(
