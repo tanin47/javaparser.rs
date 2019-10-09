@@ -48,7 +48,8 @@ fn parse_class<'def, 'r>(
         parse_class(
             Some(ClassType {
                 prefix_opt: prefix_opt.map(|c| Box::new(EnclosingType::Class(c))),
-                name,
+                name: name.fragment.to_owned(),
+                span_opt: Some(name),
                 type_args_opt: None,
                 def_opt: None,
             }),
@@ -59,7 +60,8 @@ fn parse_class<'def, 'r>(
             input,
             ClassType {
                 prefix_opt: prefix_opt.map(|c| Box::new(EnclosingType::Class(c))),
-                name,
+                name: name.fragment.to_owned(),
+                span_opt: Some(name),
                 type_args_opt: None,
                 def_opt: None,
             },

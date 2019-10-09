@@ -1,3 +1,4 @@
+pub mod array;
 pub mod class;
 pub mod compilation_unit;
 pub mod constructor;

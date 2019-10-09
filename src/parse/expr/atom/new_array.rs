@@ -1,6 +1,6 @@
 use parse::combinator::{keyword, opt, symbol};
 use parse::expr::atom::array_initializer;
-use parse::tree::{ArrayType, Expr, NewArray, Type};
+use parse::tree::{ArrayType, ClassType, Expr, NewArray, Type, NATIVE_ARRAY_CLASS_NAME};
 use parse::{expr, tpe, ParseResult, Tokens};
 
 fn parse_array_brackets<'def, 'r>(
@@ -25,8 +25,15 @@ fn parse_array_brackets<'def, 'r>(
     Ok((
         input,
         Type::Array(ArrayType {
-            tpe: Box::new(inner),
             size_opt,
+            underlying: ClassType {
+                prefix_opt: None,
+                name: NATIVE_ARRAY_CLASS_NAME.to_owned(),
+                span_opt: None,
+                type_args_opt: Some(vec![inner.clone().to_type_arg()]),
+                def_opt: None,
+            },
+            tpe: Box::new(inner),
         }),
     ))
 }

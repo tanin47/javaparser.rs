@@ -28,7 +28,8 @@ pub fn apply_field_access<'def, 'def_ref, 'scope_ref>(
 
     match field_access.prefix.borrow().as_ref() {
         FieldAccessPrefix::Package(p) => {
-            if let Some(tpe) = p.find(&field_access.name) {
+            if let Some(mut tpe) = p.find(field_access.name.fragment) {
+                tpe.set_span_opt(Some(&field_access.name));
                 match tpe {
                     EnclosingType::Package(p) => return Some(FieldAccessPrefix::Package(p)),
                     EnclosingType::Class(c) => {
@@ -45,8 +46,11 @@ pub fn apply_field_access<'def, 'def_ref, 'scope_ref>(
             }
         }
         FieldAccessPrefix::Expr(Expr::StaticClass(static_class)) => {
-            // TODO: using field_access.name makes no sense.
-            if let Some(class) = static_class.tpe.find_inner_class(&field_access.name) {
+            if let Some(mut class) = static_class
+                .tpe
+                .find_inner_class(field_access.name.fragment)
+            {
+                class.set_span_opt(Some(&field_access.name));
                 return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
                     tpe: StaticType::Class(class),
                 })));
@@ -83,8 +87,6 @@ fn apply_prefix<'def, 'def_ref, 'scope_ref>(
         FieldAccessPrefix::Package(p) => return None,
     };
 
-    println!("E {:#?}", ex);
-
     match ex {
         Expr::FieldAccess(f) => {
             if let Some(new_prefix) = apply_field_access(f, scope) {
@@ -92,24 +94,30 @@ fn apply_prefix<'def, 'def_ref, 'scope_ref>(
             }
         }
         Expr::Name(n) => {
-            if let Some(resolved) = scope.resolve_name(&n.name) {
+            if let Some(resolved) = scope.resolve_name(n.name.fragment) {
                 match resolved {
                     ResolvedName::Package(p) => {
                         return Some(FieldAccessPrefix::Package(PackagePrefix {
                             prefix_opt: None,
-                            name: n.name.clone(),
+                            name: n.name.fragment.to_owned(),
+                            span_opt: Some(n.name.clone()),
                             def: p,
                         }))
                     }
                     ResolvedName::Class(c) => {
                         return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
-                            tpe: StaticType::Class(unsafe { &*c }.to_type(&n.name)),
+                            tpe: StaticType::Class({
+                                let mut t = unsafe { &*c }.to_type();
+                                t.set_span_opt(Some(&n.name));
+                                t
+                            }),
                         })))
                     }
                     ResolvedName::TypeParam(p) => {
                         return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
                             tpe: StaticType::Parameterized(ParameterizedType {
-                                name: n.name.clone(),
+                                name: n.name.fragment.to_owned(),
+                                span_opt: Some(n.name.clone()),
                                 def: p,
                             }),
                         })))
@@ -135,7 +143,6 @@ mod tests {
     use test_common::span2;
     use {analyze, semantics};
 
-    #[ignore]
     #[test]
     fn test_array_field() {
         let (files, root) = apply_semantics!(
@@ -372,6 +379,70 @@ class Test<T extends Test> {
                 tpe,
                 PrimitiveType {
                     name: span2(4, 10, "int", files.get(0).unwrap().deref()),
+                    tpe: PrimitiveTypeType::Int
+                }
+            );
+        }
+        {
+            let var = unwrap!(
+                Statement::VariableDeclarators,
+                &method.block_opt.as_ref().unwrap().stmts.get(1).unwrap()
+            );
+
+            let field_access = unwrap!(
+                Expr::FieldAccess,
+                var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
+            );
+            assert_eq!(None, field_access.def_opt.borrow().as_ref());
+        }
+    }
+
+    #[test]
+    fn test_super() {
+        let (files, root) = apply_semantics!(
+            r#"
+package dev;
+
+class Test extends Super {
+  void method() {
+    int b = Test.a;
+    int d = Test.c;
+  }
+}
+        "#,
+            r#"
+package dev;
+
+class Super {
+  static int a;
+  int c;
+}
+        "#
+        );
+
+        let class = unwrap!(
+            CompilationUnitItem::Class,
+            &files.first().unwrap().unit.items.get(0).unwrap()
+        );
+        let method = unwrap!(ClassBodyItem::Method, &class.body.items.get(0).unwrap());
+        {
+            let var = unwrap!(
+                Statement::VariableDeclarators,
+                &method.block_opt.as_ref().unwrap().stmts.get(0).unwrap()
+            );
+
+            let field_access = unwrap!(
+                Expr::FieldAccess,
+                var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
+            );
+            let tpe = unwrap!(
+                Type::Primitive,
+                field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
+            );
+            assert_eq!(
+                tpe,
+                PrimitiveType {
+                    name: span2(4, 10, "int", files.get(1).unwrap().deref()),
                     tpe: PrimitiveTypeType::Int
                 }
             );

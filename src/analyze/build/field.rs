@@ -8,8 +8,8 @@ pub fn build<'def, 'def_ref>(
 ) -> FieldDef<'def> {
     FieldDef {
         tpe: field.tpe.clone(),
-        name: field.name.clone(),
-        parse: field,
+        name: field.name.fragment.to_owned(),
+        parse_opt: Some(field),
     }
 }
 

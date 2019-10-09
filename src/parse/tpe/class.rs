@@ -31,7 +31,8 @@ pub fn parse_tail<'def, 'r>(
             Some(prefix) => Some(Box::new(EnclosingType::Class(prefix))),
             None => None,
         },
-        name,
+        name: name.fragment.to_owned(),
+        span_opt: Some(name),
         type_args_opt,
         def_opt: None,
     };

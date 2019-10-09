@@ -12,7 +12,8 @@ pub fn build<'def, 'def_ref>(
     }
 
     TypeParam {
-        name: type_param.name.clone(),
+        name: type_param.name.fragment.to_owned(),
         extends: RefCell::new(extends),
+        parse_opt: Some(type_param),
     }
 }

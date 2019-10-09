@@ -6,9 +6,11 @@ pub fn apply<'def, 'def_ref, 'overlay_ref>(
     overlay: &'overlay_ref mut Overlay<'def>,
 ) {
     if let Some(def) = class.def_opt {
-        overlay.usages.push(Usage {
-            span: class.name,
-            def: Definition::Class(unsafe { &*def }.parse),
-        })
+        if let Some(span) = &class.span_opt {
+            overlay.usages.push(Usage {
+                span: span.clone(),
+                def: Definition::Class(def),
+            })
+        }
     }
 }

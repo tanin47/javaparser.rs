@@ -41,7 +41,7 @@ pub fn build<'def, 'scope_ref, 'def_ref>(
 
         Class {
             name: class.name.fragment,
-            parse: class as *const parse::tree::Class<'def>,
+            parse_opt: Some(class as *const parse::tree::Class<'def>),
             type_params,
             extend_opt: RefCell::new(match &class.extend_opt {
                 Some(extend) => Some(extend.clone()),

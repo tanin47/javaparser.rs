@@ -24,8 +24,8 @@ pub struct Usage<'def> {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Definition<'a> {
     Package(*const analyze::definition::Package<'a>),
-    Class(*const Class<'a>),
-    Method(*const Method<'a>),
+    Class(*const analyze::definition::Class<'a>),
+    Method(*const analyze::definition::Method<'a>),
     VariableDeclarator(*const VariableDeclarator<'a>),
 }
 
@@ -43,11 +43,17 @@ impl<'a> Definition<'a> {
             Definition::Package(_) => None,
             Definition::Class(c) => {
                 let c = unsafe { &**c };
-                Some(&c.name)
+                c.parse_opt.map(|parse| {
+                    let parse = unsafe { &*parse };
+                    &parse.name
+                })
             }
             Definition::Method(m) => {
                 let m = unsafe { &**m };
-                Some(&m.name)
+                m.parse_opt.map(|parse| {
+                    let parse = unsafe { &*parse };
+                    &parse.name
+                })
             }
             Definition::VariableDeclarator(v) => {
                 let v = unsafe { &**v };

@@ -16,7 +16,8 @@ fn convert_field_to_class<'def, 'r>(field: &'r FieldAccess<'def>) -> Result<Clas
             Expr::FieldAccess(parent) => convert_field_to_class(parent)?,
             Expr::Name(parent) => ClassType {
                 prefix_opt: None,
-                name: parent.name,
+                name: parent.name.fragment.to_owned(),
+                span_opt: Some(parent.name),
                 type_args_opt: None,
                 def_opt: None,
             },
@@ -27,7 +28,8 @@ fn convert_field_to_class<'def, 'r>(field: &'r FieldAccess<'def>) -> Result<Clas
 
     Ok(ClassType {
         prefix_opt: Some(Box::new(EnclosingType::Class(prefix))),
-        name: field.name,
+        name: field.name.fragment.to_owned(),
+        span_opt: Some(field.name),
         type_args_opt: None,
         def_opt: None,
     })
@@ -37,7 +39,8 @@ pub fn convert_to_type(expr: Expr) -> Result<ClassType, ()> {
     match expr {
         Expr::Name(name) => Ok(ClassType {
             prefix_opt: None,
-            name: name.name,
+            name: name.name.fragment.to_owned(),
+            span_opt: Some(name.name),
             type_args_opt: None,
             def_opt: None,
         }),

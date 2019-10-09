@@ -114,7 +114,7 @@ impl<'a> Package<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Class<'def> {
     pub name: &'def str,
-    pub parse: *const parse::tree::Class<'def>,
+    pub parse_opt: Option<*const parse::tree::Class<'def>>,
     // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'def>>,
     pub extend_opt: RefCell<Option<ClassType<'def>>>,
@@ -143,7 +143,7 @@ impl<'a> Class<'a> {
     pub fn find_field(&self, name: &str) -> Option<&FieldDef<'a>> {
         for group in &self.field_groups {
             for field in &group.items {
-                if field.name.fragment == name {
+                if &field.name == name {
                     return Some(field);
                 }
             }
@@ -154,7 +154,7 @@ impl<'a> Class<'a> {
 
     pub fn find_method(&self, name: &str) -> Option<&Method<'a>> {
         for method in &self.methods {
-            if method.name.fragment == name {
+            if &method.name == name {
                 return Some(method);
             }
         }
@@ -164,7 +164,7 @@ impl<'a> Class<'a> {
 
     pub fn find_type_param(&self, name: &str) -> Option<&TypeParam<'a>> {
         for type_param in &self.type_params {
-            if type_param.name.fragment == name {
+            if &type_param.name == name {
                 return Some(type_param);
             }
         }
@@ -172,10 +172,11 @@ impl<'a> Class<'a> {
         None
     }
 
-    pub fn to_type(&self, name: &Span<'a>) -> ClassType<'a> {
+    pub fn to_type(&self) -> ClassType<'a> {
         ClassType {
             prefix_opt: None,
-            name: name.clone(),
+            name: self.name.to_owned(),
+            span_opt: None,
             type_args_opt: None,
             def_opt: Some(self as *const Class<'a>),
         }
@@ -201,8 +202,9 @@ pub struct Method<'a> {
     pub modifiers: HashSet<Modifier>,
     pub type_params: Vec<TypeParam<'a>>,
     pub return_type: RefCell<Type<'a>>,
-    pub name: Span<'a>,
+    pub name: String,
     pub params: Vec<Param<'a>>,
+    pub parse_opt: Option<*const parse::tree::Method<'a>>,
 }
 unsafe impl<'a> Sync for Method<'a> {}
 
@@ -219,7 +221,7 @@ pub enum TypeParamExtend<'a> {
 }
 
 impl<'a> TypeParamExtend<'a> {
-    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
+    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
         match self {
             TypeParamExtend::Class(class) => class.find_inner_class(name),
             TypeParamExtend::Parameterized(parameterized) => parameterized.find_inner_class(name),
@@ -238,8 +240,9 @@ impl<'a> TypeParamExtend<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypeParam<'a> {
-    pub name: Span<'a>,
+    pub name: String,
     pub extends: RefCell<Vec<TypeParamExtend<'a>>>,
+    pub parse_opt: Option<*const parse::tree::TypeParam<'a>>,
 }
 
 impl<'a> TypeParam<'a> {
@@ -272,14 +275,14 @@ pub enum Modifier {
 pub struct FieldGroup<'a> {
     pub modifiers: HashSet<Modifier>,
     pub items: Vec<FieldDef<'a>>,
-    pub parse: *const parse::tree::FieldDeclarators<'a>,
+    pub parse_opt: Option<*const parse::tree::FieldDeclarators<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FieldDef<'a> {
     pub tpe: RefCell<Type<'a>>,
-    pub name: Span<'a>,
-    pub parse: *const parse::tree::VariableDeclarator<'a>,
+    pub name: String,
+    pub parse_opt: Option<*const parse::tree::VariableDeclarator<'a>>,
 }
 unsafe impl<'a> Sync for FieldDef<'a> {}
 

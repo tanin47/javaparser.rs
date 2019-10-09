@@ -1,17 +1,22 @@
 use analyze::build::scope::Scope;
-use analyze::build::{class, interface, package};
+use analyze::build::{array, class, interface, package};
 use analyze::definition::{Class, CompilationUnit, Decl, Interface, Package, PackageDecl, Root};
 use either::Either;
 use parse;
-use parse::tree::CompilationUnitItem;
 
 pub fn build<'def, 'r>(unit: &'r parse::tree::CompilationUnit<'def>) -> Root<'def> {
     let mut scope = Scope { paths: vec![] };
 
-    let (subpackages, units) = match &unit.package_opt {
+    let (subpackages, mut units) = match &unit.package_opt {
         Some(package) => (vec![package::build(package, unit, &mut scope)], vec![]),
         None => (vec![], vec![build_unit(unit, &mut scope)]),
     };
+
+    units.push(CompilationUnit {
+        imports: vec![],
+        main: Decl::Class(array::apply()),
+        others: vec![],
+    });
 
     Root { subpackages, units }
 }

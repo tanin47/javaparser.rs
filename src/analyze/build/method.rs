@@ -19,8 +19,9 @@ pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> Met
         modifiers: modifier::build(&method.modifiers),
         type_params,
         return_type: RefCell::new(method.return_type.clone()),
-        name: method.name.clone(),
+        name: method.name.fragment.to_owned(),
         params,
+        parse_opt: Some(method),
     }
 }
 

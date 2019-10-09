@@ -8,7 +8,7 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
     class: &'def_ref parse::tree::Class<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
-    if let Some(EnclosingType::Class(tpe)) = scope.resolve_type(&class.name) {
+    if let Some(EnclosingType::Class(tpe)) = scope.resolve_type(class.name.fragment) {
         if let Some(def) = tpe.def_opt {
             class.def_opt.replace(Some(def));
         }

@@ -36,7 +36,7 @@ pub fn parse_wildcard<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r
     Ok((
         input,
         TypeArg::Wildcard(WildcardType {
-            name,
+            span_opt: Some(name),
             super_opt: super_opt.map(Box::new),
             extends,
         }),
