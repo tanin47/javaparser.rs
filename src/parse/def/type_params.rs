@@ -1,4 +1,5 @@
 use parse::combinator::{identifier, keyword, separated_list, separated_nonempty_list, symbol};
+use parse::id_gen::IdGen;
 use parse::tpe::class;
 use parse::tree::{ClassType, TypeParam};
 use parse::{ParseResult, Tokens};
@@ -15,16 +16,28 @@ pub fn parse_extends<'def, 'r>(
 
 pub fn parse_type_param<'def, 'r>(
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, TypeParam<'def>> {
     let (input, name) = identifier(input)?;
     let (input, extends) = parse_extends(input)?;
 
-    Ok((input, TypeParam { name, extends }))
+    Ok((
+        input,
+        TypeParam {
+            name,
+            extends,
+            id: id_gen.get_next("TypeParam", name.fragment),
+        },
+    ))
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<TypeParam<'def>>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Vec<TypeParam<'def>>> {
     if let Ok((input, _)) = symbol('<')(input) {
-        let (input, type_params) = separated_list(symbol(','), parse_type_param)(input)?;
+        let (input, type_params) =
+            separated_list(symbol(','), |i| parse_type_param(i, id_gen))(input)?;
         let (input, _) = symbol('>')(input)?;
         Ok((input, type_params))
     } else {

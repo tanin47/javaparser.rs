@@ -1,6 +1,7 @@
 use analyze::resolve::scope::Scope;
 use parse::tree::{Class, ClassBodyItem, EnclosingType};
-use semantics::{method, Context};
+use semantics::def::{field, method};
+use semantics::Context;
 use std::borrow::Borrow;
 use {analyze, parse};
 
@@ -46,6 +47,7 @@ fn apply_class_body<'def, 'def_ref, 'scope_ref>(
     for item in &body.items {
         match item {
             ClassBodyItem::Method(m) => method::apply(m, context),
+            ClassBodyItem::FieldDeclarators(f) => field::apply(f, context),
             _ => (),
         };
     }

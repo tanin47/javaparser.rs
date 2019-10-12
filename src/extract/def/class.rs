@@ -1,4 +1,5 @@
-use extract::{method, Definition, Overlay};
+use extract::def::{field, method};
+use extract::{Definition, Overlay};
 use parse::tree::{Class, ClassBodyItem};
 
 pub fn apply<'def, 'def_ref, 'overlay_ref>(
@@ -20,7 +21,7 @@ pub fn apply_item<'def, 'def_ref, 'overlay_ref>(
 ) {
     match item {
         ClassBodyItem::Method(m) => method::apply(m, overlay),
-        ClassBodyItem::FieldDeclarators(_) => {}
+        ClassBodyItem::FieldDeclarators(f) => field::apply(f, overlay),
         ClassBodyItem::Class(_) => {}
         ClassBodyItem::Interface(_) => {}
         ClassBodyItem::Enum(_) => {}

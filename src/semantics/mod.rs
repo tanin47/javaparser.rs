@@ -6,12 +6,11 @@ use semantics::id_hash::IdHash;
 use std::collections::HashMap;
 
 pub mod block;
-pub mod class;
 pub mod compilation_unit;
+pub mod def;
 pub mod expr;
 pub mod id_hash;
 pub mod import;
-pub mod method;
 pub mod statement;
 
 pub struct Context<'def, 'def_ref, 'id_hash_ref> {

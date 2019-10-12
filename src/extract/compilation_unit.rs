@@ -1,4 +1,5 @@
-use extract::{class, import, package, Overlay};
+use extract::def::{class, package};
+use extract::{import, Overlay};
 use parse::tree::{CompilationUnit, CompilationUnitItem};
 
 pub fn apply<'def, 'def_ref, 'overlay_ref>(

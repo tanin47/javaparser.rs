@@ -172,7 +172,6 @@ class Test {
             Expr::FieldAccess,
             var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
         );
-        println!("{:#?}", field_access);
         let tpe = unwrap!(
             Type::Primitive,
             field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()

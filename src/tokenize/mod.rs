@@ -350,7 +350,11 @@ fn float_or_double_dot<'a>(
     original: Span<'a>,
 ) -> Result<(Span<'a>, Token<'a>), Span<'a>> {
     let (symbol, input) = take(1, original);
-    let last_char = symbol.fragment.char_at(0).to_ascii_uppercase();
+    let last_char = if !symbol.fragment.is_empty() {
+        symbol.fragment.char_at(0).to_ascii_uppercase()
+    } else {
+        ' ' // anything that is not a dot.
+    };
 
     if last_char != '.' {
         return float_or_double_e(first_number, original, false);

@@ -91,7 +91,7 @@ fn parse_method_constructor_or_field<'def, 'r>(
     modifiers: Vec<Modifier<'def>>,
     id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, ClassBodyItem<'def>> {
-    let (input, type_params) = type_params::parse(input)?;
+    let (input, type_params) = type_params::parse(input, id_gen)?;
 
     if let Ok((input, ident)) = identifier(input) {
         if let Ok(_) = symbol('(')(input) {

@@ -1,8 +1,9 @@
-use parse::combinator::{separated_nonempty_list, symbol};
+use parse::combinator::{identifier, separated_nonempty_list, symbol};
 use parse::id_gen::IdGen;
 use parse::statement::variable_declarators;
-use parse::tree::{FieldDeclarators, Modifier, Type};
-use parse::{ParseResult, Tokens};
+use parse::tree::{FieldDeclarator, FieldDeclarators, Modifier, Type};
+use parse::{expr, tpe, ParseResult, Tokens};
+use std::cell::RefCell;
 
 pub fn parse<'def, 'r>(
     input: Tokens<'def, 'r>,
@@ -10,9 +11,8 @@ pub fn parse<'def, 'r>(
     tpe: Type<'def>,
     id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, FieldDeclarators<'def>> {
-    let (input, declarators) = separated_nonempty_list(symbol(','), |i| {
-        variable_declarators::parse_single(i, tpe.clone(), id_gen)
-    })(input)?;
+    let (input, declarators) =
+        separated_nonempty_list(symbol(','), |i| parse_single(i, tpe.clone(), id_gen))(input)?;
 
     let (input, _) = symbol(';')(input)?;
 
@@ -21,6 +21,34 @@ pub fn parse<'def, 'r>(
         FieldDeclarators {
             modifiers,
             declarators,
+        },
+    ))
+}
+
+fn parse_single<'def: 'r, 'r, 'id_gen_ref>(
+    input: Tokens<'def, 'r>,
+    tpe: Type<'def>,
+    id_gen: &'id_gen_ref mut IdGen,
+) -> ParseResult<'def, 'r, FieldDeclarator<'def>> {
+    let (input, name) = identifier(input)?;
+    let (input, tpe) = tpe::array::parse_tail(input, tpe)?;
+
+    let (input, expr_opt) = match symbol('=')(input) {
+        Ok((input, _)) => {
+            let (input, expr) = expr::parse(input, id_gen)?;
+            (input, Some(expr))
+        }
+        Err(_) => (input, None),
+    };
+
+    Ok((
+        input,
+        FieldDeclarator {
+            tpe: RefCell::new(tpe),
+            name,
+            expr_opt,
+            id: id_gen.get_next("var", name.fragment),
+            def_opt: RefCell::new(None),
         },
     ))
 }

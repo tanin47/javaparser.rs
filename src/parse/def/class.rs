@@ -35,7 +35,7 @@ pub fn parse_tail<'def, 'r>(
     id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Class<'def>> {
     let (input, name) = identifier(input)?;
-    let (input, type_params) = type_params::parse(input)?;
+    let (input, type_params) = type_params::parse(input, id_gen)?;
     let (input, extend_opt) = parse_extend(input)?;
     let (input, implements) = parse_implements(input)?;
 

@@ -16,7 +16,8 @@ pub fn apply<'def>() -> Class<'def> {
         type_params: vec![TypeParam {
             name: "T".to_owned(),
             extends: RefCell::new(vec![]),
-            parse_opt: None,
+            span_opt: None,
+            id: format!("{}_TypeParam_T", NATIVE_ARRAY_CLASS_NAME),
         }],
         extend_opt: RefCell::new(None),
         //        extend_opt: RefCell::new(Some(ClassType {
@@ -69,7 +70,8 @@ pub fn apply<'def>() -> Class<'def> {
                     tpe: PrimitiveTypeType::Int,
                 })),
                 name: "length".to_owned(),
-                parse_opt: None,
+                span_opt: None,
+                id: format!("{}_field_length", NATIVE_ARRAY_CLASS_NAME),
             }],
             parse_opt: None,
         }],

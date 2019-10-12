@@ -1,6 +1,7 @@
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
 use parse::tree::CompilationUnitItem;
-use semantics::{class, import, Context};
+use semantics::def::class;
+use semantics::{import, Context};
 use {analyze, parse};
 
 pub fn apply<'def, 'def_ref>(

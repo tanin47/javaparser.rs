@@ -14,6 +14,7 @@ pub fn build<'def, 'def_ref>(
     TypeParam {
         name: type_param.name.fragment.to_owned(),
         extends: RefCell::new(extends),
-        parse_opt: Some(type_param),
+        span_opt: Some(type_param.name),
+        id: type_param.id.to_owned(),
     }
 }

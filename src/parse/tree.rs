@@ -192,7 +192,16 @@ pub enum ClassBodyItem<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FieldDeclarators<'a> {
     pub modifiers: Vec<Modifier<'a>>,
-    pub declarators: Vec<VariableDeclarator<'a>>,
+    pub declarators: Vec<FieldDeclarator<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FieldDeclarator<'a> {
+    pub tpe: RefCell<Type<'a>>,
+    pub name: Span<'a>,
+    pub expr_opt: Option<Expr<'a>>,
+    pub id: String,
+    pub def_opt: RefCell<Option<*const analyze::definition::FieldDef<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -739,6 +748,7 @@ impl<'a> ParameterizedType<'a> {
 pub struct TypeParam<'a> {
     pub name: Span<'a>,
     pub extends: Vec<ClassType<'a>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -921,6 +931,7 @@ pub struct VariableDeclarator<'a> {
     pub tpe: RefCell<Type<'a>>,
     pub name: Span<'a>,
     pub expr_opt: Option<Expr<'a>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]

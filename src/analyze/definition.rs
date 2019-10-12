@@ -253,8 +253,9 @@ impl<'a> TypeParamExtend<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypeParam<'a> {
     pub name: String,
+    pub span_opt: Option<Span<'a>>,
     pub extends: RefCell<Vec<TypeParamExtend<'a>>>,
-    pub parse_opt: Option<*const parse::tree::TypeParam<'a>>,
+    pub id: String,
 }
 
 impl<'a> TypeParam<'a> {
@@ -294,7 +295,8 @@ pub struct FieldGroup<'a> {
 pub struct FieldDef<'a> {
     pub tpe: RefCell<Type<'a>>,
     pub name: String,
-    pub parse_opt: Option<*const parse::tree::VariableDeclarator<'a>>,
+    pub span_opt: Option<Span<'a>>,
+    pub id: String,
 }
 unsafe impl<'a> Sync for FieldDef<'a> {}
 

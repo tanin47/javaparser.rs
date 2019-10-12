@@ -29,6 +29,7 @@ pub fn parse_single<'def: 'r, 'r, 'id_gen_ref>(
             tpe: RefCell::new(tpe),
             name,
             expr_opt,
+            id: id_gen.get_next("var", name.fragment),
         },
     ))
 }

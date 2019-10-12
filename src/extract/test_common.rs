@@ -58,13 +58,6 @@ pub fn assert_extract(sources: Vec<&str>, expecteds: Vec<&str>) {
         });
 
         for def in defs {
-            println!("{:#?}", def);
-            if let Definition::Class(c) = &def {
-                println!("HELLO");
-                let c = unsafe { &**c };
-                println!("{:#?}", c);
-            }
-            println!("{:#?}", def.span());
             def_ids.insert(def.ptr(), id);
             id += 1;
         }
