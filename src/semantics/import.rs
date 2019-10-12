@@ -1,34 +1,37 @@
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
 use parse::tree::{ImportDef, ImportPrefix, ImportPrefixDef};
+use semantics::Context;
 use {analyze, parse};
 
 pub fn apply<'def, 'def_ref>(
     import: &parse::tree::Import<'def>,
-    scope: &mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
     match &import.prefix_opt {
-        Some(prefix) => apply_prefix(prefix, scope),
+        Some(prefix) => apply_prefix(prefix, context),
         None => (),
     };
 
-    import
-        .def_opt
-        .replace(get_def(&import.prefix_opt, import.name.fragment, scope));
+    import.def_opt.replace(get_def(
+        &import.prefix_opt,
+        import.name.fragment,
+        &mut context.scope,
+    ));
 }
 
 pub fn apply_prefix<'def, 'def_ref>(
     import: &parse::tree::ImportPrefix<'def>,
-    scope: &mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
     match &import.prefix_opt {
-        Some(prefix) => apply_prefix(prefix, scope),
+        Some(prefix) => apply_prefix(prefix, context),
         None => (),
     };
 
     import.def_opt.replace(get_prefix_def(
         &import.prefix_opt,
         import.name.fragment,
-        scope,
+        &mut context.scope,
     ));
 }
 

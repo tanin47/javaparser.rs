@@ -1,11 +1,13 @@
 use parse::combinator::{keyword, opt, symbol};
 use parse::expr::atom::array_initializer;
-use parse::tree::{ArrayType, Expr, NewArray, Type};
+use parse::id_gen::IdGen;
+use parse::tree::{ArrayType, ClassType, Expr, NewArray, Type, NATIVE_ARRAY_CLASS_NAME};
 use parse::{expr, tpe, ParseResult, Tokens};
 
 fn parse_array_brackets<'def, 'r>(
     input: Tokens<'def, 'r>,
     tpe: Type<'def>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Type<'def>> {
     let (input, _) = match symbol('[')(input) {
         Ok(result) => result,
@@ -15,18 +17,25 @@ fn parse_array_brackets<'def, 'r>(
     let (input, size_opt) = if let Ok((input, _)) = symbol(']')(input) {
         (input, None)
     } else {
-        let (input, size) = expr::parse(input)?;
+        let (input, size) = expr::parse(input, id_gen)?;
         let (input, _) = symbol(']')(input)?;
         (input, Some(Box::new(size)))
     };
 
-    let (input, inner) = parse_array_brackets(input, tpe)?;
+    let (input, inner) = parse_array_brackets(input, tpe, id_gen)?;
 
     Ok((
         input,
         Type::Array(ArrayType {
-            tpe: Box::new(inner),
             size_opt,
+            underlying: ClassType {
+                prefix_opt: None,
+                name: NATIVE_ARRAY_CLASS_NAME.to_owned(),
+                span_opt: None,
+                type_args_opt: Some(vec![inner.clone().to_type_arg()]),
+                def_opt: None,
+            },
+            tpe: Box::new(inner),
         }),
     ))
 }
@@ -34,12 +43,13 @@ fn parse_array_brackets<'def, 'r>(
 pub fn parse_tail<'def, 'r>(
     input: Tokens<'def, 'r>,
     tpe: Type<'def>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, tpe) = match parse_array_brackets(input, tpe) {
+    let (input, tpe) = match parse_array_brackets(input, tpe, id_gen) {
         Ok((input, Type::Array(array))) => (input, array),
         other => return Err(input),
     };
-    let (input, initializer_opt) = opt(array_initializer::parse_initializer)(input)?;
+    let (input, initializer_opt) = opt(|i| array_initializer::parse_initializer(i, id_gen))(input)?;
 
     Ok((
         input,

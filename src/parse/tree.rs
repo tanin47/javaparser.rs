@@ -113,6 +113,7 @@ pub struct Class<'a> {
     pub implements: Vec<ClassType<'a>>,
     pub body: ClassBody<'a>,
     pub def_opt: RefCell<Option<*const analyze::definition::Class<'a>>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -191,7 +192,16 @@ pub enum ClassBodyItem<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FieldDeclarators<'a> {
     pub modifiers: Vec<Modifier<'a>>,
-    pub declarators: Vec<VariableDeclarator<'a>>,
+    pub declarators: Vec<FieldDeclarator<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FieldDeclarator<'a> {
+    pub tpe: RefCell<Type<'a>>,
+    pub name: Span<'a>,
+    pub expr_opt: Option<Expr<'a>>,
+    pub id: String,
+    pub def_opt: RefCell<Option<*const analyze::definition::FieldDef<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -206,6 +216,11 @@ pub struct Block<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct InvocationContext {
+    pub only_static: bool,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type<'a> {
     Class(ClassType<'a>),
     Primitive(PrimitiveType<'a>),
@@ -216,12 +231,19 @@ pub enum Type<'a> {
     UnknownType,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct InvocationContext {
-    pub only_static: bool,
-}
-
 impl<'a> Type<'a> {
+    pub fn span_opt(&self) -> Option<&Span<'a>> {
+        match self {
+            Type::Array(arr) => None,
+            Type::Class(class) => class.span_opt.as_ref(),
+            Type::Parameterized(parameterized) => parameterized.span_opt.as_ref(),
+            Type::Wildcard(w) => w.span_opt.as_ref(),
+            Type::Void(v) => v.span_opt.as_ref(),
+            Type::Primitive(p) => p.span_opt.as_ref(),
+            Type::UnknownType => panic!(),
+        }
+    }
+
     pub fn to_type_arg(self) -> TypeArg<'a> {
         match self {
             Type::Array(arr) => TypeArg::Array(arr),
@@ -229,7 +251,7 @@ impl<'a> Type<'a> {
             Type::Parameterized(parameterized) => TypeArg::Parameterized(parameterized),
             Type::Wildcard(w) => TypeArg::Wildcard(w),
             Type::Void(_) => panic!(),
-            Type::Primitive(_) => panic!(),
+            Type::Primitive(p) => TypeArg::Primitive(p),
             Type::UnknownType => panic!(),
         }
     }
@@ -262,6 +284,7 @@ impl<'a> Type<'a> {
         match self {
             Type::Class(c) => c.find_field(name, context),
             Type::Parameterized(p) => p.find_field(name, context),
+            Type::Array(a) => a.find_field(name, context),
             _ => None,
         }
     }
@@ -269,7 +292,7 @@ impl<'a> Type<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Void<'a> {
-    pub span: Span<'a>,
+    pub span_opt: Option<Span<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -282,14 +305,18 @@ pub enum ReferenceType<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct PackagePrefix<'a> {
     pub prefix_opt: Option<Box<EnclosingType<'a>>>,
-    pub name: Span<'a>,
+    pub name: String,
+    pub span_opt: Option<Span<'a>>,
     pub def: *const analyze::definition::Package<'a>,
 }
 
 impl<'a> PackagePrefix<'a> {
-    pub fn find(&self, name: &Span<'a>) -> Option<EnclosingType<'a>> {
+    pub fn set_span_opt(&mut self, span_opt: Option<&Span<'a>>) {
+        self.span_opt = span_opt.map(|s| s.clone());
+    }
+    pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
         let def = unsafe { &(*self.def) };
-        def.find(name.fragment).map(|e| e.to_type(name))
+        def.find(name).map(|e| e.to_type())
     }
 }
 
@@ -306,7 +333,7 @@ impl<'a> StaticType<'a> {
             StaticType::Parameterized(p) => p.find_field(name, context),
         }
     }
-    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
+    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
         match self {
             StaticType::Class(c) => c.find_inner_class(name),
             StaticType::Parameterized(p) => p.find_inner_class(name),
@@ -322,14 +349,22 @@ pub enum EnclosingType<'a> {
 }
 
 impl<'a> EnclosingType<'a> {
-    pub fn get_name(&self) -> &Span<'a> {
+    pub fn set_span_opt(&mut self, span_opt: Option<&Span<'a>>) {
+        match self {
+            EnclosingType::Class(c) => c.set_span_opt(span_opt),
+            EnclosingType::Parameterized(p) => p.set_span_opt(span_opt),
+            EnclosingType::Package(p) => p.set_span_opt(span_opt),
+        };
+    }
+
+    pub fn get_name(&self) -> &str {
         match self {
             EnclosingType::Package(package) => &package.name,
             EnclosingType::Class(class) => &class.name,
             EnclosingType::Parameterized(p) => &p.name,
         }
     }
-    pub fn find(&self, name: &Span<'a>) -> Option<EnclosingType<'a>> {
+    pub fn find(&self, name: &str) -> Option<EnclosingType<'a>> {
         match self {
             EnclosingType::Package(package) => package.find(name),
             EnclosingType::Class(class) => class
@@ -351,12 +386,14 @@ impl<'a> EnclosingType<'a> {
         match self {
             EnclosingType::Package(package) => EnclosingType::Package(PackagePrefix {
                 prefix_opt: prefix_opt.map(Box::new),
-                name: package.name.clone(),
+                name: package.name.to_owned(),
+                span_opt: package.span_opt,
                 def: package.def,
             }),
             EnclosingType::Class(class) => EnclosingType::Class(ClassType {
                 prefix_opt: prefix_opt.map(Box::new),
-                name: class.name.clone(),
+                name: class.name.to_owned(),
+                span_opt: class.span_opt,
                 type_args_opt: class.type_args_opt.clone(),
                 def_opt: class.def_opt.clone(),
             }),
@@ -379,6 +416,7 @@ pub enum TypeArg<'a> {
     Parameterized(ParameterizedType<'a>),
     Array(ArrayType<'a>),
     Wildcard(WildcardType<'a>),
+    Primitive(PrimitiveType<'a>),
 }
 
 impl<'a> TypeArg<'a> {
@@ -388,20 +426,21 @@ impl<'a> TypeArg<'a> {
             TypeArg::Class(c) => Type::Class(c.clone()),
             TypeArg::Array(a) => Type::Array(a.clone()),
             TypeArg::Wildcard(w) => Type::Wildcard(w.clone()),
+            TypeArg::Primitive(p) => Type::Primitive(p.clone()),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct WildcardType<'a> {
-    pub name: Span<'a>,
+    pub span_opt: Option<Span<'a>>,
     pub extends: Vec<ReferenceType<'a>>,
     pub super_opt: Option<Box<ReferenceType<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PrimitiveType<'a> {
-    pub name: Span<'a>,
+    pub span_opt: Option<Span<'a>>,
     pub tpe: PrimitiveTypeType,
 }
 
@@ -420,12 +459,17 @@ pub enum PrimitiveTypeType {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ClassType<'a> {
     pub prefix_opt: Option<Box<EnclosingType<'a>>>,
-    pub name: Span<'a>,
+    pub name: String,
+    pub span_opt: Option<Span<'a>>,
     pub type_args_opt: Option<Vec<TypeArg<'a>>>,
     pub def_opt: Option<*const analyze::definition::Class<'a>>,
 }
 
 impl<'a> ClassType<'a> {
+    pub fn set_span_opt(&mut self, span_opt: Option<&Span<'a>>) {
+        self.span_opt = span_opt.map(|s| s.clone());
+    }
+
     pub fn get_extend_opt(&self) -> Option<ClassType<'a>> {
         let extend_class_opt = if let Some(def) = self.def_opt {
             let def = unsafe { &(*def) };
@@ -451,17 +495,17 @@ impl<'a> ClassType<'a> {
     // We get Current<T> where the value of T is assigned with A.
     //    pub fn substitute_type_args_from(&self, subclass: &ClassType<'a>) -> ClassType<'a> {}
 
-    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
+    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
         let class = if let Some(class) = self.def_opt {
             unsafe { &(*class) }
         } else {
             return None;
         };
 
-        match class.find(name.fragment) {
+        match class.find(name) {
             Some(found) => {
                 // TODO: transfer type args
-                return Some(found.to_type(name));
+                return Some(found.to_type());
             }
             None => {
                 match class.extend_opt.borrow().as_ref() {
@@ -496,7 +540,7 @@ impl<'a> ClassType<'a> {
             }
 
             for item in &group.items {
-                if item.name.fragment == name {
+                if &item.name == name {
                     return Some(Field {
                         tpe: self.realize(item.tpe.borrow().deref()),
                         def: item,
@@ -505,7 +549,11 @@ impl<'a> ClassType<'a> {
             }
         }
 
-        // TODO: go to super types
+        if let Some(extend) = def.extend_opt.borrow().as_ref() {
+            if let Some(field) = extend.find_field(name, context) {
+                return Some(field);
+            }
+        }
 
         None
     }
@@ -524,12 +572,13 @@ impl<'a> ClassType<'a> {
             TypeArg::Parameterized(p) => self.realize_parameterized(p).to_type_arg(),
             TypeArg::Array(a) => TypeArg::Array(self.realize_array(a)),
             TypeArg::Wildcard(w) => TypeArg::Wildcard(self.realize_wildcard(w)),
+            TypeArg::Primitive(p) => TypeArg::Primitive(p.clone()),
         }
     }
 
     fn realize_wildcard(&self, wildcard: &WildcardType<'a>) -> WildcardType<'a> {
         WildcardType {
-            name: wildcard.name.clone(),
+            span_opt: wildcard.span_opt,
             extends: {
                 let mut extends = vec![];
                 for ex in &wildcard.extends {
@@ -583,7 +632,7 @@ impl<'a> ClassType<'a> {
         };
 
         for (param, arg) in def.type_params.iter().zip(type_args.iter()) {
-            if param.name.fragment == parameterized.name.fragment {
+            if &param.name == &parameterized.name {
                 return Some(arg.to_type());
             }
         }
@@ -609,7 +658,8 @@ impl<'a> ClassType<'a> {
                 .prefix_opt
                 .as_ref()
                 .map(|p| Box::new(self.realize_enclosing(&p))),
-            name: class.name.clone(),
+            name: class.name.to_owned(),
+            span_opt: class.span_opt,
             type_args_opt: class.type_args_opt.as_ref().map(|type_args| {
                 let mut realizeds = vec![];
                 for t in type_args {
@@ -625,6 +675,7 @@ impl<'a> ClassType<'a> {
         ArrayType {
             tpe: Box::new(self.realize(&array.tpe)),
             size_opt: array.size_opt.clone(),
+            underlying: self.realize_class(&array.underlying),
         }
     }
 
@@ -641,20 +692,34 @@ impl<'a> ClassType<'a> {
     }
 }
 
+pub static NATIVE_ARRAY_CLASS_NAME: &str = "NATIVE:Array";
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct ArrayType<'a> {
     pub tpe: Box<Type<'a>>,
     pub size_opt: Option<Box<Expr<'a>>>,
+    pub underlying: ClassType<'a>,
+}
+
+impl<'a> ArrayType<'a> {
+    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
+        self.underlying.find_field(name, context)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParameterizedType<'a> {
-    pub name: Span<'a>,
+    pub name: String,
+    pub span_opt: Option<Span<'a>>,
     pub def: *const analyze::definition::TypeParam<'a>,
 }
 
 impl<'a> ParameterizedType<'a> {
-    pub fn find_inner_class(&self, name: &Span<'a>) -> Option<ClassType<'a>> {
+    pub fn set_span_opt(&mut self, span_opt: Option<&Span<'a>>) {
+        self.span_opt = span_opt.map(|s| s.clone());
+    }
+
+    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
         let type_param = unsafe { &(*self.def) };
 
         for extend in type_param.extends.borrow().iter() {
@@ -683,6 +748,7 @@ impl<'a> ParameterizedType<'a> {
 pub struct TypeParam<'a> {
     pub name: Span<'a>,
     pub extends: Vec<ClassType<'a>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -712,6 +778,8 @@ pub struct Method<'a> {
     pub params: Vec<Param<'a>>,
     pub throws: Vec<ClassType<'a>>,
     pub block_opt: Option<Block<'a>>,
+    pub def_opt: RefCell<Option<*const analyze::definition::Method<'a>>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -863,6 +931,7 @@ pub struct VariableDeclarator<'a> {
     pub tpe: RefCell<Type<'a>>,
     pub name: Span<'a>,
     pub expr_opt: Option<Expr<'a>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]

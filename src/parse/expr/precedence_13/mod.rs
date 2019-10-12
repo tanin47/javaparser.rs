@@ -1,4 +1,5 @@
 use parse::expr::precedence_14;
+use parse::id_gen::IdGen;
 use parse::tree::Expr;
 use parse::{ParseResult, Tokens};
 
@@ -6,15 +7,18 @@ pub mod cast;
 pub mod unary;
 pub mod unary_pre;
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
-    if let Ok(ok) = unary_pre::parse(input) {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
+    if let Ok(ok) = unary_pre::parse(input, id_gen) {
         Ok(ok)
-    } else if let Ok(ok) = unary::parse(input) {
+    } else if let Ok(ok) = unary::parse(input, id_gen) {
         Ok(ok)
-    } else if let Ok(ok) = cast::parse(input) {
+    } else if let Ok(ok) = cast::parse(input, id_gen) {
         Ok(ok)
     } else {
-        precedence_14::parse(input)
+        precedence_14::parse(input, id_gen)
     }
 }
 

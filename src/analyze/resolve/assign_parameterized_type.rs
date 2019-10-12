@@ -203,197 +203,197 @@ fn resolve_type_param_extend<'def, 'def_ref>(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::apply;
-    use analyze::definition::{Class, TypeParam};
-    use analyze::resolve::assign_type;
-    use analyze::test_common::find_class;
-    use parse::tree::{
-        ClassType, EnclosingType, ParameterizedType, PrimitiveType, PrimitiveTypeType,
-        ReferenceType, Type, TypeArg, Void, WildcardType,
-    };
-    use std::cell::{Cell, RefCell};
-    use std::ops::Deref;
-    use test_common::{span, span2};
-
-    #[test]
-    fn test_circular_parameterized() {
-        // This case proves that we need to process type params after processing the concrete types.
-        let (files, root) = apply_assign_parameterized_type!(
-            r#"
-package dev;
-
-class Test extends Super<Test> {}
-        "#,
-            r#"
-package dev;
-
-class Super<T extends Test> {
-    class Inner {}
-    T.Inner method() {}
-    T.Inner field;
-}
-        "#
-        );
-
-        let method = find_class(&root, "dev.Super")
-            .find_method("method")
-            .unwrap();
-        let field = find_class(&root, "dev.Super").find_field("field").unwrap();
-
-        assert_eq!(
-            method.return_type.borrow().deref(),
-            &Type::Class(ClassType {
-                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
-                    name: span2(5, 5, "T", files.get(1).unwrap().deref()),
-                    def: find_class(&root, "dev.Super").find_type_param("T").unwrap(),
-                },))),
-                name: span2(5, 7, "Inner", files.get(1).unwrap().deref()),
-                type_args_opt: None,
-                def_opt: Some(find_class(&root, "dev.Super.Inner")),
-            })
-        );
-        assert_eq!(
-            field.tpe.borrow().deref(),
-            &Type::Class(ClassType {
-                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
-                    name: span2(6, 5, "T", files.get(1).unwrap().deref()),
-                    def: find_class(&root, "dev.Super").find_type_param("T").unwrap(),
-                },))),
-                name: span2(6, 7, "Inner", files.get(1).unwrap().deref()),
-                type_args_opt: None,
-                def_opt: Some(find_class(&root, "dev.Super.Inner")),
-            })
-        );
-    }
-
-    #[test]
-    fn test_multi_extend() {
-        // This case proves that we need to process type params after processing the concrete types.
-        let (files, root) = apply_assign_parameterized_type!(
-            r#"
-package dev;
-
-class Test<A extends Super, B extends A, C extends B> {
-    C.Inner method() {}
-}
-        "#,
-            r#"
-package dev;
-
-class Super {
-    class Inner {}
-}
-        "#
-        );
-
-        let ret_type = find_class(&root, "dev.Test")
-            .find_method("method")
-            .unwrap()
-            .return_type
-            .borrow();
-
-        assert_eq!(
-            ret_type.deref(),
-            &Type::Class(ClassType {
-                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
-                    name: span2(4, 5, "C", files.get(0).unwrap().deref()),
-                    def: find_class(&root, "dev.Test").find_type_param("C").unwrap()
-                        as *const TypeParam
-                }))),
-                name: span2(4, 7, "Inner", files.get(0).unwrap().deref()),
-                type_args_opt: None,
-                def_opt: Some(find_class(&root, "dev.Super.Inner") as *const Class)
-            })
-        )
-    }
-
-    #[test]
-    fn test_method_params() {
-        let (files, root) = apply_assign_parameterized_type!(
-            r#"
-package dev;
-
-class Test<A extends Outer> {
-  class Inner {}
-  void method(int a, Arg<Test<A>, A, ? extends A.Inner> c) {}
-}
-        "#,
-            r#"
-package dev;
-
-class Arg<A, B, C> {}
-        "#,
-            r#"
-package dev;
-
-class Outer extends SuperOuter {}
-        "#,
-            r#"
-package dev;
-
-class SuperOuter {
-    class Inner {}
-}
-        "#
-        );
-
-        let method = find_class(&root, "dev.Test").find_method("method").unwrap();
-        let method_file = files.get(0).unwrap().deref();
-
-        assert_eq!(
-            method.return_type.borrow().deref(),
-            &Type::Void(Void {
-                span: span2(5, 3, "void", method_file)
-            })
-        );
-        assert_eq!(
-            method.params.get(0).unwrap().tpe.borrow().deref(),
-            &Type::Primitive(PrimitiveType {
-                name: span2(5, 15, "int", method_file),
-                tpe: PrimitiveTypeType::Int
-            })
-        );
-        assert_eq!(
-            method.params.get(1).unwrap().tpe.borrow().deref(),
-            &Type::Class(ClassType {
-                prefix_opt: None,
-                name: span2(5, 22, "Arg", method_file),
-                type_args_opt: Some(vec![
-                    TypeArg::Class(ClassType {
-                        prefix_opt: None,
-                        name: span2(5, 26, "Test", method_file),
-                        type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
-                            name: span2(5, 31, "A", method_file),
-                            def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                        })]),
-                        def_opt: Some(find_class(&root, "dev.Test"))
-                    }),
-                    TypeArg::Parameterized(ParameterizedType {
-                        name: span2(5, 35, "A", method_file),
-                        def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
-                    }),
-                    TypeArg::Wildcard(WildcardType {
-                        name: span2(5, 38, "?", method_file),
-                        super_opt: None,
-                        extends: vec![ReferenceType::Class(ClassType {
-                            prefix_opt: Some(Box::new(EnclosingType::Parameterized(
-                                ParameterizedType {
-                                    name: span2(5, 48, "A", method_file),
-                                    def: find_class(&root, "dev.Test")
-                                        .find_type_param("A")
-                                        .unwrap()
-                                }
-                            ))),
-                            name: span2(5, 50, "Inner", method_file),
-                            type_args_opt: None,
-                            def_opt: Some(find_class(&root, "dev.SuperOuter.Inner"))
-                        })]
-                    })
-                ]),
-                def_opt: Some(find_class(&root, "dev.Arg"))
-            })
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::apply;
+//    use analyze::definition::{Class, TypeParam};
+//    use analyze::resolve::assign_type;
+//    use analyze::test_common::find_class;
+//    use parse::tree::{
+//        ClassType, EnclosingType, ParameterizedType, PrimitiveType, PrimitiveTypeType,
+//        ReferenceType, Type, TypeArg, Void, WildcardType,
+//    };
+//    use std::cell::{Cell, RefCell};
+//    use std::ops::Deref;
+//    use test_common::{span, span2};
+//
+//    #[test]
+//    fn test_circular_parameterized() {
+//        // This case proves that we need to process type params after processing the concrete types.
+//        let (files, root) = apply_assign_parameterized_type!(
+//            r#"
+//package dev;
+//
+//class Test extends Super<Test> {}
+//        "#,
+//            r#"
+//package dev;
+//
+//class Super<T extends Test> {
+//    class Inner {}
+//    T.Inner method() {}
+//    T.Inner field;
+//}
+//        "#
+//        );
+//
+//        let method = find_class(&root, "dev.Super")
+//            .find_method("method")
+//            .unwrap();
+//        let field = find_class(&root, "dev.Super").find_field("field").unwrap();
+//
+//        assert_eq!(
+//            method.return_type.borrow().deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+//                    name: span2(5, 5, "T", files.get(1).unwrap().deref()),
+//                    def: find_class(&root, "dev.Super").find_type_param("T").unwrap(),
+//                },))),
+//                name: span2(5, 7, "Inner", files.get(1).unwrap().deref()),
+//                type_args_opt: None,
+//                def_opt: Some(find_class(&root, "dev.Super.Inner")),
+//            })
+//        );
+//        assert_eq!(
+//            field.tpe.borrow().deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+//                    name: span2(6, 5, "T", files.get(1).unwrap().deref()),
+//                    def: find_class(&root, "dev.Super").find_type_param("T").unwrap(),
+//                },))),
+//                name: span2(6, 7, "Inner", files.get(1).unwrap().deref()),
+//                type_args_opt: None,
+//                def_opt: Some(find_class(&root, "dev.Super.Inner")),
+//            })
+//        );
+//    }
+//
+//    #[test]
+//    fn test_multi_extend() {
+//        // This case proves that we need to process type params after processing the concrete types.
+//        let (files, root) = apply_assign_parameterized_type!(
+//            r#"
+//package dev;
+//
+//class Test<A extends Super, B extends A, C extends B> {
+//    C.Inner method() {}
+//}
+//        "#,
+//            r#"
+//package dev;
+//
+//class Super {
+//    class Inner {}
+//}
+//        "#
+//        );
+//
+//        let ret_type = find_class(&root, "dev.Test")
+//            .find_method("method")
+//            .unwrap()
+//            .return_type
+//            .borrow();
+//
+//        assert_eq!(
+//            ret_type.deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: Some(Box::new(EnclosingType::Parameterized(ParameterizedType {
+//                    name: span2(4, 5, "C", files.get(0).unwrap().deref()),
+//                    def: find_class(&root, "dev.Test").find_type_param("C").unwrap()
+//                        as *const TypeParam
+//                }))),
+//                name: span2(4, 7, "Inner", files.get(0).unwrap().deref()),
+//                type_args_opt: None,
+//                def_opt: Some(find_class(&root, "dev.Super.Inner") as *const Class)
+//            })
+//        )
+//    }
+//
+//    #[test]
+//    fn test_method_params() {
+//        let (files, root) = apply_assign_parameterized_type!(
+//            r#"
+//package dev;
+//
+//class Test<A extends Outer> {
+//  class Inner {}
+//  void method(int a, Arg<Test<A>, A, ? extends A.Inner> c) {}
+//}
+//        "#,
+//            r#"
+//package dev;
+//
+//class Arg<A, B, C> {}
+//        "#,
+//            r#"
+//package dev;
+//
+//class Outer extends SuperOuter {}
+//        "#,
+//            r#"
+//package dev;
+//
+//class SuperOuter {
+//    class Inner {}
+//}
+//        "#
+//        );
+//
+//        let method = find_class(&root, "dev.Test").find_method("method").unwrap();
+//        let method_file = files.get(0).unwrap().deref();
+//
+//        assert_eq!(
+//            method.return_type.borrow().deref(),
+//            &Type::Void(Void {
+//                span: span2(5, 3, "void", method_file)
+//            })
+//        );
+//        assert_eq!(
+//            method.params.get(0).unwrap().tpe.borrow().deref(),
+//            &Type::Primitive(PrimitiveType {
+//                name: span2(5, 15, "int", method_file),
+//                tpe: PrimitiveTypeType::Int
+//            })
+//        );
+//        assert_eq!(
+//            method.params.get(1).unwrap().tpe.borrow().deref(),
+//            &Type::Class(ClassType {
+//                prefix_opt: None,
+//                name: span2(5, 22, "Arg", method_file),
+//                type_args_opt: Some(vec![
+//                    TypeArg::Class(ClassType {
+//                        prefix_opt: None,
+//                        name: span2(5, 26, "Test", method_file),
+//                        type_args_opt: Some(vec![TypeArg::Parameterized(ParameterizedType {
+//                            name: span2(5, 31, "A", method_file),
+//                            def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
+//                        })]),
+//                        def_opt: Some(find_class(&root, "dev.Test"))
+//                    }),
+//                    TypeArg::Parameterized(ParameterizedType {
+//                        name: span2(5, 35, "A", method_file),
+//                        def: find_class(&root, "dev.Test").find_type_param("A").unwrap()
+//                    }),
+//                    TypeArg::Wildcard(WildcardType {
+//                        name: span2(5, 38, "?", method_file),
+//                        super_opt: None,
+//                        extends: vec![ReferenceType::Class(ClassType {
+//                            prefix_opt: Some(Box::new(EnclosingType::Parameterized(
+//                                ParameterizedType {
+//                                    name: span2(5, 48, "A", method_file),
+//                                    def: find_class(&root, "dev.Test")
+//                                        .find_type_param("A")
+//                                        .unwrap()
+//                                }
+//                            ))),
+//                            name: span2(5, 50, "Inner", method_file),
+//                            type_args_opt: None,
+//                            def_opt: Some(find_class(&root, "dev.SuperOuter.Inner"))
+//                        })]
+//                    })
+//                ]),
+//                def_opt: Some(find_class(&root, "dev.Arg"))
+//            })
+//        );
+//    }
+//}

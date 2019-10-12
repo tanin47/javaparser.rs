@@ -2,6 +2,8 @@ use analyze::build::{modifier, param, type_param};
 use analyze::definition::Method;
 use parse;
 use std::cell::RefCell;
+use std::ops::Deref;
+use std::pin::Pin;
 
 pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> Method<'def> {
     let mut type_params = vec![];
@@ -19,8 +21,10 @@ pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> Met
         modifiers: modifier::build(&method.modifiers),
         type_params,
         return_type: RefCell::new(method.return_type.clone()),
-        name: method.name.clone(),
+        name: method.name.fragment.to_owned(),
         params,
+        id: method.id.to_owned(),
+        span_opt: Some(method.name.clone()),
     }
 }
 

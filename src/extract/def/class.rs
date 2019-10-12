@@ -1,11 +1,14 @@
-use extract::{method, Definition, Overlay};
+use extract::def::{field, method};
+use extract::{Definition, Overlay};
 use parse::tree::{Class, ClassBodyItem};
 
 pub fn apply<'def, 'def_ref, 'overlay_ref>(
     class: &'def_ref Class<'def>,
     overlay: &'overlay_ref mut Overlay<'def>,
 ) {
-    overlay.defs.push(Definition::Class(class));
+    if let Some(def) = class.def_opt.borrow().as_ref() {
+        overlay.defs.push(Definition::Class(*def));
+    }
 
     for item in &class.body.items {
         apply_item(item, overlay);
@@ -18,7 +21,7 @@ pub fn apply_item<'def, 'def_ref, 'overlay_ref>(
 ) {
     match item {
         ClassBodyItem::Method(m) => method::apply(m, overlay),
-        ClassBodyItem::FieldDeclarators(_) => {}
+        ClassBodyItem::FieldDeclarators(f) => field::apply(f, overlay),
         ClassBodyItem::Class(_) => {}
         ClassBodyItem::Interface(_) => {}
         ClassBodyItem::Enum(_) => {}

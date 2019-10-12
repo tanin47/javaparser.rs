@@ -1,4 +1,4 @@
-use extract::{tpe, Definition, Overlay, Usage};
+use extract::{expr, tpe, Definition, Overlay, Usage};
 use parse::tree::{VariableDeclarator, VariableDeclarators};
 use std::ops::Deref;
 
@@ -18,6 +18,10 @@ fn apply_decl<'def, 'def_ref, 'overlay_ref>(
     overlay.defs.push(Definition::VariableDeclarator(decl));
 
     tpe::apply(decl.tpe.borrow().deref(), overlay);
+
+    if let Some(e) = &decl.expr_opt {
+        expr::apply(e, overlay);
+    }
 }
 
 #[cfg(test)]

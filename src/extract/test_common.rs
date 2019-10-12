@@ -1,3 +1,5 @@
+use analyze;
+use analyze::test_common::find_class;
 use extract::{Definition, Usage};
 use std::any::Any;
 use std::collections::HashMap;
@@ -6,7 +8,7 @@ use std::ops::Deref;
 use {extract, JavaFile};
 
 pub fn assert_extract(sources: Vec<&str>, expecteds: Vec<&str>) {
-    let (files, _) = apply_semantics!(vec sources);
+    let (files, root) = apply_semantics!(vec sources);
 
     let mut usagess = vec![];
     let mut defss = vec![];

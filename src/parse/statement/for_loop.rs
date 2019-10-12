@@ -1,16 +1,20 @@
 use parse::combinator::{keyword, opt, separated_list, symbol};
+use parse::id_gen::IdGen;
 use parse::statement::block::parse_block_or_single_statement;
 use parse::statement::variable_declarators;
 use parse::tree::{ForLoop, Foreach, Statement};
 use parse::{expr, statement, ParseResult, Tokens};
 
-fn parse_foreach<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
-    let (input, declarator) = variable_declarators::parse_standalone(input)?;
+fn parse_foreach<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Statement<'def>> {
+    let (input, declarator) = variable_declarators::parse_standalone(input, id_gen)?;
 
     let (input, _) = symbol(':')(input)?;
-    let (input, expr) = expr::parse(input)?;
+    let (input, expr) = expr::parse(input, id_gen)?;
     let (input, _) = symbol(')')(input)?;
-    let (input, block) = parse_block_or_single_statement(input)?;
+    let (input, block) = parse_block_or_single_statement(input, id_gen)?;
 
     Ok((
         input,
@@ -22,25 +26,34 @@ fn parse_foreach<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Sta
     ))
 }
 
-fn parse_inits<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<Statement<'def>>> {
-    if let Ok((input, declarators)) = variable_declarators::parse_without_semicolon(input) {
+fn parse_inits<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Vec<Statement<'def>>> {
+    if let Ok((input, declarators)) = variable_declarators::parse_without_semicolon(input, id_gen) {
         Ok((input, vec![declarators]))
     } else {
-        separated_list(symbol(','), statement::expr::parse_without_semicolon)(input)
+        separated_list(symbol(','), |i| {
+            statement::expr::parse_without_semicolon(i, id_gen)
+        })(input)
     }
 }
 
-fn parse_for_loop<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
-    let (input, inits) = parse_inits(input)?;
+fn parse_for_loop<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Statement<'def>> {
+    let (input, inits) = parse_inits(input, id_gen)?;
 
     let (input, _) = symbol(';')(input)?;
-    let (input, cond_opt) = opt(expr::parse)(input)?;
+    let (input, cond_opt) = opt(|i| expr::parse(i, id_gen))(input)?;
     let (input, _) = symbol(';')(input)?;
-    let (input, updates) =
-        separated_list(symbol(','), statement::expr::parse_without_semicolon)(input)?;
+    let (input, updates) = separated_list(symbol(','), |i| {
+        statement::expr::parse_without_semicolon(i, id_gen)
+    })(input)?;
 
     let (input, _) = symbol(')')(input)?;
-    let (input, block) = parse_block_or_single_statement(input)?;
+    let (input, block) = parse_block_or_single_statement(input, id_gen)?;
 
     Ok((
         input,
@@ -53,13 +66,16 @@ fn parse_for_loop<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, St
     ))
 }
 
-pub fn parse<'def, 'r>(original: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
+pub fn parse<'def, 'r>(
+    original: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("for")(original)?;
     let (input, _) = symbol('(')(input)?;
 
-    if let Ok(ok) = parse_foreach(input) {
+    if let Ok(ok) = parse_foreach(input, id_gen) {
         Ok(ok)
-    } else if let Ok(ok) = parse_for_loop(input) {
+    } else if let Ok(ok) = parse_for_loop(input, id_gen) {
         Ok(ok)
     } else {
         Err(original)

@@ -1,9 +1,13 @@
 use parse::combinator::symbol;
+use parse::id_gen::IdGen;
 use parse::tree::Statement;
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
-    let (input, statement) = parse_without_semicolon(input)?;
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Statement<'def>> {
+    let (input, statement) = parse_without_semicolon(input, id_gen)?;
     let (input, _) = symbol(';')(input)?;
 
     Ok((input, statement))
@@ -11,8 +15,9 @@ pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Stateme
 
 pub fn parse_without_semicolon<'def, 'r>(
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Statement<'def>> {
-    let (input, expr) = expr::parse(input)?;
+    let (input, expr) = expr::parse(input, id_gen)?;
     Ok((input, Statement::Expr(expr)))
 }
 

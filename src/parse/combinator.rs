@@ -227,10 +227,10 @@ pub fn identifier<'def: 'r, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r
 }
 
 pub fn opt<'def: 'r, 'r, F, T>(
-    f: F,
-) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Option<T>>
+    mut f: F,
+) -> impl FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Option<T>>
 where
-    F: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
+    F: FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
     move |input: Tokens<'def, 'r>| match f(input) {
         Ok((input, result)) => Ok((input, Some(result))),
@@ -264,11 +264,11 @@ where
 
 pub fn separated_list<'def: 'r, 'r, S, I, W, T>(
     sep: S,
-    item: I,
-) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
+    mut item: I,
+) -> impl FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
     S: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, W>,
-    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
+    I: FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
     move |original: Tokens<'def, 'r>| {
         let mut input = original;
@@ -297,12 +297,12 @@ where
 pub fn separated_nonempty_list<'def: 'r, 'r, S, I, W, T>(
     sep: S,
     item: I,
-) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
+) -> impl FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
     S: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, W>,
-    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
+    I: FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
-    let f = separated_list(sep, item);
+    let mut f = separated_list(sep, item);
     move |original: Tokens<'def, 'r>| {
         let (input, items) = f(original)?;
 
@@ -315,10 +315,10 @@ where
 }
 
 pub fn many0<'def: 'r, 'r, I, T>(
-    item: I,
-) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
+    mut item: I,
+) -> impl FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
-    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
+    I: FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
     move |original: Tokens<'def, 'r>| {
         let mut input = original;
@@ -339,11 +339,11 @@ where
 
 pub fn many1<'def: 'r, 'r, I, T>(
     item: I,
-) -> impl Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
+) -> impl FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, Vec<T>>
 where
-    I: Fn(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
+    I: FnMut(Tokens<'def, 'r>) -> ParseResult<'def, 'r, T>,
 {
-    let f = many0(item);
+    let mut f = many0(item);
     move |original: Tokens<'def, 'r>| {
         let (input, items) = f(original)?;
 

@@ -1,4 +1,5 @@
 use parse::combinator::symbol2;
+use parse::id_gen::IdGen;
 use parse::tree::{Expr, MethodReferencePrimary, Type};
 use parse::{tpe, ParseResult, Tokens};
 
@@ -20,7 +21,10 @@ pub mod precedence_7;
 pub mod precedence_8;
 pub mod precedence_9;
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, tpe)) = tpe::parse(input) {
         if let Ok(_) = symbol2(':', ':')(input) {
             match tpe {
@@ -39,7 +43,7 @@ pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'d
             }
         }
     }
-    precedence_1::parse(input)
+    precedence_1::parse(input, id_gen)
 }
 
 //#[cfg(test)]

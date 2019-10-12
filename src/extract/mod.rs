@@ -7,11 +7,10 @@ use tokenize::span::Span;
 pub mod test_common;
 
 pub mod block;
-pub mod class;
 pub mod compilation_unit;
+pub mod def;
+pub mod expr;
 pub mod import;
-pub mod method;
-pub mod package;
 pub mod statement;
 pub mod tpe;
 
@@ -24,8 +23,10 @@ pub struct Usage<'def> {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Definition<'a> {
     Package(*const analyze::definition::Package<'a>),
-    Class(*const Class<'a>),
-    Method(*const Method<'a>),
+    Class(*const analyze::definition::Class<'a>),
+    Method(*const analyze::definition::Method<'a>),
+    Field(*const analyze::definition::FieldDef<'a>),
+    TypeParam(*const analyze::definition::TypeParam<'a>),
     VariableDeclarator(*const VariableDeclarator<'a>),
 }
 
@@ -36,23 +37,21 @@ impl<'a> Definition<'a> {
             Definition::Class(c) => *c as usize,
             Definition::Method(m) => *m as usize,
             Definition::VariableDeclarator(v) => *v as usize,
+            Definition::Field(f) => *f as usize,
+            Definition::TypeParam(t) => *t as usize,
         }
     }
     pub fn span(&self) -> Option<&Span<'a>> {
         match self {
             Definition::Package(_) => None,
-            Definition::Class(c) => {
-                let c = unsafe { &**c };
-                Some(&c.name)
-            }
-            Definition::Method(m) => {
-                let m = unsafe { &**m };
-                Some(&m.name)
-            }
+            Definition::Class(c) => unsafe { &**c }.span_opt.as_ref(),
+            Definition::Method(m) => unsafe { &**m }.span_opt.as_ref(),
+            Definition::Field(f) => unsafe { &**f }.span_opt.as_ref(),
             Definition::VariableDeclarator(v) => {
                 let v = unsafe { &**v };
                 Some(&v.name)
             }
+            Definition::TypeParam(t) => unsafe { &**t }.span_opt.as_ref(),
         }
     }
 }

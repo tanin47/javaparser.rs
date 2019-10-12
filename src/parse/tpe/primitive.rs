@@ -33,7 +33,13 @@ pub fn parse_no_array<'def, 'r>(
 ) -> ParseResult<'def, 'r, PrimitiveType<'def>> {
     let (input, name) = any_keyword(original)?;
     if let Ok(tpe) = build_type_type(name.fragment) {
-        Ok((input, PrimitiveType { name, tpe }))
+        Ok((
+            input,
+            PrimitiveType {
+                span_opt: Some(name),
+                tpe,
+            },
+        ))
     } else {
         Err(original)
     }

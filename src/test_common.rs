@@ -1,3 +1,4 @@
+use parse::id_gen::IdGen;
 use parse::tpe::primitive::build_type_type;
 use parse::tree::{CompilationUnit, PrimitiveType, Type};
 use parse::{apply_tokens, Tokens};
@@ -31,7 +32,7 @@ pub fn generate_tokens(fragment: &str) -> Vec<Token> {
 
 pub fn primitive(line: usize, col: usize, name: &str) -> Type {
     Type::Primitive(PrimitiveType {
-        name: span(line, col, name),
+        span_opt: Some(span(line, col, name)),
         tpe: build_type_type(name).unwrap(),
     })
 }
@@ -93,9 +94,10 @@ macro_rules! apply_assign_parameterized_type {
 macro_rules! apply_semantics {
     (vec $x:expr) => {{
         let (files, root) = apply_assign_parameterized_type!(vec $x);
+        let mut id_hash = ::semantics::id_hash::apply(&root);
 
         for file in &files {
-            ::semantics::apply(&file.unit, &root);
+            ::semantics::apply(&file.unit, &root, &mut id_hash);
         }
 
         (files, root)
@@ -118,5 +120,10 @@ macro_rules! unwrap {
 
 pub fn apply_analyze_build(source: &str) -> CompilationUnit {
     let tokens = generate_tokens(source);
-    apply_tokens(&tokens).ok().unwrap()
+    let mut id_gen = IdGen {
+        uuid: 0,
+        path: "".to_string(),
+        runner: 0,
+    };
+    apply_tokens(&tokens, &mut id_gen).ok().unwrap()
 }

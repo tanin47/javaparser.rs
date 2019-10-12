@@ -4,12 +4,13 @@ use parse;
 use std::cell::RefCell;
 
 pub fn build<'def, 'def_ref>(
-    field: &'def_ref parse::tree::VariableDeclarator<'def>,
+    field: &'def_ref parse::tree::FieldDeclarator<'def>,
 ) -> FieldDef<'def> {
     FieldDef {
         tpe: field.tpe.clone(),
-        name: field.name.clone(),
-        parse: field,
+        name: field.name.fragment.to_owned(),
+        span_opt: Some(field.name),
+        id: field.id.to_owned(),
     }
 }
 

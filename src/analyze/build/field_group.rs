@@ -14,6 +14,6 @@ pub fn build<'def, 'def_ref>(
     FieldGroup {
         modifiers: modifier::build(&field_declarators.modifiers),
         items,
-        parse: field_declarators,
+        parse_opt: Some(field_declarators),
     }
 }

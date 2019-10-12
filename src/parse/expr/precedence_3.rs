@@ -1,19 +1,24 @@
 use parse::combinator::symbol2;
 use parse::expr::{precedence_3, precedence_4};
+use parse::id_gen::IdGen;
 use parse::tree::{BinaryOperation, Expr};
 use parse::{ParseResult, Tokens};
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, left) = precedence_4::parse(input)?;
-    precedence_3::parse_tail(left, input)
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
+    let (input, left) = precedence_4::parse(input, id_gen)?;
+    precedence_3::parse_tail(left, input, id_gen)
 }
 
 pub fn parse_tail<'def, 'r>(
     left: Expr<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, operator)) = symbol2('|', '|')(input) {
-        let (input, right) = precedence_4::parse(input)?;
+        let (input, right) = precedence_4::parse(input, id_gen)?;
 
         let expr = Expr::BinaryOperation(BinaryOperation {
             left: Box::new(left),
@@ -21,7 +26,7 @@ pub fn parse_tail<'def, 'r>(
             right: Box::new(right),
         });
 
-        precedence_3::parse_tail(expr, input)
+        precedence_3::parse_tail(expr, input, id_gen)
     } else {
         Ok((input, left))
     }

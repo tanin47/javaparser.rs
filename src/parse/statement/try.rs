@@ -1,19 +1,23 @@
 use parse::combinator::{identifier, keyword, many0, opt, separated_nonempty_list, symbol};
 use parse::def::modifiers;
+use parse::id_gen::IdGen;
 use parse::statement::{block, variable_declarators};
 use parse::tree::{Catch, Expr, StandaloneVariableDeclarator, Statement, Try, TryResource};
 use parse::{expr, tpe, ParseResult, Tokens};
 
-fn parse_catch<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Catch<'def>> {
+fn parse_catch<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Catch<'def>> {
     let (input, _) = keyword("catch")(input)?;
     let (input, _) = symbol('(')(input)?;
-    let (input, modifiers) = modifiers::parse(input)?;
+    let (input, modifiers) = modifiers::parse(input, id_gen)?;
     let (input, class_types) =
         separated_nonempty_list(symbol('|'), tpe::class::parse_no_array)(input)?;
     let (input, param_name) = identifier(input)?;
     let (input, _) = symbol(')')(input)?;
 
-    let (input, block) = block::parse_block(input)?;
+    let (input, block) = block::parse_block(input, id_gen)?;
 
     Ok((
         input,
@@ -27,10 +31,13 @@ fn parse_catch<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Catch
 }
 
 // TODO: This can be optimized to do bottom-up parsing.
-fn parse_resource<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, TryResource<'def>> {
-    if let Ok((input, declarator)) = variable_declarators::parse_standalone(input) {
+fn parse_resource<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, TryResource<'def>> {
+    if let Ok((input, declarator)) = variable_declarators::parse_standalone(input, id_gen) {
         return Ok((input, TryResource::Declarator(declarator)));
-    } else if let Ok((input, expr)) = expr::parse(input) {
+    } else if let Ok((input, expr)) = expr::parse(input, id_gen) {
         match expr {
             Expr::Name(name) => return Ok((input, TryResource::Name(name))),
             Expr::FieldAccess(field) => return Ok((input, TryResource::FieldAccess(field))),
@@ -43,27 +50,32 @@ fn parse_resource<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Tr
 
 fn parse_resources<'def, 'r>(
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Vec<TryResource<'def>>> {
     let (input, _) = match symbol('(')(input) {
         Ok(ok) => ok,
         Err(_) => return Ok((input, vec![])),
     };
-    let (input, resources) = separated_nonempty_list(symbol(';'), parse_resource)(input)?;
+    let (input, resources) =
+        separated_nonempty_list(symbol(';'), |i| parse_resource(i, id_gen))(input)?;
     let (input, _) = opt(symbol(';'))(input)?;
     let (input, _) = symbol(')')(input)?;
 
     Ok((input, resources))
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("try")(input)?;
-    let (input, resources) = parse_resources(input)?;
-    let (input, try) = block::parse_block(input)?;
+    let (input, resources) = parse_resources(input, id_gen)?;
+    let (input, try) = block::parse_block(input, id_gen)?;
 
-    let (input, catches) = many0(parse_catch)(input)?;
+    let (input, catches) = many0(|i| parse_catch(i, id_gen))(input)?;
 
     let (input, finally_opt) = if let Ok((input, _)) = keyword("finally")(input) {
-        let (input, finally) = block::parse_block(input)?;
+        let (input, finally) = block::parse_block(input, id_gen)?;
         (input, Some(finally))
     } else {
         (input, None)

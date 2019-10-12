@@ -1,10 +1,11 @@
 use analyze::definition::{Class, Decl, Package, Root, TypeParam};
 use parse::tree::{
     ClassType, EnclosingType, ImportPrefix, PackagePrefix, ParameterizedType, ResolvedName,
-    VariableDeclarator,
+    VariableDeclarator, NATIVE_ARRAY_CLASS_NAME,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Deref;
 use tokenize::span::Span;
 use {analyze, parse};
 
@@ -75,19 +76,20 @@ impl<'def> EnclosingTypeDef<'def> {
         }
     }
 
-    pub fn to_type(&self, name: &Span<'def>) -> EnclosingType<'def> {
+    pub fn to_type(&self) -> EnclosingType<'def> {
         match self {
             EnclosingTypeDef::Package(package) => {
                 let package = unsafe { &(**package) };
                 EnclosingType::Package(PackagePrefix {
                     prefix_opt: None,
-                    name: name.clone(),
+                    name: package.name.to_owned(),
+                    span_opt: None,
                     def: package as *const Package,
                 })
             }
             EnclosingTypeDef::Class(class) => {
                 let class = unsafe { &(**class) };
-                EnclosingType::Class(class.to_type(name))
+                EnclosingType::Class(class.to_type())
             }
         }
     }
@@ -147,7 +149,7 @@ impl<'def, 'r> Scope<'def, 'r> {
 
     pub fn add_type_param<'s>(&mut self, type_param: &'s TypeParam<'def>) {
         self.add_name(
-            type_param.name.fragment,
+            &type_param.name,
             Name::TypeParam(type_param as *const TypeParam<'def>),
         );
     }
@@ -191,11 +193,11 @@ impl<'def, 'r> Scope<'def, 'r> {
     }
 
     // Resolve a name (e.g. type param, variable, arg, class, package) in a method's body
-    pub fn resolve_name(&self, name: &Span<'def>) -> Option<ResolvedName<'def>> {
+    pub fn resolve_name(&self, name: &str) -> Option<ResolvedName<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
-            if let Some(locals) = current.names.get(name.fragment) {
+            if let Some(locals) = current.names.get(name) {
                 for local in locals {
                     match local {
                         Name::TypeParam(type_param) => {
@@ -224,24 +226,25 @@ impl<'def, 'r> Scope<'def, 'r> {
                 }
             }
         }
-        self.root.find(name.fragment).map(|e| match e {
+        self.root.find(name).map(|e| match e {
             EnclosingTypeDef::Package(p) => ResolvedName::Package(p),
             EnclosingTypeDef::Class(c) => ResolvedName::Class(c),
         })
     }
 
     // Resolve a type (e.g. type param, class, package) for or method's return type, field's type, super class type, and etc.
-    pub fn resolve_type(&self, name: &Span<'def>) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type(&self, name: &str) -> Option<EnclosingType<'def>> {
         for i in 0..self.levels.len() {
             let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
 
-            if let Some(locals) = current.names.get(name.fragment) {
+            if let Some(locals) = current.names.get(name) {
                 for local in locals {
                     match local {
                         Name::TypeParam(type_param) => {
                             let type_param = unsafe { &(**type_param) };
                             return Some(EnclosingType::Parameterized(ParameterizedType {
-                                name: name.clone(),
+                                name: name.to_owned(),
+                                span_opt: None,
                                 def: type_param,
                             }));
                         }
@@ -267,17 +270,24 @@ impl<'def, 'r> Scope<'def, 'r> {
             return Some(result);
         }
 
-        self.root.find(name.fragment).map(|e| e.to_type(name))
+        if let Some(found) = self
+            .root
+            .find_package("java")
+            .and_then(|p| p.find_package("lang"))
+            .and_then(|p| p.find(name))
+            .map(|e| e.to_type())
+        {
+            return Some(found);
+        }
+
+        self.root.find(name).map(|e| e.to_type())
     }
 
-    pub fn resolve_type_with_specific_import(
-        &self,
-        name: &Span<'def>,
-    ) -> Option<EnclosingType<'def>> {
+    pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
         for import in &self.specific_imports {
             let class = unsafe { &(*import.class) };
-            if class.name == name.fragment {
-                return Some(EnclosingType::Class(class.to_type(name)));
+            if class.name == name {
+                return Some(EnclosingType::Class(class.to_type()));
             }
         }
 
@@ -287,18 +297,18 @@ impl<'def, 'r> Scope<'def, 'r> {
     pub fn resolve_type_at(
         &self,
         current: &EnclosingTypeDef<'def>,
-        name: &Span<'def>,
+        name: &str,
     ) -> Option<EnclosingType<'def>> {
         match current {
             EnclosingTypeDef::Package(package) => {
                 let package = unsafe { &(**package) };
 
-                if let Some(enclosing) = package.find(name.fragment) {
-                    return Some(enclosing.to_type(name));
+                if let Some(enclosing) = package.find(name) {
+                    return Some(enclosing.to_type());
                 }
             }
             EnclosingTypeDef::Class(class) => {
-                let class = unsafe { &(**class) }.to_type(name);
+                let class = unsafe { &(**class) }.to_type();
 
                 // TODO: the result needs to inherit type args from `class`.
                 // Because `class` is the enclosing type def.
@@ -327,7 +337,7 @@ impl<'def, 'r> Scope<'def, 'r> {
                 for decl in &class.decls {
                     if let Decl::Class(subclass) = decl {
                         if subclass.name == name {
-                            return Some(EnclosingTypeDef::Class(subclass));
+                            return Some(EnclosingTypeDef::Class(subclass.deref()));
                         }
                     }
                 }

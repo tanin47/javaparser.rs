@@ -1,10 +1,14 @@
 use parse::combinator::{opt, symbol};
+use parse::id_gen::IdGen;
 use parse::tree::{ArrayAccess, Expr};
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse_index<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
+pub fn parse_index<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('[')(input)?;
-    let (input, index) = expr::parse(input)?;
+    let (input, index) = expr::parse(input, id_gen)?;
     let (input, _) = symbol(']')(input)?;
 
     Ok((input, index))
@@ -13,8 +17,9 @@ pub fn parse_index<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, E
 pub fn parse_tail<'def, 'r>(
     input: Tokens<'def, 'r>,
     expr: Expr<'def>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, index_opt) = opt(parse_index)(input)?;
+    let (input, index_opt) = opt(|i| parse_index(i, id_gen))(input)?;
 
     match index_opt {
         Some(index) => parse_tail(
@@ -23,6 +28,7 @@ pub fn parse_tail<'def, 'r>(
                 expr: Box::new(expr),
                 index: Box::new(index),
             }),
+            id_gen,
         ),
         None => Ok((input, expr)),
     }

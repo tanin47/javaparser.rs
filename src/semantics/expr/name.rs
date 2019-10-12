@@ -1,9 +1,11 @@
 use analyze::resolve::scope::Scope;
 use parse::tree::Name;
+use semantics::Context;
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
     name: &'def_ref Name<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
-    name.resolved_opt.set(scope.resolve_name(&name.name));
+    name.resolved_opt
+        .set(context.scope.resolve_name(name.name.fragment));
 }

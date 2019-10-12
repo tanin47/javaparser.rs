@@ -201,9 +201,7 @@ pub fn resolve_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
 ) -> Option<Type<'def>> {
     match tpe {
         Type::Class(class_type) => resolve_class_or_parameterized_type(class_type, scope),
-        Type::Array(array_type) => {
-            resolve_array_type(array_type, scope).map(|resolved| Type::Array(resolved))
-        }
+        Type::Array(array_type) => Some(Type::Array(resolve_array_type(array_type, scope))),
         _ => None,
     }
 }
@@ -211,11 +209,21 @@ pub fn resolve_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
 pub fn resolve_array_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
     array_type: &'type_ref ArrayType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
-) -> Option<ArrayType<'def>> {
-    resolve_type(&array_type.tpe, scope).map(|elem_type| ArrayType {
-        tpe: Box::new(elem_type),
+) -> ArrayType<'def> {
+    let tpe_opt = resolve_type(&array_type.tpe, scope);
+
+    ArrayType {
+        tpe: tpe_opt
+            .map(|t| Box::new(t))
+            .unwrap_or(array_type.tpe.clone()),
         size_opt: None,
-    })
+        underlying: resolve_class_or_parameterized_type(&array_type.underlying, scope)
+            .map(|f| match f {
+                Type::Class(class) => class,
+                _ => panic!(),
+            })
+            .unwrap_or(array_type.underlying.clone()),
+    }
 }
 
 pub fn resolve_class_or_parameterized_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
@@ -233,9 +241,10 @@ pub fn resolve_type_arg<'type_ref, 'def, 'scope_ref, 'def_ref>(
         TypeArg::Class(class) => {
             resolve_class_or_parameterized_type(class, scope).map(|t| t.to_type_arg())
         }
-        TypeArg::Array(array) => resolve_array_type(array, scope).map(|t| TypeArg::Array(t)),
+        TypeArg::Array(array) => Some(TypeArg::Array(resolve_array_type(array, scope))),
         TypeArg::Parameterized(parameterized) => None,
         TypeArg::Wildcard(wild) => Some(TypeArg::Wildcard(resolve_wildcard_type(wild, scope))),
+        TypeArg::Primitive(p) => None,
     }
 }
 
@@ -245,7 +254,7 @@ pub fn resolve_reference_type<'type_ref, 'scope_ref, 'def, 'def_ref>(
 ) -> ReferenceType<'def> {
     let type_opt = match reference {
         ReferenceType::Class(class) => resolve_class_or_parameterized_type(class, scope),
-        ReferenceType::Array(array) => resolve_array_type(array, scope).map(|t| Type::Array(t)),
+        ReferenceType::Array(array) => Some(Type::Array(resolve_array_type(array, scope))),
         ReferenceType::Parameterized(parameterized) => None,
     };
 
@@ -259,7 +268,7 @@ pub fn resolve_wildcard_type<'type_ref, 'def, 'scope_ref, 'def_ref>(
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> WildcardType<'def> {
     WildcardType {
-        name: wildcard.name,
+        span_opt: wildcard.span_opt,
         extends: wildcard
             .extends
             .iter()
@@ -291,6 +300,10 @@ pub fn resolve_enclosing_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
         scope.resolve_type(&unknown_type.name)
     };
 
+    if let Some(resolved) = &mut result_opt {
+        resolved.set_span_opt(unknown_type.span_opt.as_ref());
+    }
+
     if let Some(type_args) = &unknown_type.type_args_opt {
         if !type_args.is_empty() {
             if let Some(EnclosingType::Class(resolved)) = &mut result_opt {
@@ -303,6 +316,7 @@ pub fn resolve_enclosing_type<'def, 'type_ref, 'def_ref, 'scope_ref>(
                 result_opt = Some(EnclosingType::Class(ClassType {
                     prefix_opt: resolved.prefix_opt.clone(),
                     name: resolved.name.clone(),
+                    span_opt: resolved.span_opt,
                     type_args_opt: Some(resolved_type_args),
                     def_opt: resolved.def_opt.clone(),
                 }))
@@ -347,10 +361,11 @@ fn resolve_package_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     package: &'type_ref PackagePrefix<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<EnclosingType<'def>> {
-    match scope.resolve_package(package.name.fragment) {
+    match scope.resolve_package(&package.name) {
         Some(p) => Some(EnclosingType::Package(PackagePrefix {
             prefix_opt: None,
-            name: package.name.clone(),
+            name: package.name.to_owned(),
+            span_opt: package.span_opt,
             def: p as *const Package<'def>,
         })),
         None => None,

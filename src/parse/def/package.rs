@@ -1,10 +1,14 @@
 use parse::combinator::{identifier, keyword, separated_nonempty_list, symbol};
 use parse::def::annotateds;
+use parse::id_gen::IdGen;
 use parse::tree::Package;
 use parse::{ParseResult, Tokens};
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Package<'def>> {
-    let (input, annotateds) = annotateds::parse(input)?;
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Package<'def>> {
+    let (input, annotateds) = annotateds::parse(input, id_gen)?;
 
     let (input, _) = keyword("package")(input)?;
 

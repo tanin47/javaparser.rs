@@ -1,14 +1,14 @@
 use analyze::resolve::scope::Scope;
 use parse::tree::Block;
-use semantics::statement;
+use semantics::{statement, Context};
 
-pub fn apply<'def, 'def_ref, 'scope_ref>(
+pub fn apply<'def, 'def_ref>(
     block: &'def_ref Block<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
-    scope.enter();
+    context.scope.enter();
     for stmt in &block.stmts {
-        statement::apply(stmt, scope);
+        statement::apply(stmt, context);
     }
-    scope.leave();
+    context.scope.leave();
 }

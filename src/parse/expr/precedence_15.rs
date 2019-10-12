@@ -2,6 +2,7 @@ use either::Either;
 use parse::combinator::symbol2;
 use parse::expr::atom::name;
 use parse::expr::precedence_16;
+use parse::id_gen::IdGen;
 use parse::tpe::type_args;
 use parse::tree::{
     ClassType, ConstructorReference, EnclosingType, Expr, FieldAccess, FieldAccessPrefix,
@@ -16,7 +17,8 @@ fn convert_field_to_class<'def, 'r>(field: &'r FieldAccess<'def>) -> Result<Clas
             Expr::FieldAccess(parent) => convert_field_to_class(parent)?,
             Expr::Name(parent) => ClassType {
                 prefix_opt: None,
-                name: parent.name,
+                name: parent.name.fragment.to_owned(),
+                span_opt: Some(parent.name),
                 type_args_opt: None,
                 def_opt: None,
             },
@@ -27,7 +29,8 @@ fn convert_field_to_class<'def, 'r>(field: &'r FieldAccess<'def>) -> Result<Clas
 
     Ok(ClassType {
         prefix_opt: Some(Box::new(EnclosingType::Class(prefix))),
-        name: field.name,
+        name: field.name.fragment.to_owned(),
+        span_opt: Some(field.name),
         type_args_opt: None,
         def_opt: None,
     })
@@ -37,7 +40,8 @@ pub fn convert_to_type(expr: Expr) -> Result<ClassType, ()> {
     match expr {
         Expr::Name(name) => Ok(ClassType {
             prefix_opt: None,
-            name: name.name,
+            name: name.name.fragment.to_owned(),
+            span_opt: Some(name.name),
             type_args_opt: None,
             def_opt: None,
         }),
@@ -98,8 +102,11 @@ pub fn parse_tail<'def, 'r>(
     }
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, expr) = precedence_16::parse(input)?;
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
+    let (input, expr) = precedence_16::parse(input, id_gen)?;
 
     if let Ok(_) = symbol2(':', ':')(input) {
         let (input, method_ref) = parse_tail(MethodReferencePrimary::Expr(Box::new(expr)), input)?;
