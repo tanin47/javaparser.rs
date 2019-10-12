@@ -1,5 +1,6 @@
 use parse::combinator::{get_and_not_followed_by, symbol, symbol2, symbol3, symbol4};
 use parse::expr::{precedence_1, precedence_2};
+use parse::id_gen::IdGen;
 use parse::tree::{Assigned, Assignment, Expr};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
@@ -37,10 +38,11 @@ fn op<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
 pub fn parse_tail<'def, 'r>(
     left: Expr<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, operator) = match op(input) {
         Ok(ok) => ok,
-        _ => return precedence_2::parse_tail(left, input),
+        _ => return precedence_2::parse_tail(left, input, id_gen),
     };
 
     let assigned = match left {
@@ -49,7 +51,7 @@ pub fn parse_tail<'def, 'r>(
         Expr::Name(name) => Assigned::Name(name),
         _ => return Err(input),
     };
-    let (input, expr) = precedence_1::parse(input)?;
+    let (input, expr) = precedence_1::parse(input, id_gen)?;
 
     Ok((
         input,
@@ -61,9 +63,12 @@ pub fn parse_tail<'def, 'r>(
     ))
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, left) = precedence_2::parse(input)?;
-    parse_tail(left, input)
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
+    let (input, left) = precedence_2::parse(input, id_gen)?;
+    parse_tail(left, input, id_gen)
 }
 
 //#[cfg(test)]

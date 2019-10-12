@@ -1,73 +1,85 @@
-use analyze::resolve::scope::Scope;
+use analyze::resolve::scope::{EnclosingTypeDef, Scope};
 use parse::tree::CompilationUnitItem;
-use semantics::{class, import};
+use semantics::{class, import, Context};
 use {analyze, parse};
 
-pub fn apply<'def, 'def_ref, 'scope_ref>(
+pub fn apply<'def, 'def_ref>(
     unit: &'def_ref parse::tree::CompilationUnit<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
     if let Some(package) = &unit.package_opt {
-        enter_package(package, scope);
+        enter_package(package, context);
     } else {
-        scope.enter();
+        context.scope.enter();
     }
 
     for im in &unit.imports {
-        scope.add_import(im);
-        import::apply(im, scope);
+        context.scope.add_import(im);
+        import::apply(im, context);
     }
 
     for item in &unit.items {
-        apply_item(item, scope);
+        apply_item(item, context);
     }
 
     if let Some(package) = &unit.package_opt {
-        leave_package(package, scope);
+        leave_package(package, context);
     } else {
-        scope.leave();
+        context.scope.leave();
     }
 }
 
-fn apply_item<'def, 'def_ref, 'scope_ref>(
+fn apply_item<'def, 'def_ref>(
     item: &'def_ref CompilationUnitItem<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
     match item {
-        CompilationUnitItem::Class(c) => class::apply(c, scope),
+        CompilationUnitItem::Class(c) => class::apply(c, context),
         CompilationUnitItem::Interface(_) => panic!(),
         CompilationUnitItem::Annotation(_) => panic!(),
         CompilationUnitItem::Enum(_) => panic!(),
     };
 }
 
-fn enter_package<'def, 'def_ref, 'scope_ref>(
+fn enter_package<'def, 'def_ref>(
     package: &'def_ref parse::tree::Package<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
     if let Some(prefix) = &package.prefix_opt {
-        enter_package(prefix, scope);
-        scope
+        enter_package(prefix, context);
+        match context
+            .scope
             .levels
             .last()
             .unwrap()
             .enclosing_opt
             .as_ref()
             .unwrap()
-            .find_package(package.name.fragment);
+        {
+            &EnclosingTypeDef::Package(p) => {
+                context
+                    .scope
+                    .enter_package(unsafe { &*p }.find_package(package.name.fragment).unwrap());
+            }
+            _ => panic!(),
+        }
     } else {
-        scope.enter_package(scope.root.find_package(package.name.fragment).unwrap());
+        context.scope.enter_package(unsafe {
+            &*context
+                .scope
+                .resolve_package(package.name.fragment)
+                .unwrap()
+        });
     }
 }
 
-fn leave_package<'def, 'def_ref, 'scope_ref>(
+fn leave_package<'def, 'def_ref>(
     package: &'def_ref parse::tree::Package<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
     if let Some(prefix) = &package.prefix_opt {
-        enter_package(prefix, scope);
-        scope.leave();
-    } else {
-        scope.leave();
+        leave_package(prefix, context);
     }
+
+    context.scope.leave();
 }

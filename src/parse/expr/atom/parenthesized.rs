@@ -1,14 +1,18 @@
 use parse::combinator::symbol;
 use parse::expr::atom::array_access;
+use parse::id_gen::IdGen;
 use parse::tree::Expr;
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('(')(input)?;
-    let (input, expr) = expr::parse(input)?;
+    let (input, expr) = expr::parse(input, id_gen)?;
     let (input, _) = symbol(')')(input)?;
 
-    array_access::parse_tail(input, expr)
+    array_access::parse_tail(input, expr, id_gen)
 }
 
 //#[cfg(test)]

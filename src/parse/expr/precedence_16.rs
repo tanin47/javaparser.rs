@@ -3,6 +3,7 @@ use parse::combinator::symbol;
 use parse::expr::atom;
 use parse::expr::atom::{array_access, invocation, name, new_object};
 use parse::expr::precedence_15::convert_to_type;
+use parse::id_gen::IdGen;
 use parse::tree::{
     ClassExpr, Expr, FieldAccess, FieldAccessPrefix, Keyword, MethodCall, Super,
     SuperConstructorCall, This, Type,
@@ -10,14 +11,17 @@ use parse::tree::{
 use parse::{tpe, ParseResult, Tokens};
 use std::cell::RefCell;
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     // This doesn't work. Need to rethink it.
-    let result = atom::parse(input);
+    let result = atom::parse(input, id_gen);
 
     if let Ok((input, left)) = result {
-        parse_tail(left, input)
+        parse_tail(left, input, id_gen)
     } else if let Ok((input, tpe)) = tpe::parse(input) {
-        parse_reserved_field_access(tpe, input)
+        parse_reserved_field_access(tpe, input, id_gen)
     } else {
         Err(input)
     }
@@ -33,20 +37,21 @@ fn array_type_tail<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, (
 pub fn parse_tail<'def, 'r>(
     left: Expr<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, left) = if let Ok(_) = array_type_tail(input) {
         if let Ok(class_type) = convert_to_type(left) {
             let (input, tpe) = tpe::array::parse_tail(input, Type::Class(class_type))?;
-            return parse_reserved_field_access(tpe, input);
+            return parse_reserved_field_access(tpe, input, id_gen);
         } else {
             return Err(input);
         }
     } else {
-        array_access::parse_tail(input, left)?
+        array_access::parse_tail(input, left, id_gen)?
     };
 
     if let Ok((input, _)) = symbol('.')(input) {
-        parse_dot(left, input)
+        parse_dot(left, input, id_gen)
     } else {
         Ok((input, left))
     }
@@ -55,6 +60,7 @@ pub fn parse_tail<'def, 'r>(
 fn parse_reserved_field_access<'def, 'r>(
     tpe: Type<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('.')(input)?;
     let (input, keyword_or_name) = name::parse(input)?;
@@ -63,13 +69,14 @@ fn parse_reserved_field_access<'def, 'r>(
         Either::Left(keyword) => keyword,
         Either::Right(_) => return Err(input),
     };
-    parse_reserved_field_access_tail(tpe, keyword, input)
+    parse_reserved_field_access_tail(tpe, keyword, input, id_gen)
 }
 
 fn parse_reserved_field_access_tail<'def, 'r>(
     tpe: Type<'def>,
     keyword: Keyword<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     let expr = match keyword.name.fragment {
         "this" => Expr::This(This {
@@ -87,27 +94,33 @@ fn parse_reserved_field_access_tail<'def, 'r>(
         _ => return Err(input),
     };
 
-    parse_tail(expr, input)
+    parse_tail(expr, input, id_gen)
 }
 
 fn parse_dot<'def, 'r>(
     parent: Expr<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, expr) = if let Ok(_) = symbol('<')(input) {
-        invocation::parse(input, Some(parent))?
+        invocation::parse(input, Some(parent), id_gen)?
     } else {
         let (input, keyword_or_name) = name::parse(input)?;
 
         if let Ok(_) = symbol('(')(input) {
-            invocation::parse_tail(input, Some(parent), keyword_or_name, None)?
+            invocation::parse_tail(input, Some(parent), keyword_or_name, None, id_gen)?
         } else {
             match keyword_or_name {
                 Either::Left(keyword) => {
                     if keyword.name.fragment == "new" {
-                        new_object::parse_tail(Some(parent), input)?
+                        new_object::parse_tail(Some(parent), input, id_gen)?
                     } else if let Ok(class_type) = convert_to_type(parent) {
-                        parse_reserved_field_access_tail(Type::Class(class_type), keyword, input)?
+                        parse_reserved_field_access_tail(
+                            Type::Class(class_type),
+                            keyword,
+                            input,
+                            id_gen,
+                        )?
                     } else {
                         return Err(input);
                     }
@@ -124,7 +137,7 @@ fn parse_dot<'def, 'r>(
         }
     };
 
-    parse_tail(expr, input)
+    parse_tail(expr, input, id_gen)
 }
 
 //#[cfg(test)]

@@ -1,13 +1,17 @@
 use parse::combinator::{separated_nonempty_list, symbol};
 use parse::expr::precedence_13;
+use parse::id_gen::IdGen;
 use parse::tree::{Cast, Expr};
 use parse::{tpe, ParseResult, Tokens};
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = symbol('(')(input)?;
     let (input, tpes) = separated_nonempty_list(symbol('&'), tpe::parse)(input)?;
     let (input, _) = symbol(')')(input)?;
-    let (input, expr) = precedence_13::parse(input)?;
+    let (input, expr) = precedence_13::parse(input, id_gen)?;
 
     Ok((
         input,

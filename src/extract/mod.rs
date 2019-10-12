@@ -41,20 +41,8 @@ impl<'a> Definition<'a> {
     pub fn span(&self) -> Option<&Span<'a>> {
         match self {
             Definition::Package(_) => None,
-            Definition::Class(c) => {
-                let c = unsafe { &**c };
-                c.parse_opt.map(|parse| {
-                    let parse = unsafe { &*parse };
-                    &parse.name
-                })
-            }
-            Definition::Method(m) => {
-                let m = unsafe { &**m };
-                m.parse_opt.map(|parse| {
-                    let parse = unsafe { &*parse };
-                    &parse.name
-                })
-            }
+            Definition::Class(c) => unsafe { &**c }.span_opt.as_ref(),
+            Definition::Method(m) => unsafe { &**m }.span_opt.as_ref(),
             Definition::VariableDeclarator(v) => {
                 let v = unsafe { &**v };
                 Some(&v.name)

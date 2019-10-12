@@ -5,6 +5,7 @@ use parse::tree::{
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Deref;
 use tokenize::span::Span;
 use {analyze, parse};
 
@@ -336,7 +337,7 @@ impl<'def, 'r> Scope<'def, 'r> {
                 for decl in &class.decls {
                     if let Decl::Class(subclass) = decl {
                         if subclass.name == name {
-                            return Some(EnclosingTypeDef::Class(subclass));
+                            return Some(EnclosingTypeDef::Class(subclass.deref()));
                         }
                     }
                 }

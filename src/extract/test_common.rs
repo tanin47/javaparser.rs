@@ -1,3 +1,5 @@
+use analyze;
+use analyze::test_common::find_class;
 use extract::{Definition, Usage};
 use std::any::Any;
 use std::collections::HashMap;
@@ -6,7 +8,7 @@ use std::ops::Deref;
 use {extract, JavaFile};
 
 pub fn assert_extract(sources: Vec<&str>, expecteds: Vec<&str>) {
-    let (files, _) = apply_semantics!(vec sources);
+    let (files, root) = apply_semantics!(vec sources);
 
     let mut usagess = vec![];
     let mut defss = vec![];
@@ -56,6 +58,13 @@ pub fn assert_extract(sources: Vec<&str>, expecteds: Vec<&str>) {
         });
 
         for def in defs {
+            println!("{:#?}", def);
+            if let Definition::Class(c) = &def {
+                println!("HELLO");
+                let c = unsafe { &**c };
+                println!("{:#?}", c);
+            }
+            println!("{:#?}", def.span());
             def_ids.insert(def.ptr(), id);
             id += 1;
         }

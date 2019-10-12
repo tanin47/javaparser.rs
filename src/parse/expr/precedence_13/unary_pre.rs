@@ -1,5 +1,6 @@
 use parse::combinator::symbol2;
 use parse::expr::precedence_14;
+use parse::id_gen::IdGen;
 use parse::tree::{Expr, UnaryOperation};
 use parse::{ParseResult, Tokens};
 use tokenize::span::Span;
@@ -14,9 +15,12 @@ fn op<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
     }
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, operator) = op(input)?;
-    let (input, expr) = precedence_14::parse(input)?;
+    let (input, expr) = precedence_14::parse(input, id_gen)?;
 
     Ok((
         input,

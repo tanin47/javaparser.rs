@@ -3,23 +3,23 @@ use parse::tree::{
     EnclosingType, Expr, FieldAccess, FieldAccessPrefix, InvocationContext, PackagePrefix,
     ParameterizedType, ResolvedName, StaticClass, StaticType,
 };
-use semantics::expr;
+use semantics::{expr, Context};
 use std::ops::Deref;
 
-pub fn apply<'def, 'def_ref, 'scope_ref>(
+pub fn apply<'def, 'def_ref>(
     field_access: &'def_ref FieldAccess<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
-    apply_field_access(field_access, scope);
+    apply_field_access(field_access, context);
 }
 
-pub fn apply_field_access<'def, 'def_ref, 'scope_ref>(
+pub fn apply_field_access<'def, 'def_ref>(
     field_access: &'def_ref FieldAccess<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) -> Option<FieldAccessPrefix<'def>> {
     let new_prefix_opt = apply_prefix(
         unsafe { field_access.prefix.try_borrow_unguarded() }.unwrap(),
-        scope,
+        context,
     );
 
     if let Some(new_prefix) = new_prefix_opt {
@@ -77,9 +77,9 @@ pub fn apply_field_access<'def, 'def_ref, 'scope_ref>(
     None
 }
 
-fn apply_prefix<'def, 'def_ref, 'scope_ref>(
+fn apply_prefix<'def, 'def_ref>(
     prefix: &'def_ref FieldAccessPrefix<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) -> Option<FieldAccessPrefix<'def>> {
     let ex = match prefix {
         FieldAccessPrefix::Expr(e) => e,
@@ -89,12 +89,12 @@ fn apply_prefix<'def, 'def_ref, 'scope_ref>(
 
     match ex {
         Expr::FieldAccess(f) => {
-            if let Some(new_prefix) = apply_field_access(f, scope) {
+            if let Some(new_prefix) = apply_field_access(f, context) {
                 return Some(new_prefix);
             }
         }
         Expr::Name(n) => {
-            if let Some(resolved) = scope.resolve_name(n.name.fragment) {
+            if let Some(resolved) = context.scope.resolve_name(n.name.fragment) {
                 match resolved {
                     ResolvedName::Package(p) => {
                         return Some(FieldAccessPrefix::Package(PackagePrefix {
@@ -126,7 +126,7 @@ fn apply_prefix<'def, 'def_ref, 'scope_ref>(
                 };
             }
         }
-        other => expr::apply(other, scope),
+        other => expr::apply(other, context),
     };
 
     None
@@ -172,6 +172,7 @@ class Test {
             Expr::FieldAccess,
             var.declarators.first().unwrap().expr_opt.as_ref().unwrap()
         );
+        println!("{:#?}", field_access);
         let tpe = unwrap!(
             Type::Primitive,
             field_access.def_opt.borrow().as_ref().unwrap().tpe.clone()
@@ -179,7 +180,7 @@ class Test {
         assert_eq!(
             tpe,
             PrimitiveType {
-                name: span2(4, 3, "int", files.get(1).unwrap().deref()),
+                span_opt: None,
                 tpe: PrimitiveTypeType::Int
             }
         );
@@ -232,7 +233,7 @@ class Another {
             assert_eq!(
                 tpe,
                 PrimitiveType {
-                    name: span2(4, 3, "int", files.get(1).unwrap().deref()),
+                    span_opt: Some(span2(4, 3, "int", files.get(1).unwrap().deref())),
                     tpe: PrimitiveTypeType::Int
                 }
             );
@@ -254,7 +255,7 @@ class Another {
             assert_eq!(
                 tpe,
                 PrimitiveType {
-                    name: span2(5, 10, "boolean", files.get(0).unwrap().deref()),
+                    span_opt: Some(span2(5, 10, "boolean", files.get(0).unwrap().deref())),
                     tpe: PrimitiveTypeType::Boolean
                 }
             );
@@ -300,7 +301,7 @@ class Test {
             assert_eq!(
                 tpe,
                 PrimitiveType {
-                    name: span2(4, 10, "int", files.get(0).unwrap().deref()),
+                    span_opt: Some(span2(4, 10, "int", files.get(0).unwrap().deref())),
                     tpe: PrimitiveTypeType::Int
                 }
             );
@@ -332,7 +333,7 @@ class Test {
             assert_eq!(
                 tpe,
                 PrimitiveType {
-                    name: span2(4, 10, "int", files.get(0).unwrap().deref()),
+                    span_opt: Some(span2(4, 10, "int", files.get(0).unwrap().deref())),
                     tpe: PrimitiveTypeType::Int
                 }
             );
@@ -378,7 +379,7 @@ class Test<T extends Test> {
             assert_eq!(
                 tpe,
                 PrimitiveType {
-                    name: span2(4, 10, "int", files.get(0).unwrap().deref()),
+                    span_opt: Some(span2(4, 10, "int", files.get(0).unwrap().deref())),
                     tpe: PrimitiveTypeType::Int
                 }
             );
@@ -442,7 +443,7 @@ class Super {
             assert_eq!(
                 tpe,
                 PrimitiveType {
-                    name: span2(4, 10, "int", files.get(1).unwrap().deref()),
+                    span_opt: Some(span2(4, 10, "int", files.get(1).unwrap().deref())),
                     tpe: PrimitiveTypeType::Int
                 }
             );

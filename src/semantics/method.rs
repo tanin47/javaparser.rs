@@ -1,16 +1,23 @@
 use analyze::resolve::scope::Scope;
-use parse;
-use semantics::block;
+use semantics::{block, Context};
+use {analyze, parse};
 
-pub fn apply<'def, 'def_ref, 'scope_ref>(
+pub fn apply<'def, 'def_ref>(
     method: &'def_ref parse::tree::Method<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
-    scope.enter();
+    method.def_opt.replace(Some(
+        context
+            .id_hash
+            .get_by_id::<analyze::definition::Method>(&method.id)
+            .unwrap(),
+    ));
+
+    context.scope.enter();
 
     if let Some(blk) = &method.block_opt {
-        block::apply(blk, scope);
+        block::apply(blk, context);
     }
 
-    scope.leave();
+    context.scope.leave();
 }

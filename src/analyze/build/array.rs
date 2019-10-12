@@ -6,23 +6,26 @@ use parse::tree::{
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::pin::Pin;
 
 pub fn apply<'def>() -> Class<'def> {
     Class {
-        name: NATIVE_ARRAY_CLASS_NAME,
-        parse_opt: None,
+        id: format!("class_{}", NATIVE_ARRAY_CLASS_NAME),
+        name: NATIVE_ARRAY_CLASS_NAME.to_string(),
+        span_opt: None,
         type_params: vec![TypeParam {
             name: "T".to_owned(),
             extends: RefCell::new(vec![]),
             parse_opt: None,
         }],
-        extend_opt: RefCell::new(Some(ClassType {
-            prefix_opt: None,
-            name: "Object".to_string(),
-            span_opt: None,
-            type_args_opt: None,
-            def_opt: None,
-        })),
+        extend_opt: RefCell::new(None),
+        //        extend_opt: RefCell::new(Some(ClassType {
+        //            prefix_opt: None,
+        //            name: "Object".to_string(),
+        //            span_opt: None,
+        //            type_args_opt: None,
+        //            def_opt: None,
+        //        })),
         implements: vec![],
         constructors: vec![],
         methods: vec![Method {
@@ -55,7 +58,8 @@ pub fn apply<'def>() -> Class<'def> {
             })),
             name: "clone".to_owned(),
             params: vec![],
-            parse_opt: None,
+            id: format!("{}_method_clone", NATIVE_ARRAY_CLASS_NAME),
+            span_opt: None,
         }],
         field_groups: vec![FieldGroup {
             modifiers: HashSet::from_iter(vec![Modifier::Public]),

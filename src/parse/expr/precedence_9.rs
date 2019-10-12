@@ -1,5 +1,6 @@
 use parse::combinator::{get_and_not_followed_by, keyword, symbol, symbol2};
 use parse::expr::precedence_10;
+use parse::id_gen::IdGen;
 use parse::tree::{BinaryOperation, Expr, InstanceOf};
 use parse::{tpe, ParseResult, Tokens};
 use tokenize::span::Span;
@@ -23,6 +24,7 @@ fn op<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Span<'def>> {
 pub fn parse_tail<'def, 'r>(
     left: Expr<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     if let Ok((input, operator)) = op(input) {
         if operator.fragment == "instanceof" {
@@ -37,7 +39,7 @@ pub fn parse_tail<'def, 'r>(
                 }),
             ))
         } else {
-            let (input, right) = precedence_10::parse(input)?;
+            let (input, right) = precedence_10::parse(input, id_gen)?;
 
             let expr = Expr::BinaryOperation(BinaryOperation {
                 left: Box::new(left),
@@ -45,16 +47,19 @@ pub fn parse_tail<'def, 'r>(
                 right: Box::new(right),
             });
 
-            parse_tail(expr, input)
+            parse_tail(expr, input, id_gen)
         }
     } else {
         Ok((input, left))
     }
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, left) = precedence_10::parse(input)?;
-    parse_tail(left, input)
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
+    let (input, left) = precedence_10::parse(input, id_gen)?;
+    parse_tail(left, input, id_gen)
 }
 
 //#[cfg(test)]

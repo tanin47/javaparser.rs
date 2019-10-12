@@ -1,25 +1,30 @@
 use parse::combinator::symbol;
 use parse::expr::precedence_3;
+use parse::id_gen::IdGen;
 use parse::tree::{Expr, Ternary};
 use parse::{expr, ParseResult, Tokens};
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, cond) = precedence_3::parse(input)?;
-    parse_tail(cond, input)
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
+    let (input, cond) = precedence_3::parse(input, id_gen)?;
+    parse_tail(cond, input, id_gen)
 }
 
 pub fn parse_tail<'def, 'r>(
     left: Expr<'def>,
     input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, _) = match symbol('?')(input) {
         Ok(ok) => ok,
-        Err(_) => return precedence_3::parse_tail(left, input),
+        Err(_) => return precedence_3::parse_tail(left, input, id_gen),
     };
-    let (input, true_expr) = expr::parse(input)?;
+    let (input, true_expr) = expr::parse(input, id_gen)?;
 
     let (input, _) = symbol(':')(input)?;
-    let (input, false_expr) = expr::parse(input)?;
+    let (input, false_expr) = expr::parse(input, id_gen)?;
 
     Ok((
         input,

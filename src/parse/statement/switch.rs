@@ -1,12 +1,16 @@
 use parse::combinator::{keyword, many0, symbol};
+use parse::id_gen::IdGen;
 use parse::statement::block;
 use parse::tree::{Case, Statement, Switch, WhileLoop};
 use parse::{expr, statement, ParseResult, Tokens};
 
-fn parse_case<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Case<'def>> {
+fn parse_case<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Case<'def>> {
     let (input, label_opt) = if let Ok((input, _)) = keyword("case")(input) {
         // TODO: The below only allows EnumConstant and ConstantExpression. We could optimize something here.
-        let (input, expr) = expr::parse(input)?;
+        let (input, expr) = expr::parse(input, id_gen)?;
         let (input, _) = symbol(':')(input)?;
         (input, Some(Box::new(expr)))
     } else if let Ok((input, _)) = keyword("default")(input) {
@@ -16,19 +20,22 @@ fn parse_case<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Case<'
         return Err(input);
     };
 
-    let (input, stmts) = many0(statement::parse)(input)?;
+    let (input, stmts) = many0(|i| statement::parse(i, id_gen))(input)?;
 
     Ok((input, Case { label_opt, stmts }))
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Statement<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Statement<'def>> {
     let (input, _) = keyword("switch")(input)?;
     let (input, _) = symbol('(')(input)?;
-    let (input, expr) = expr::parse(input)?;
+    let (input, expr) = expr::parse(input, id_gen)?;
     let (input, _) = symbol(')')(input)?;
 
     let (input, _) = symbol('{')(input)?;
-    let (input, cases) = many0(parse_case)(input)?;
+    let (input, cases) = many0(|i| parse_case(i, id_gen))(input)?;
     let (input, _) = symbol('}')(input)?;
 
     Ok((

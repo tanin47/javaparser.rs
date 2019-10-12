@@ -5,9 +5,9 @@ pub fn apply<'def, 'def_ref, 'overlay_ref>(
     class: &'def_ref Class<'def>,
     overlay: &'overlay_ref mut Overlay<'def>,
 ) {
-    overlay
-        .defs
-        .push(Definition::Class(class.def_opt.borrow().unwrap()));
+    if let Some(def) = class.def_opt.borrow().as_ref() {
+        overlay.defs.push(Definition::Class(*def));
+    }
 
     for item in &class.body.items {
         apply_item(item, overlay);

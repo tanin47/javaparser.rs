@@ -5,6 +5,8 @@ use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
 use parse::tree::ClassBodyItem;
 use std::cell::{Cell, RefCell};
+use std::ops::Deref;
+use std::pin::Pin;
 
 pub fn build<'def, 'scope_ref, 'def_ref>(
     class: &'def_ref parse::tree::Class<'def>,
@@ -40,8 +42,9 @@ pub fn build<'def, 'scope_ref, 'def_ref>(
         }
 
         Class {
-            name: class.name.fragment,
-            parse_opt: Some(class as *const parse::tree::Class<'def>),
+            id: class.id.to_owned(),
+            name: class.name.fragment.to_owned(),
+            span_opt: Some(class.name),
             type_params,
             extend_opt: RefCell::new(match &class.extend_opt {
                 Some(extend) => Some(extend.clone()),

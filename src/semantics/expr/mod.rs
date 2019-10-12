@@ -1,15 +1,16 @@
 use analyze::resolve::scope::Scope;
 use parse::tree::Expr;
+use semantics::Context;
 
 pub mod field_access;
 pub mod name;
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
     expr: &'def_ref Expr<'def>,
-    scope: &'scope_ref mut Scope<'def, 'def_ref>,
+    context: &mut Context<'def, 'def_ref, '_>,
 ) {
     match expr {
-        Expr::FieldAccess(f) => field_access::apply(f, scope),
+        Expr::FieldAccess(f) => field_access::apply(f, context),
         Expr::ArrayAccess(_) => {}
         Expr::ArrayInitializer(_) => {}
         Expr::Assignment(_) => {}
@@ -27,7 +28,7 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         Expr::Long(_) => {}
         Expr::MethodCall(_) => {}
         Expr::MethodReference(_) => {}
-        Expr::Name(n) => name::apply(n, scope),
+        Expr::Name(n) => name::apply(n, context),
         Expr::NewArray(_) => {}
         Expr::NewObject(_) => {}
         Expr::Null(_) => {}

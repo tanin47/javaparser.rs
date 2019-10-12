@@ -113,6 +113,7 @@ pub struct Class<'a> {
     pub implements: Vec<ClassType<'a>>,
     pub body: ClassBody<'a>,
     pub def_opt: RefCell<Option<*const analyze::definition::Class<'a>>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -241,7 +242,7 @@ impl<'a> Type<'a> {
             Type::Parameterized(parameterized) => TypeArg::Parameterized(parameterized),
             Type::Wildcard(w) => TypeArg::Wildcard(w),
             Type::Void(_) => panic!(),
-            Type::Primitive(_) => panic!(),
+            Type::Primitive(p) => TypeArg::Primitive(p),
             Type::UnknownType => panic!(),
         }
     }
@@ -406,6 +407,7 @@ pub enum TypeArg<'a> {
     Parameterized(ParameterizedType<'a>),
     Array(ArrayType<'a>),
     Wildcard(WildcardType<'a>),
+    Primitive(PrimitiveType<'a>),
 }
 
 impl<'a> TypeArg<'a> {
@@ -415,6 +417,7 @@ impl<'a> TypeArg<'a> {
             TypeArg::Class(c) => Type::Class(c.clone()),
             TypeArg::Array(a) => Type::Array(a.clone()),
             TypeArg::Wildcard(w) => Type::Wildcard(w.clone()),
+            TypeArg::Primitive(p) => Type::Primitive(p.clone()),
         }
     }
 }
@@ -560,6 +563,7 @@ impl<'a> ClassType<'a> {
             TypeArg::Parameterized(p) => self.realize_parameterized(p).to_type_arg(),
             TypeArg::Array(a) => TypeArg::Array(self.realize_array(a)),
             TypeArg::Wildcard(w) => TypeArg::Wildcard(self.realize_wildcard(w)),
+            TypeArg::Primitive(p) => TypeArg::Primitive(p.clone()),
         }
     }
 
@@ -764,6 +768,8 @@ pub struct Method<'a> {
     pub params: Vec<Param<'a>>,
     pub throws: Vec<ClassType<'a>>,
     pub block_opt: Option<Block<'a>>,
+    pub def_opt: RefCell<Option<*const analyze::definition::Method<'a>>>,
+    pub id: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]

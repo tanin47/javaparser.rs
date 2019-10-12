@@ -3,6 +3,8 @@ use parse;
 use parse::tree::{ClassType, InvocationContext, ParameterizedType, Type, VariableDeclarator};
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
+use std::ops::Deref;
+use std::pin::Pin;
 use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -34,6 +36,14 @@ impl<'a> Root<'a> {
             None => None,
         }
     }
+
+    pub fn find_class(&self, name: &str) -> Option<&Class<'a>> {
+        match self.find(name) {
+            Some(EnclosingTypeDef::Package(_)) => panic!(),
+            Some(EnclosingTypeDef::Class(c)) => Some(unsafe { &*c }),
+            None => None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -49,7 +59,7 @@ impl<'a> CompilationUnit<'a> {
         match &self.main {
             Decl::Class(class) => {
                 if class.name == name {
-                    return Some(class as *const Class<'a>);
+                    return Some(class.deref() as *const Class<'a>);
                 }
             }
             _ => (),
@@ -113,8 +123,9 @@ impl<'a> Package<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Class<'def> {
-    pub name: &'def str,
-    pub parse_opt: Option<*const parse::tree::Class<'def>>,
+    pub id: String,
+    pub name: String,
+    pub span_opt: Option<Span<'def>>,
     // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'def>>,
     pub extend_opt: RefCell<Option<ClassType<'def>>>,
@@ -204,7 +215,8 @@ pub struct Method<'a> {
     pub return_type: RefCell<Type<'a>>,
     pub name: String,
     pub params: Vec<Param<'a>>,
-    pub parse_opt: Option<*const parse::tree::Method<'a>>,
+    pub id: String,
+    pub span_opt: Option<Span<'a>>,
 }
 unsafe impl<'a> Sync for Method<'a> {}
 

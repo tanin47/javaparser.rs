@@ -244,6 +244,7 @@ pub fn resolve_type_arg<'type_ref, 'def, 'scope_ref, 'def_ref>(
         TypeArg::Array(array) => Some(TypeArg::Array(resolve_array_type(array, scope))),
         TypeArg::Parameterized(parameterized) => None,
         TypeArg::Wildcard(wild) => Some(TypeArg::Wildcard(resolve_wildcard_type(wild, scope))),
+        TypeArg::Primitive(p) => None,
     }
 }
 

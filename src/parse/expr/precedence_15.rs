@@ -2,6 +2,7 @@ use either::Either;
 use parse::combinator::symbol2;
 use parse::expr::atom::name;
 use parse::expr::precedence_16;
+use parse::id_gen::IdGen;
 use parse::tpe::type_args;
 use parse::tree::{
     ClassType, ConstructorReference, EnclosingType, Expr, FieldAccess, FieldAccessPrefix,
@@ -101,8 +102,11 @@ pub fn parse_tail<'def, 'r>(
     }
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
-    let (input, expr) = precedence_16::parse(input)?;
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
+    let (input, expr) = precedence_16::parse(input, id_gen)?;
 
     if let Ok(_) = symbol2(':', ':')(input) {
         let (input, method_ref) = parse_tail(MethodReferencePrimary::Expr(Box::new(expr)), input)?;

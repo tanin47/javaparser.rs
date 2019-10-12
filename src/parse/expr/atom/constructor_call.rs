@@ -1,5 +1,6 @@
 use parse::combinator::any_keyword;
 use parse::expr::atom::invocation;
+use parse::id_gen::IdGen;
 use parse::tpe::type_args;
 use parse::tree::{Expr, SuperConstructorCall, ThisConstructorCall};
 use parse::{ParseResult, Tokens};
@@ -14,10 +15,13 @@ fn parse_this_or_super<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, '
     }
 }
 
-pub fn parse<'def, 'r>(input: Tokens<'def, 'r>) -> ParseResult<'def, 'r, Expr<'def>> {
+pub fn parse<'def, 'r>(
+    input: Tokens<'def, 'r>,
+    id_gen: &mut IdGen,
+) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, type_args_opt) = type_args::parse(input)?;
     let (input, this_or_super) = parse_this_or_super(input)?;
-    let (input, args) = invocation::parse_args(input)?;
+    let (input, args) = invocation::parse_args(input, id_gen)?;
 
     match this_or_super.fragment {
         "this" => Ok((
