@@ -10,7 +10,7 @@ pub fn apply<'def, 'def_ref>(
     method.def_opt.replace(Some(
         context
             .id_hash
-            .get_by_id::<analyze::definition::Method>(&method.id)
+            .get_by_id::<analyze::definition::MethodDef>(&method.id)
             .unwrap(),
     ));
 

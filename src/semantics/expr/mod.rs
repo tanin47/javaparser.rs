@@ -3,6 +3,7 @@ use parse::tree::Expr;
 use semantics::Context;
 
 pub mod field_access;
+pub mod method_call;
 pub mod name;
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
@@ -26,7 +27,7 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         Expr::Int(_) => {}
         Expr::Lambda(_) => {}
         Expr::Long(_) => {}
-        Expr::MethodCall(_) => {}
+        Expr::MethodCall(m) => method_call::apply(m, context),
         Expr::MethodReference(_) => {}
         Expr::Name(n) => name::apply(n, context),
         Expr::NewArray(_) => {}

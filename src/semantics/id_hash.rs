@@ -1,5 +1,5 @@
 use analyze::definition::{
-    Class, CompilationUnit, Decl, FieldDef, Method, Package, Root, TypeParam,
+    Class, CompilationUnit, Decl, FieldDef, MethodDef, Package, Root, TypeParam,
 };
 use std::collections::HashMap;
 
@@ -84,10 +84,10 @@ fn build_class(class: &Class, id_hash: &mut IdHash) {
     }
 }
 
-fn build_method(method: &Method, id_hash: &mut IdHash) {
+fn build_method(method: &MethodDef, id_hash: &mut IdHash) {
     id_hash
         .underlying
-        .insert(method.id.to_owned(), method as *const Method as usize);
+        .insert(method.id.to_owned(), method as *const MethodDef as usize);
 
     for type_param in &method.type_params {
         build_type_param(type_param, id_hash);

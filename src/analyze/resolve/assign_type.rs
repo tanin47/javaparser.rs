@@ -1,5 +1,5 @@
 use analyze::definition::{
-    Class, CompilationUnit, Decl, FieldDef, FieldGroup, Method, Package, Root,
+    Class, CompilationUnit, Decl, FieldDef, FieldGroup, MethodDef, Package, Root,
 };
 use analyze::resolve::grapher::{Grapher, Node};
 use analyze::resolve::scope::{EnclosingTypeDef, Scope};
@@ -185,7 +185,7 @@ pub fn resolve_and_replace_type<'def>(cell: &RefCell<Type<'def>>, scope: &Scope<
 }
 
 fn apply_method<'def, 'def_ref, 'scope_ref>(
-    method: &'def_ref Method<'def>,
+    method: &'def_ref MethodDef<'def>,
     scope: &'scope_ref mut Scope<'def, 'def_ref>,
 ) {
     resolve_and_replace_type(&method.return_type, scope);

@@ -24,7 +24,7 @@ pub struct Usage<'def> {
 pub enum Definition<'a> {
     Package(*const analyze::definition::Package<'a>),
     Class(*const analyze::definition::Class<'a>),
-    Method(*const analyze::definition::Method<'a>),
+    Method(*const analyze::definition::MethodDef<'a>),
     Field(*const analyze::definition::FieldDef<'a>),
     TypeParam(*const analyze::definition::TypeParam<'a>),
     VariableDeclarator(*const VariableDeclarator<'a>),
