@@ -1,6 +1,8 @@
 use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
-use parse::tree::{ClassType, InvocationContext, ParameterizedType, Type, VariableDeclarator};
+use parse::tree::{
+    ClassType, InvocationContext, ParameterizedType, Type, TypeParamExtend, VariableDeclarator,
+};
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::ops::Deref;
@@ -224,30 +226,6 @@ unsafe impl<'a> Sync for Method<'a> {}
 pub struct Param<'a> {
     pub tpe: RefCell<Type<'a>>,
     pub name: Span<'a>,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum TypeParamExtend<'a> {
-    Class(ClassType<'a>),
-    Parameterized(ParameterizedType<'a>),
-}
-
-impl<'a> TypeParamExtend<'a> {
-    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
-        match self {
-            TypeParamExtend::Class(class) => class.find_inner_class(name),
-            TypeParamExtend::Parameterized(parameterized) => parameterized.find_inner_class(name),
-        }
-    }
-
-    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
-        match self {
-            TypeParamExtend::Class(class) => class.find_field(name, context),
-            TypeParamExtend::Parameterized(parameterized) => {
-                parameterized.find_field(name, context)
-            }
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

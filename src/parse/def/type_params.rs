@@ -1,14 +1,18 @@
 use parse::combinator::{identifier, keyword, separated_list, separated_nonempty_list, symbol};
 use parse::id_gen::IdGen;
 use parse::tpe::class;
-use parse::tree::{ClassType, TypeParam};
+use parse::tree::{ClassType, TypeParam, TypeParamExtend};
 use parse::{ParseResult, Tokens};
+use std::cell::RefCell;
 
 pub fn parse_extends<'def, 'r>(
     input: Tokens<'def, 'r>,
-) -> ParseResult<'def, 'r, Vec<ClassType<'def>>> {
+) -> ParseResult<'def, 'r, Vec<TypeParamExtend<'def>>> {
     if let Ok((input, _)) = keyword("extends")(input) {
-        separated_nonempty_list(symbol('&'), class::parse_no_array)(input)
+        separated_nonempty_list(symbol('&'), |input| {
+            let (input, c) = class::parse_no_array(input)?;
+            Ok((input, TypeParamExtend::Class(c)))
+        })(input)
     } else {
         Ok((input, vec![]))
     }
@@ -26,6 +30,7 @@ pub fn parse_type_param<'def, 'r>(
         TypeParam {
             name,
             extends,
+            def_opt: RefCell::new(None),
             id: id_gen.get_next("TypeParam", name.fragment),
         },
     ))

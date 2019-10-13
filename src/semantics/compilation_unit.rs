@@ -5,7 +5,7 @@ use semantics::{import, Context};
 use {analyze, parse};
 
 pub fn apply<'def, 'def_ref>(
-    unit: &'def_ref parse::tree::CompilationUnit<'def>,
+    unit: &'def_ref mut parse::tree::CompilationUnit<'def>,
     context: &mut Context<'def, 'def_ref, '_>,
 ) {
     if let Some(package) = &unit.package_opt {
@@ -19,7 +19,7 @@ pub fn apply<'def, 'def_ref>(
         import::apply(im, context);
     }
 
-    for item in &unit.items {
+    for item in &mut unit.items {
         apply_item(item, context);
     }
 
@@ -31,7 +31,7 @@ pub fn apply<'def, 'def_ref>(
 }
 
 fn apply_item<'def, 'def_ref>(
-    item: &'def_ref CompilationUnitItem<'def>,
+    item: &'def_ref mut CompilationUnitItem<'def>,
     context: &mut Context<'def, 'def_ref, '_>,
 ) {
     match item {

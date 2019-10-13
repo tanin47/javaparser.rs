@@ -1,12 +1,12 @@
 use analyze::resolve::scope::Scope;
 use parse::tree::{Class, ClassBodyItem, EnclosingType};
-use semantics::def::{field, method};
+use semantics::def::{field, method, type_param};
 use semantics::Context;
 use std::borrow::Borrow;
 use {analyze, parse};
 
 pub fn apply<'def, 'def_ref>(
-    class: &'def_ref parse::tree::Class<'def>,
+    class: &'def_ref mut parse::tree::Class<'def>,
     context: &mut Context<'def, 'def_ref, '_>,
 ) {
     class.def_opt.replace(Some(
@@ -17,15 +17,9 @@ pub fn apply<'def, 'def_ref>(
     ));
 
     context.scope.enter();
-    // TypeParam can be referred to in the 'extend' section. But the class itself can't.
-    // So, we do double-scope here.
-    if let Some(def) = class.def_opt.borrow().as_ref() {
-        let def = unsafe { &**def };
-        for type_param in &def.type_params {
-            context.scope.add_type_param(type_param);
-        }
-    } else {
-        panic!();
+
+    for t in &mut class.type_params {
+        type_param::apply(t, context);
     }
 
     if let Some(def) = class.def_opt.borrow().as_ref() {
@@ -34,20 +28,21 @@ pub fn apply<'def, 'def_ref>(
         context.scope.enter();
     }
 
-    apply_class_body(&class.body, context);
+    apply_class_body(&mut class.body, context);
 
     context.scope.leave();
     context.scope.leave();
 }
 
 fn apply_class_body<'def, 'def_ref, 'scope_ref>(
-    body: &'def_ref parse::tree::ClassBody<'def>,
+    body: &'def_ref mut parse::tree::ClassBody<'def>,
     context: &mut Context<'def, 'def_ref, '_>,
 ) {
-    for item in &body.items {
+    for item in &mut body.items {
         match item {
             ClassBodyItem::Method(m) => method::apply(m, context),
             ClassBodyItem::FieldDeclarators(f) => field::apply(f, context),
+            ClassBodyItem::Class(c) => apply(c, context),
             _ => (),
         };
     }

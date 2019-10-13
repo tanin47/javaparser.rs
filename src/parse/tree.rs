@@ -304,7 +304,7 @@ pub enum ReferenceType<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PackagePrefix<'a> {
-    pub prefix_opt: Option<Box<EnclosingType<'a>>>,
+    pub prefix_opt: Option<Box<PackagePrefix<'a>>>,
     pub name: String,
     pub span_opt: Option<Span<'a>>,
     pub def: *const analyze::definition::Package<'a>,
@@ -375,17 +375,18 @@ impl<'a> EnclosingType<'a> {
                 .map(|c| EnclosingType::Class(c)),
         }
     }
-    pub fn get_prefix_opt(&self) -> Option<&Option<Box<EnclosingType<'a>>>> {
-        match self {
-            EnclosingType::Package(package) => Some(&package.prefix_opt),
-            EnclosingType::Class(class) => Some(&class.prefix_opt),
-            EnclosingType::Parameterized(_) => None,
-        }
-    }
     pub fn set_prefix_opt(&self, prefix_opt: Option<EnclosingType<'a>>) -> EnclosingType<'a> {
         match self {
             EnclosingType::Package(package) => EnclosingType::Package(PackagePrefix {
-                prefix_opt: prefix_opt.map(Box::new),
+                prefix_opt: if let Some(prefix) = prefix_opt {
+                    if let EnclosingType::Package(prefix) = prefix {
+                        Some(Box::new(prefix))
+                    } else {
+                        panic!()
+                    }
+                } else {
+                    None
+                },
                 name: package.name.to_owned(),
                 span_opt: package.span_opt,
                 def: package.def,
@@ -747,8 +748,33 @@ impl<'a> ParameterizedType<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypeParam<'a> {
     pub name: Span<'a>,
-    pub extends: Vec<ClassType<'a>>,
+    pub extends: Vec<TypeParamExtend<'a>>,
     pub id: String,
+    pub def_opt: RefCell<Option<*const analyze::definition::TypeParam<'a>>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TypeParamExtend<'a> {
+    Class(ClassType<'a>),
+    Parameterized(ParameterizedType<'a>),
+}
+
+impl<'a> TypeParamExtend<'a> {
+    pub fn find_inner_class(&self, name: &str) -> Option<ClassType<'a>> {
+        match self {
+            TypeParamExtend::Class(class) => class.find_inner_class(name),
+            TypeParamExtend::Parameterized(parameterized) => parameterized.find_inner_class(name),
+        }
+    }
+
+    pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
+        match self {
+            TypeParamExtend::Class(class) => class.find_field(name, context),
+            TypeParamExtend::Parameterized(parameterized) => {
+                parameterized.find_field(name, context)
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

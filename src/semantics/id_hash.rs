@@ -1,4 +1,6 @@
-use analyze::definition::{Class, CompilationUnit, Decl, FieldDef, Method, Package, Root};
+use analyze::definition::{
+    Class, CompilationUnit, Decl, FieldDef, Method, Package, Root, TypeParam,
+};
 use std::collections::HashMap;
 
 pub struct IdHash {
@@ -63,8 +65,16 @@ fn build_class(class: &Class, id_hash: &mut IdHash) {
         .underlying
         .insert(class.id.to_owned(), class as *const Class as usize);
 
+    for type_param in &class.type_params {
+        build_type_param(type_param, id_hash);
+    }
+
     for method in &class.methods {
         build_method(method, id_hash);
+    }
+
+    for decl in &class.decls {
+        build_decl(decl, id_hash);
     }
 
     for field_group in &class.field_groups {
@@ -78,6 +88,17 @@ fn build_method(method: &Method, id_hash: &mut IdHash) {
     id_hash
         .underlying
         .insert(method.id.to_owned(), method as *const Method as usize);
+
+    for type_param in &method.type_params {
+        build_type_param(type_param, id_hash);
+    }
+}
+
+fn build_type_param(type_param: &TypeParam, id_hash: &mut IdHash) {
+    id_hash.underlying.insert(
+        type_param.id.to_owned(),
+        type_param as *const TypeParam as usize,
+    );
 }
 
 fn build_field(field: &FieldDef, id_hash: &mut IdHash) {

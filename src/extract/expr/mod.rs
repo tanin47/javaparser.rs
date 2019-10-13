@@ -3,6 +3,7 @@ use parse::tree::Expr;
 
 pub mod field_access;
 pub mod name;
+pub mod static_class;
 
 pub fn apply<'def, 'def_ref, 'overlay_ref>(
     expr: &'def_ref Expr<'def>,
@@ -32,7 +33,7 @@ pub fn apply<'def, 'def_ref, 'overlay_ref>(
         Expr::NewObject(_) => {}
         Expr::Null(_) => {}
         Expr::Class(_) => {}
-        Expr::StaticClass(_) => {}
+        Expr::StaticClass(s) => static_class::apply(s, overlay),
         Expr::String(_) => {}
         Expr::Super(_) => {}
         Expr::SuperConstructorCall(_) => {}
