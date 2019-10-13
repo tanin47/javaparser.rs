@@ -1,5 +1,6 @@
-use analyze::definition::{TypeParam, TypeParamExtend};
+use analyze::definition::TypeParam;
 use parse;
+use parse::tree::TypeParamExtend;
 use std::cell::RefCell;
 
 pub fn build<'def, 'def_ref>(
@@ -8,7 +9,7 @@ pub fn build<'def, 'def_ref>(
     let mut extends = vec![];
 
     for t in &type_param.extends {
-        extends.push(TypeParamExtend::Class(t.clone()))
+        extends.push(t.clone());
     }
 
     TypeParam {

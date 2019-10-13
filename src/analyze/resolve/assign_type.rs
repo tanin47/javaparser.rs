@@ -333,21 +333,28 @@ fn resolve_prefix<'def, 'type_ref, 'def_ref, 'scope_ref>(
     prefix: &'type_ref EnclosingType<'def>,
     scope: &'scope_ref Scope<'def, 'def_ref>,
 ) -> Option<EnclosingType<'def>> {
-    if let Some(ref_prefix_prefix) = prefix.get_prefix_opt() {
-        if let Some(prefix_prefix) = ref_prefix_prefix {
-            let prefix_prefix = resolve_prefix(prefix_prefix.deref(), scope)
-                .unwrap_or_else(|| prefix_prefix.deref().clone());
+    let prefix_prefix_opt = match prefix {
+        EnclosingType::Package(p) => p
+            .prefix_opt
+            .as_ref()
+            .map(|prefix_prefix| resolve_package_prefix(&*prefix_prefix, scope)),
+        EnclosingType::Class(c) => c
+            .prefix_opt
+            .as_ref()
+            .map(|prefix_prefix| resolve_prefix(&*prefix_prefix, scope)),
+        EnclosingType::Parameterized(p) => None,
+    };
 
-            let name = prefix.get_name();
+    if let Some(Some(prefix_prefix)) = prefix_prefix_opt {
+        let name = prefix.get_name();
 
-            let mut result_opt = prefix_prefix.find(prefix.get_name());
+        let mut result_opt = prefix_prefix.find(prefix.get_name());
 
-            if let Some(result) = &result_opt {
-                result_opt = Some(result.set_prefix_opt(Some(prefix_prefix)))
-            }
-
-            return result_opt;
+        if let Some(result) = &result_opt {
+            result_opt = Some(result.set_prefix_opt(Some(prefix_prefix)))
         }
+
+        return result_opt;
     }
 
     match prefix {

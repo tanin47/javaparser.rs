@@ -437,8 +437,8 @@ fn multiline_comment(input: Span) -> Result<(Span, Token), Span> {
 #[cfg(test)]
 mod tests {
     use test_common::{generate_tokens, span};
+    use tokenize::span::Span;
     use tokenize::token::Token;
-    use tokenize::Span;
     use JavaFile;
 
     fn apply(content: &str) -> Result<Vec<Token>, Span> {

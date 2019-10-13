@@ -93,11 +93,11 @@ macro_rules! apply_assign_parameterized_type {
 #[macro_export]
 macro_rules! apply_semantics {
     (vec $x:expr) => {{
-        let (files, root) = apply_assign_parameterized_type!(vec $x);
+        let (mut files, root) = apply_assign_parameterized_type!(vec $x);
         let mut id_hash = ::semantics::id_hash::apply(&root);
 
-        for file in &files {
-            ::semantics::apply(&file.unit, &root, &mut id_hash);
+        for file in &mut files {
+            ::semantics::apply(&mut file.unit, &root, &mut id_hash);
         }
 
         (files, root)

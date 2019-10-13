@@ -1,5 +1,5 @@
 use parse::tree::CompilationUnit;
-use tokenize::Span;
+use tokenize::span::Span;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Token<'a> {

@@ -19,7 +19,7 @@ pub struct Context<'def, 'def_ref, 'id_hash_ref> {
 }
 
 pub fn apply<'def>(
-    target: &parse::tree::CompilationUnit<'def>,
+    target: &mut parse::tree::CompilationUnit<'def>,
     root: &analyze::definition::Root<'def>,
     id_hash: &IdHash,
 ) {

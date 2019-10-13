@@ -1,12 +1,12 @@
 use analyze::definition::{
-    Class, CompilationUnit, Decl, FieldDef, FieldGroup, Method, Package, Root, TypeParamExtend,
+    Class, CompilationUnit, Decl, FieldDef, FieldGroup, Method, Package, Root,
 };
 use analyze::resolve::assign_type::{
     resolve_and_replace_type, resolve_class_or_parameterized_type, resolve_type,
 };
 use analyze::resolve::scope::Scope;
 use crossbeam_queue::SegQueue;
-use parse::tree::Type;
+use parse::tree::{Type, TypeParamExtend};
 use std::sync::Mutex;
 use std::thread;
 

@@ -27,12 +27,16 @@ pub fn apply_field_access<'def, 'def_ref>(
     }
 
     match field_access.prefix.borrow().as_ref() {
-        FieldAccessPrefix::Package(p) => {
-            if let Some(mut tpe) = p.find(field_access.name.fragment) {
+        FieldAccessPrefix::Package(prefix) => {
+            if let Some(mut tpe) = prefix.find(field_access.name.fragment) {
                 tpe.set_span_opt(Some(&field_access.name));
                 match tpe {
-                    EnclosingType::Package(p) => return Some(FieldAccessPrefix::Package(p)),
-                    EnclosingType::Class(c) => {
+                    EnclosingType::Package(mut p) => {
+                        p.prefix_opt = Some(Box::new(prefix.clone()));
+                        return Some(FieldAccessPrefix::Package(p));
+                    }
+                    EnclosingType::Class(mut c) => {
+                        c.prefix_opt = Some(Box::new(EnclosingType::Package(prefix.clone())));
                         return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
                             tpe: StaticType::Class(c),
                         })));
@@ -50,6 +54,10 @@ pub fn apply_field_access<'def, 'def_ref>(
                 .tpe
                 .find_inner_class(field_access.name.fragment)
             {
+                class.prefix_opt = Some(Box::new(match &static_class.tpe {
+                    StaticType::Class(c) => EnclosingType::Class(c.clone()),
+                    StaticType::Parameterized(p) => EnclosingType::Parameterized(p.clone()),
+                }));
                 class.set_span_opt(Some(&field_access.name));
                 return Some(FieldAccessPrefix::Expr(Expr::StaticClass(StaticClass {
                     tpe: StaticType::Class(class),
