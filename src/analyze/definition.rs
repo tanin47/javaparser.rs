@@ -228,6 +228,7 @@ pub struct Method<'a> {
     pub type_params: Vec<TypeParam<'a>>,
     pub params: Vec<Param<'a>>,
     pub return_type: Type<'a>,
+    pub depth: usize,
     pub def: *const MethodDef<'a>,
 }
 
