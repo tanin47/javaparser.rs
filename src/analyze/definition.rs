@@ -128,6 +128,7 @@ impl<'a> Package<'a> {
 pub struct Class<'def> {
     pub id: String,
     pub name: String,
+    pub import_path: String,
     pub span_opt: Option<Span<'def>>,
     // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'def>>,

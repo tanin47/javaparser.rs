@@ -6,5 +6,6 @@ pub fn build<'def, 'def_ref>(param: &'def_ref parse::tree::Param<'def>) -> Param
     Param {
         tpe: RefCell::new(param.tpe.clone()),
         name: param.name.clone(),
+        is_varargs: param.is_varargs,
     }
 }

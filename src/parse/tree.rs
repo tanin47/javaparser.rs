@@ -293,11 +293,12 @@ impl<'a> Type<'a> {
         &self,
         name: &str,
         context: &InvocationContext,
+        depth: usize,
     ) -> Vec<analyze::definition::Method<'a>> {
         match self {
-            Type::Class(c) => c.find_methods(name, context),
-            Type::Parameterized(p) => p.find_methods(name, context),
-            Type::Array(a) => a.find_methods(name, context),
+            Type::Class(c) => c.find_methods(name, context, depth),
+            Type::Parameterized(p) => p.find_methods(name, context, depth),
+            Type::Array(a) => a.find_methods(name, context, depth),
             _ => vec![],
         }
     }
@@ -553,7 +554,11 @@ impl<'a> ClassType<'a> {
         }
     }
 
-    fn realize_method(&self, method_def: &MethodDef<'a>) -> analyze::definition::Method<'a> {
+    fn realize_method(
+        &self,
+        method_def: &MethodDef<'a>,
+        depth: usize,
+    ) -> analyze::definition::Method<'a> {
         let mut type_params = vec![];
         for t in &method_def.type_params {
             let mut extends = vec![];
@@ -574,7 +579,7 @@ impl<'a> ClassType<'a> {
                 // Realize should get type params from method
                 tpe: RefCell::new(self.realize(param.tpe.borrow().deref())),
                 is_varargs: param.is_varargs,
-                name: param.name.clone,
+                name: param.name.clone(),
             })
         }
 
@@ -582,6 +587,7 @@ impl<'a> ClassType<'a> {
             type_params,
             params,
             return_type: self.realize(method_def.return_type.borrow().deref()),
+            depth,
             def: method_def,
         }
     }
@@ -590,6 +596,7 @@ impl<'a> ClassType<'a> {
         &self,
         name: &str,
         context: &InvocationContext,
+        depth: usize,
     ) -> Vec<analyze::definition::Method<'a>> {
         let def = if let Some(def) = self.def_opt {
             unsafe { &*def }
@@ -608,16 +615,16 @@ impl<'a> ClassType<'a> {
                 continue;
             }
 
-            if &item.name == name {
-                methods.push(self.realize_method(method_def));
+            if &method_def.name == name {
+                methods.push(self.realize_method(method_def, depth));
             }
         }
 
         if let Some(extend) = def.extend_opt.borrow().as_ref() {
-            methods.append(&mut extend.find_method(name, context));
+            methods.append(&mut extend.find_methods(name, context, depth + 1));
         }
 
-        None
+        methods
     }
 
     pub fn find_field(&self, name: &str, context: &InvocationContext) -> Option<Field<'a>> {
@@ -807,8 +814,9 @@ impl<'a> ArrayType<'a> {
         &self,
         name: &str,
         context: &InvocationContext,
+        depth: usize,
     ) -> Vec<analyze::definition::Method<'a>> {
-        self.underlying.find_methods(name, context)
+        self.underlying.find_methods(name, context, depth)
     }
 }
 
@@ -840,12 +848,13 @@ impl<'a> ParameterizedType<'a> {
         &self,
         name: &str,
         context: &InvocationContext,
+        depth: usize,
     ) -> Vec<analyze::definition::Method<'a>> {
         let def = unsafe { &*self.def };
 
         let mut methods = vec![];
         for extend in def.extends.borrow().deref() {
-            methods.append(extend.find_methods(name, context));
+            methods.append(&mut extend.find_methods(name, context, depth));
         }
 
         methods
@@ -890,11 +899,12 @@ impl<'a> TypeParamExtend<'a> {
         &self,
         name: &str,
         context: &InvocationContext,
+        depth: usize,
     ) -> Vec<analyze::definition::Method<'a>> {
         match self {
-            TypeParamExtend::Class(class) => class.find_methods(name, context),
+            TypeParamExtend::Class(class) => class.find_methods(name, context, depth),
             TypeParamExtend::Parameterized(parameterized) => {
-                parameterized.find_methods(name, context)
+                parameterized.find_methods(name, context, depth)
             }
         }
     }

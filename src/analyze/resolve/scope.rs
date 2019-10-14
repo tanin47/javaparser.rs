@@ -194,9 +194,8 @@ impl<'def, 'r> Scope<'def, 'r> {
             if let Some(enclosing) = &current.enclosing_opt {
                 match enclosing {
                     EnclosingTypeDef::Package(_) => break,
-                    EnclosingTypeDef::Class(c) => {
-                        methods.append(unsafe { &**c }.to_type().find_methods(name, context))
-                    }
+                    EnclosingTypeDef::Class(c) => methods
+                        .append(&mut unsafe { &**c }.to_type().find_methods(name, context, 0)),
                 };
             }
         }
@@ -306,7 +305,7 @@ impl<'def, 'r> Scope<'def, 'r> {
     pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
         for import in &self.specific_imports {
             let class = unsafe { &(*import.class) };
-            if class.name == name {
+            if &class.name == name {
                 return Some(EnclosingType::Class(class.to_type()));
             }
         }

@@ -12,6 +12,7 @@ pub fn apply<'def>() -> Class<'def> {
     Class {
         id: format!("class_{}", NATIVE_ARRAY_CLASS_NAME),
         name: NATIVE_ARRAY_CLASS_NAME.to_string(),
+        import_path: NATIVE_ARRAY_CLASS_NAME.to_string(),
         span_opt: None,
         type_params: vec![TypeParam {
             name: "T".to_owned(),

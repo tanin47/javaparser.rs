@@ -44,6 +44,7 @@ pub fn build<'def, 'scope_ref, 'def_ref>(
         Class {
             id: class.id.to_owned(),
             name: class.name.fragment.to_owned(),
+            import_path: format!("{}.{}", scope.paths.join("."), class.name.fragment),
             span_opt: Some(class.name),
             type_params,
             extend_opt: RefCell::new(match &class.extend_opt {
