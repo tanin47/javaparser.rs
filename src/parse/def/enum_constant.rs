@@ -1,6 +1,6 @@
 use parse::combinator::{identifier, opt};
 use parse::def::{annotateds, class_body};
-use parse::expr::atom::invocation;
+use parse::expr::atom::method_call;
 use parse::id_gen::IdGen;
 use parse::tree::EnumConstant;
 use parse::{ParseResult, Tokens};
@@ -12,7 +12,7 @@ pub fn parse<'def, 'r>(
     let (input, annotateds) = annotateds::parse(input, id_gen)?;
     let (input, name) = identifier(input)?;
 
-    let (input, args_opt) = opt(|i| invocation::parse_args(i, id_gen))(input)?;
+    let (input, args_opt) = opt(|i| method_call::parse_args(i, id_gen))(input)?;
 
     let (input, body_opt) = opt(|i| class_body::parse(i, id_gen))(input)?;
 

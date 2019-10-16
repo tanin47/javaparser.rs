@@ -6,22 +6,70 @@ use parse::tree::{
 };
 use semantics::{expr, Context};
 use std::cell::RefCell;
+use std::cmp::Ordering;
+use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::HashMap;
 use std::ops::Deref;
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum ParamScore {
     Matched,
     Inherited,
     Coerced,
-    Ok,
+    UnknownTypeMatched,
     Unmatched,
 }
 
+#[derive(Debug, PartialEq)]
 struct MethodWithScore<'a> {
     method: Method<'a>,
     param_scores: Vec<ParamScore>,
-    unaccounted_arg_count: i32,
+    matched_count: usize,
+    inherited_count: usize,
+    coerced_count: usize,
+    unknown_type_matched_count: usize,
+    unmatched_count: usize,
+    unaccounted_param_count: usize,
+    unaccounted_arg_count: usize,
+}
+
+impl<'a> MethodWithScore<'a> {
+    fn new(
+        method: Method<'a>,
+        param_scores: Vec<ParamScore>,
+        arg_count: usize,
+    ) -> MethodWithScore<'a> {
+        let mut matched_count = 0;
+        let mut inherited_count = 0;
+        let mut coerced_count = 0;
+        let mut unknown_type_matched_count = 0;
+        let mut unmatched_count = 0;
+        let unaccounted_param_count =
+            (param_scores.len() as i32 - arg_count as i32).max(0) as usize;
+        let unaccounted_arg_count = (arg_count as i32 - param_scores.len() as i32).max(0) as usize;
+
+        for param_score in &param_scores {
+            match param_score {
+                ParamScore::Matched => matched_count += 1,
+                ParamScore::Inherited => inherited_count += 1,
+                ParamScore::Coerced => coerced_count += 1,
+                ParamScore::UnknownTypeMatched => unknown_type_matched_count += 1,
+                ParamScore::Unmatched => unmatched_count += 1,
+            }
+        }
+
+        MethodWithScore {
+            method,
+            param_scores,
+            matched_count,
+            inherited_count,
+            coerced_count,
+            unknown_type_matched_count,
+            unmatched_count,
+            unaccounted_param_count,
+            unaccounted_arg_count,
+        }
+    }
 }
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
@@ -43,14 +91,27 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
             .resolve_methods(method_call.name.fragment, &invocation_context)
     };
 
-    // TODO: Score method based on args
     let mut scores = vec![];
 
     for method in &methods {
         scores.push(compute(method, method_call));
     }
 
-    //    scores.sort_by(|a, b| )
+    scores.sort_by(|a, b| {
+        if a.matched_count == b.matched_count {
+            Equal
+        } else {
+            if b.matched_count > a.matched_count {
+                Less
+            } else {
+                Greater
+            }
+        }
+    });
+
+    if let Some(selected) = scores.pop() {
+        method_call.def_opt.replace(Some(selected.method));
+    }
 }
 
 fn realize_type<'def>(tpe: &Type<'def>, map: &HashMap<&str, Type<'def>>) -> Type<'def> {
@@ -74,14 +135,7 @@ fn compute<'def, 'def_ref>(
         param_scores.push(compute_param_score(param, arg));
     }
 
-    // TODO: handle var args
-    let unaccounted_arg_count = (call.args.len() as i32) - (method.params.len() as i32);
-
-    MethodWithScore {
-        method,
-        param_scores,
-        unaccounted_arg_count,
-    }
+    MethodWithScore::new(method, param_scores, call.args.len())
 }
 
 fn realize_method_with_type_args<'def>(
@@ -120,7 +174,7 @@ fn compute_param_score<'def>(param: &Param<'def>, arg: &Expr<'def>) -> ParamScor
         Type::Primitive(p) => compute_prim_param_score(p, &arg_tpe),
         Type::Array(_) => panic!(),
         Type::Parameterized(_) => panic!(),
-        Type::UnknownType => ParamScore::Ok,
+        Type::UnknownType => ParamScore::UnknownTypeMatched,
         Type::Void(_) => panic!(),
         Type::Wildcard(_) => panic!(),
     }
@@ -180,7 +234,7 @@ fn compute_class_param_score<'def>(class: &ClassType<'def>, arg: &Type<'def>) ->
             }
         }
         Type::Array(a) => (),
-        Type::UnknownType => return ParamScore::Ok,
+        Type::UnknownType => return ParamScore::UnknownTypeMatched,
         Type::Void(_) => panic!(),
         Type::Wildcard(_) => panic!(),
     };
@@ -236,6 +290,7 @@ fn is_java_lang(class: &ClassType) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use analyze::definition::MethodDef;
     use analyze::test_common::find_class;
     use parse::tree::{
         ClassBodyItem, CompilationUnitItem, Expr, PrimitiveType, PrimitiveTypeType, Statement,
@@ -266,10 +321,18 @@ class Test {
             &files.first().unwrap().unit.items.get(0).unwrap()
         );
         let method = unwrap!(ClassBodyItem::Method, &class.body.items.get(0).unwrap());
-        let method_call = unwrap!(
-            Statement::MethodCall,
+        let expr_stmt = unwrap!(
+            Statement::Expr,
             &method.block_opt.as_ref().unwrap().stmts.get(0).unwrap()
         );
-        println!("{:#?}", method_call);
+        let method_call = unwrap!(Expr::MethodCall, &expr_stmt);
+
+        assert_eq!(
+            unwrap!(ClassBodyItem::Method, &class.body.items.get(1).unwrap())
+                .def_opt
+                .borrow()
+                .unwrap(),
+            method_call.def_opt.borrow().as_ref().unwrap().def
+        );
     }
 }

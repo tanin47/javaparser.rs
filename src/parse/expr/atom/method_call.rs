@@ -5,6 +5,7 @@ use parse::id_gen::IdGen;
 use parse::tpe::type_args;
 use parse::tree::{Expr, Keyword, MethodCall, Name, SuperConstructorCall, TypeArg};
 use parse::{expr, ParseResult, Tokens};
+use std::cell::RefCell;
 use tokenize::span::Span;
 
 pub fn parse_args<'def, 'r>(
@@ -50,6 +51,7 @@ pub fn parse_tail<'def, 'r>(
                 name: name.name,
                 type_args_opt,
                 args,
+                def_opt: RefCell::new(None),
             }),
         )),
     }

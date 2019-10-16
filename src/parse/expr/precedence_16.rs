@@ -1,7 +1,7 @@
 use either::Either;
 use parse::combinator::symbol;
 use parse::expr::atom;
-use parse::expr::atom::{array_access, invocation, name, new_object};
+use parse::expr::atom::{array_access, method_call, name, new_object};
 use parse::expr::precedence_15::convert_to_type;
 use parse::id_gen::IdGen;
 use parse::tree::{
@@ -103,12 +103,12 @@ fn parse_dot<'def, 'r>(
     id_gen: &mut IdGen,
 ) -> ParseResult<'def, 'r, Expr<'def>> {
     let (input, expr) = if let Ok(_) = symbol('<')(input) {
-        invocation::parse(input, Some(parent), id_gen)?
+        method_call::parse(input, Some(parent), id_gen)?
     } else {
         let (input, keyword_or_name) = name::parse(input)?;
 
         if let Ok(_) = symbol('(')(input) {
-            invocation::parse_tail(input, Some(parent), keyword_or_name, None, id_gen)?
+            method_call::parse_tail(input, Some(parent), keyword_or_name, None, id_gen)?
         } else {
             match keyword_or_name {
                 Either::Left(keyword) => {

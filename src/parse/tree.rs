@@ -1258,6 +1258,7 @@ pub struct MethodCall<'a> {
     pub name: Span<'a>,
     pub type_args_opt: Option<Vec<TypeArg<'a>>>,
     pub args: Vec<Expr<'a>>,
+    pub def_opt: RefCell<Option<analyze::definition::Method<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
