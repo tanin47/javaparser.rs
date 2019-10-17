@@ -1149,6 +1149,10 @@ impl<'a> Expr<'a> {
                 }
             }
             Expr::StaticClass(s) => None,
+            Expr::Int(i) => Some(Type::Primitive(PrimitiveType {
+                span_opt: None,
+                tpe: PrimitiveTypeType::Int,
+            })),
             _ => None,
         }
     }

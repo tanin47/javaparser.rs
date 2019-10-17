@@ -1,5 +1,5 @@
 use analyze::resolve::scope::Scope;
-use parse::tree::Expr;
+use parse::tree::{Expr, Type};
 use semantics::Context;
 
 pub mod field_access;
@@ -8,6 +8,7 @@ pub mod name;
 
 pub fn apply<'def, 'def_ref, 'scope_ref>(
     expr: &'def_ref Expr<'def>,
+    //    target_type: &Type<'def>,
     context: &mut Context<'def, 'def_ref, '_>,
 ) {
     match expr {
