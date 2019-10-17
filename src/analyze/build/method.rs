@@ -1,11 +1,11 @@
 use analyze::build::{modifier, param, type_param};
-use analyze::definition::Method;
+use analyze::definition::MethodDef;
 use parse;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::pin::Pin;
 
-pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> Method<'def> {
+pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> MethodDef<'def> {
     let mut type_params = vec![];
     let mut params = vec![];
 
@@ -17,7 +17,7 @@ pub fn build<'def, 'def_ref>(method: &'def_ref parse::tree::Method<'def>) -> Met
         type_params.push(type_param::build(t));
     }
 
-    Method {
+    MethodDef {
         modifiers: modifier::build(&method.modifiers),
         type_params,
         return_type: RefCell::new(method.return_type.clone()),

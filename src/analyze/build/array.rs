@@ -1,4 +1,4 @@
-use analyze::definition::{Class, FieldDef, FieldGroup, Method, Modifier, TypeParam};
+use analyze::definition::{Class, FieldDef, FieldGroup, MethodDef, Modifier, TypeParam};
 use parse::tree::{
     ArrayType, ClassType, ParameterizedType, PrimitiveType, PrimitiveTypeType, Type, TypeArg,
     NATIVE_ARRAY_CLASS_NAME,
@@ -12,6 +12,7 @@ pub fn apply<'def>() -> Class<'def> {
     Class {
         id: format!("class_{}", NATIVE_ARRAY_CLASS_NAME),
         name: NATIVE_ARRAY_CLASS_NAME.to_string(),
+        import_path: NATIVE_ARRAY_CLASS_NAME.to_string(),
         span_opt: None,
         type_params: vec![TypeParam {
             name: "T".to_owned(),
@@ -29,7 +30,7 @@ pub fn apply<'def>() -> Class<'def> {
         //        })),
         implements: vec![],
         constructors: vec![],
-        methods: vec![Method {
+        methods: vec![MethodDef {
             modifiers: HashSet::from_iter(vec![Modifier::Public]),
             type_params: vec![],
             return_type: RefCell::new(Type::Array(ArrayType {

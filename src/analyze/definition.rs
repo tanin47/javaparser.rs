@@ -1,7 +1,8 @@
 use analyze::resolve::scope::EnclosingTypeDef;
 use parse;
 use parse::tree::{
-    ClassType, InvocationContext, ParameterizedType, Type, TypeParamExtend, VariableDeclarator,
+    ClassType, InvocationContext, ParameterizedType, Type, TypeArg, TypeParamExtend,
+    VariableDeclarator,
 };
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
@@ -127,13 +128,14 @@ impl<'a> Package<'a> {
 pub struct Class<'def> {
     pub id: String,
     pub name: String,
+    pub import_path: String,
     pub span_opt: Option<Span<'def>>,
     // TODO: Handle class that can only be accessed within a compilation unit
     pub type_params: Vec<TypeParam<'def>>,
     pub extend_opt: RefCell<Option<ClassType<'def>>>,
     pub implements: Vec<ClassType<'def>>,
     pub constructors: Vec<Constructor<'def>>,
-    pub methods: Vec<Method<'def>>,
+    pub methods: Vec<MethodDef<'def>>,
     pub field_groups: Vec<FieldGroup<'def>>,
     pub decls: Vec<Decl<'def>>,
 }
@@ -165,7 +167,7 @@ impl<'a> Class<'a> {
         None
     }
 
-    pub fn find_method(&self, name: &str) -> Option<&Method<'a>> {
+    pub fn find_method(&self, name: &str) -> Option<&MethodDef<'a>> {
         for method in &self.methods {
             if &method.name == name {
                 return Some(method);
@@ -200,7 +202,7 @@ impl<'a> Class<'a> {
 pub struct Interface<'a> {
     pub import_path: String,
     pub name: Span<'a>,
-    pub methods: Vec<Method<'a>>,
+    pub methods: Vec<MethodDef<'a>>,
     pub field_groups: Vec<FieldGroup<'a>>,
     pub decls: Vec<Decl<'a>>,
 }
@@ -211,7 +213,7 @@ pub struct Constructor<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Method<'a> {
+pub struct MethodDef<'a> {
     pub modifiers: HashSet<Modifier>,
     pub type_params: Vec<TypeParam<'a>>,
     pub return_type: RefCell<Type<'a>>,
@@ -220,12 +222,22 @@ pub struct Method<'a> {
     pub id: String,
     pub span_opt: Option<Span<'a>>,
 }
-unsafe impl<'a> Sync for Method<'a> {}
+unsafe impl<'a> Sync for MethodDef<'a> {}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Method<'a> {
+    pub type_params: Vec<TypeParam<'a>>,
+    pub params: Vec<Param<'a>>,
+    pub return_type: Type<'a>,
+    pub depth: usize,
+    pub def: *const MethodDef<'a>,
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Param<'a> {
     pub tpe: RefCell<Type<'a>>,
     pub name: Span<'a>,
+    pub is_varargs: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]

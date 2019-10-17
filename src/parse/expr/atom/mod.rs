@@ -4,13 +4,14 @@ use parse::id_gen::IdGen;
 use parse::tpe::{primitive, type_args};
 use parse::tree::{Boolean, Expr, Keyword, MethodCall, Name, Null, Super, This, Type};
 use parse::{tpe, ParseResult, Tokens};
+use std::cell::RefCell;
 
 pub mod array_access;
 pub mod array_initializer;
 pub mod constructor_call;
-pub mod invocation;
 pub mod lambda;
 pub mod literal_char;
+pub mod method_call;
 pub mod name;
 pub mod new_array;
 pub mod new_object;
@@ -164,7 +165,7 @@ fn parse_prefix_keyword_or_identifier<'def, 'r>(
         Either::Right(name) => {
             if let Ok(_) = symbol2('-', '>')(input) {
                 lambda::parse(original, id_gen)
-            } else if let Ok((input, args)) = invocation::parse_args(input, id_gen) {
+            } else if let Ok((input, args)) = method_call::parse_args(input, id_gen) {
                 Ok((
                     input,
                     Expr::MethodCall(MethodCall {
@@ -172,6 +173,7 @@ fn parse_prefix_keyword_or_identifier<'def, 'r>(
                         name: name.name,
                         type_args_opt: None,
                         args,
+                        def_opt: RefCell::new(None),
                     }),
                 ))
             } else {

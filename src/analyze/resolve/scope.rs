@@ -1,7 +1,7 @@
-use analyze::definition::{Class, Decl, Package, Root, TypeParam};
+use analyze::definition::{Class, Decl, Method, MethodDef, Package, Root, TypeParam};
 use parse::tree::{
-    ClassType, EnclosingType, ImportPrefix, PackagePrefix, ParameterizedType, ResolvedName,
-    VariableDeclarator, NATIVE_ARRAY_CLASS_NAME,
+    ClassType, EnclosingType, ImportPrefix, InvocationContext, PackagePrefix, ParameterizedType,
+    ResolvedName, VariableDeclarator, NATIVE_ARRAY_CLASS_NAME,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -186,6 +186,23 @@ impl<'def, 'r> Scope<'def, 'r> {
         });
     }
 
+    pub fn resolve_methods(&self, name: &str, context: &InvocationContext) -> Vec<Method<'def>> {
+        let mut methods = vec![];
+        for i in 0..self.levels.len() {
+            let current = self.levels.get(self.levels.len() - 1 - i).unwrap();
+
+            if let Some(enclosing) = &current.enclosing_opt {
+                match enclosing {
+                    EnclosingTypeDef::Package(_) => break,
+                    EnclosingTypeDef::Class(c) => methods
+                        .append(&mut unsafe { &**c }.to_type().find_methods(name, context, 0)),
+                };
+            }
+        }
+
+        methods
+    }
+
     pub fn resolve_package(&self, name: &str) -> Option<*const Package<'def>> {
         self.root
             .find_package(name)
@@ -209,6 +226,8 @@ impl<'def, 'r> Scope<'def, 'r> {
                     }
                 }
             }
+
+            // TODO: We should support field here.
 
             if let Some(enclosing) = &current.enclosing_opt {
                 if let Some(result) = self.resolve_type_at(enclosing, name) {
@@ -286,7 +305,7 @@ impl<'def, 'r> Scope<'def, 'r> {
     pub fn resolve_type_with_specific_import(&self, name: &str) -> Option<EnclosingType<'def>> {
         for import in &self.specific_imports {
             let class = unsafe { &(*import.class) };
-            if class.name == name {
+            if &class.name == name {
                 return Some(EnclosingType::Class(class.to_type()));
             }
         }
