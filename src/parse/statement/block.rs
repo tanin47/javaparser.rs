@@ -1,6 +1,6 @@
 use parse::combinator::{many0, symbol};
 use parse::id_gen::IdGen;
-use parse::tree::{Block, Statement};
+use parse::tree::{Block, Statement, Type};
 use parse::{statement, ParseResult, Tokens};
 
 pub fn parse_block_or_single_statement<'def, 'r>(
@@ -11,7 +11,13 @@ pub fn parse_block_or_single_statement<'def, 'r>(
         Ok(ok)
     } else {
         let (input, stmt) = statement::parse(input, id_gen)?;
-        Ok((input, Block { stmts: vec![stmt] }))
+        Ok((
+            input,
+            Block {
+                stmts: vec![stmt],
+                return_type: Type::UnknownType,
+            },
+        ))
     }
 }
 
@@ -23,7 +29,13 @@ pub fn parse_block<'def, 'r>(
     let (input, stmts) = many0(|i| statement::parse(i, id_gen))(input)?;
     let (input, _) = symbol('}')(input)?;
 
-    Ok((input, Block { stmts }))
+    Ok((
+        input,
+        Block {
+            stmts,
+            return_type: Type::UnknownType,
+        },
+    ))
 }
 
 pub fn parse<'def, 'r>(

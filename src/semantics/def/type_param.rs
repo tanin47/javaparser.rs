@@ -2,9 +2,9 @@ use analyze::resolve;
 use semantics::Context;
 use {analyze, parse};
 
-pub fn apply<'def, 'def_ref>(
-    type_param: &'def_ref mut parse::tree::TypeParam<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+pub fn apply<'def>(
+    type_param: &mut parse::tree::TypeParam<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) {
     let def = context
         .id_hash

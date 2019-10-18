@@ -213,6 +213,7 @@ pub enum Modifier<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block<'a> {
     pub stmts: Vec<Statement<'a>>,
+    pub return_type: Type<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -483,6 +484,21 @@ pub struct ClassType<'a> {
 impl<'a> ClassType<'a> {
     pub fn set_span_opt(&mut self, span_opt: Option<&Span<'a>>) {
         self.span_opt = span_opt.map(|s| s.clone());
+    }
+
+    pub fn lambda_method(&self) -> Option<analyze::definition::Method<'a>> {
+        let def = if let Some(def) = self.def_opt {
+            unsafe { &*def }
+        } else {
+            return None;
+        };
+
+        if let Some(method_def) = def.methods.first() {
+            Some(self.realize_method(method_def, 0))
+        } else {
+            // TODO: Go to the super class
+            None
+        }
     }
 
     pub fn get_extend_opt(&self) -> Option<ClassType<'a>> {
@@ -1230,6 +1246,7 @@ pub enum ResolvedName<'def> {
     Class(*const analyze::definition::Class<'def>),
     Variable(*const VariableDeclarator<'def>),
     TypeParam(*const analyze::definition::TypeParam<'def>),
+    Param(*const analyze::definition::Param<'def>),
 }
 
 impl<'def> ResolvedName<'def> {
@@ -1267,6 +1284,9 @@ pub struct MethodCall<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Lambda<'a> {
+    pub inferred_method_opt: Option<analyze::definition::Method<'a>>,
+    pub inferred_params: Vec<analyze::definition::Param<'a>>,
+    pub inferred_return_type: Type<'a>,
     pub params: Vec<Param<'a>>,
     pub expr_opt: Option<Box<Expr<'a>>>,
     pub block_opt: Option<Block<'a>>,

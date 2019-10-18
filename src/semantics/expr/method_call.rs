@@ -1,3 +1,4 @@
+use analyze;
 use analyze::definition::{Method, Param};
 use analyze::resolve::scope::Scope;
 use parse::tree::{
@@ -72,13 +73,10 @@ impl<'a> MethodWithScore<'a> {
     }
 }
 
-pub fn apply<'def, 'def_ref, 'scope_ref>(
-    method_call: &'def_ref MethodCall<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
-) {
+pub fn apply<'def>(method_call: &mut MethodCall<'def>, context: &mut Context<'def, '_, '_>) {
     let invocation_context = InvocationContext { only_static: false };
-    let methods = if let Some(prefix) = &method_call.prefix_opt {
-        expr::apply(prefix, context);
+    let methods = if let Some(prefix) = &mut method_call.prefix_opt {
+        expr::apply(prefix, &Type::UnknownType, context);
 
         if let Some(tpe) = prefix.tpe_opt() {
             tpe.find_methods(method_call.name.fragment, &invocation_context, 0)
@@ -109,14 +107,26 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         }
     });
 
-    if let Some(mut selected) = scores.pop() {
+    if let Some(selected) = scores.pop() {
+        for (param, arg) in selected
+            .method
+            .params
+            .iter()
+            .zip(method_call.args.iter_mut())
+        {
+            expr::apply(arg, param.tpe.borrow().deref(), context);
+        }
         method_call
             .def_opt
             .replace(Some(infer(selected.method, method_call)));
+    } else {
+        for arg in &mut method_call.args {
+            expr::apply(arg, &Type::UnknownType, context);
+        }
     }
 }
 
-fn infer<'def>(mut method: Method<'def>, call: &MethodCall<'def>) -> Method<'def> {
+fn infer<'def>(method: Method<'def>, call: &MethodCall<'def>) -> Method<'def> {
     if let Some(type_args) = &call.type_args_opt {
         return realize_method_with_type_args(method, type_args);
     };
@@ -139,10 +149,10 @@ fn realize_type<'def>(tpe: &Type<'def>, map: &HashMap<String, Type<'def>>) -> Ty
     }
 }
 
-fn compute<'def, 'def_ref>(
+fn compute<'def>(
     method: Method<'def>,
-    call: &'def_ref MethodCall<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+    call: &mut MethodCall<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) -> MethodWithScore<'def> {
     // If type_arg is specified, then there's no inference.
     let method = if let Some(type_args) = &call.type_args_opt {
@@ -153,7 +163,7 @@ fn compute<'def, 'def_ref>(
 
     let mut param_scores = vec![];
     let mut inferred: HashMap<String, Type<'def>> = HashMap::new();
-    for (param, arg) in method.params.iter().zip(call.args.iter()) {
+    for (param, arg) in method.params.iter().zip(call.args.iter_mut()) {
         param_scores.push(compute_param_score(param, arg, &inferred, context));
 
         if let Type::Parameterized(t) = param.tpe.borrow().deref() {
@@ -220,11 +230,11 @@ fn realize_method_with_type_mapping<'def>(
     }
 }
 
-fn compute_param_score<'def, 'def_ref>(
+fn compute_param_score<'def>(
     param: &Param<'def>,
-    arg: &'def_ref Expr<'def>,
+    arg: &mut Expr<'def>,
     inferred: &HashMap<String, Type<'def>>,
-    context: &mut Context<'def, 'def_ref, '_>,
+    context: &mut Context<'def, '_, '_>,
 ) -> ParamScore {
     if let Type::Parameterized(p) = param.tpe.borrow().deref() {
         if let Some(found) = inferred.get(&p.name) {
@@ -232,14 +242,14 @@ fn compute_param_score<'def, 'def_ref>(
         }
     }
 
-    expr::apply(arg, context);
+    expr::apply(arg, param.tpe.borrow().deref(), context);
     let arg_tpe = if let Some(arg_tpe) = arg.tpe_opt() {
         arg_tpe
     } else {
         return ParamScore::UnknownTypeMatched;
     };
     match param.tpe.borrow().deref() {
-        Type::Class(c) => compute_class_param_score(c, &arg_tpe),
+        Type::Class(c) => compute_class_param_score(c, &arg_tpe, context),
         Type::Primitive(p) => compute_prim_param_score(p, &arg_tpe),
         Type::Parameterized(p) => compute_parameterized_param_score(p, &arg_tpe),
         Type::Array(_) => panic!(),
@@ -269,7 +279,11 @@ fn compute_prim_param_score<'def>(prim: &PrimitiveType<'def>, arg: &Type<'def>) 
     ParamScore::Unmatched
 }
 
-fn compute_class_param_score<'def>(class: &ClassType<'def>, arg: &Type<'def>) -> ParamScore {
+fn compute_class_param_score<'def>(
+    class: &ClassType<'def>,
+    arg: &Type<'def>,
+    context: &Context<'def, '_, '_>,
+) -> ParamScore {
     match arg {
         Type::Class(c) => {
             if c.def_opt.is_some() && c.def_opt == class.def_opt {
@@ -287,7 +301,7 @@ fn compute_class_param_score<'def>(class: &ClassType<'def>, arg: &Type<'def>) ->
 
             for extend in type_param.extends.borrow().iter() {
                 let result = match extend {
-                    TypeParamExtend::Class(c) => compute_class_param_score(class, arg),
+                    TypeParamExtend::Class(c) => compute_class_param_score(class, arg, context),
                     TypeParamExtend::Parameterized(p) => compute_parameterized_param_score(p, arg),
                 };
 
@@ -297,7 +311,7 @@ fn compute_class_param_score<'def>(class: &ClassType<'def>, arg: &Type<'def>) ->
             }
         }
         Type::Primitive(p) => {
-            if can_coerce_from_prim_to_class(p, class) {
+            if can_coerce_from_prim_to_class(p, class, context) {
                 return ParamScore::Coerced;
             }
         }
@@ -313,16 +327,42 @@ fn compute_class_param_score<'def>(class: &ClassType<'def>, arg: &Type<'def>) ->
 fn can_coerce_from_prim_to_class<'def>(
     prim: &PrimitiveType<'def>,
     class: &ClassType<'def>,
+    context: &Context<'def, '_, '_>,
 ) -> bool {
+    let coerced = coerce_from_primitive_to_class(prim, context);
+
+    is_valid_primitive_class(class, &coerced.name)
+}
+
+pub fn coerce_from_primitive_to_class<'def>(
+    prim: &PrimitiveType<'def>,
+    context: &Context<'def, '_, '_>,
+) -> ClassType<'def> {
     match prim.tpe {
-        PrimitiveTypeType::Int => is_valid_primitive_class(class, "Integer"),
-        PrimitiveTypeType::Boolean => false,
-        PrimitiveTypeType::Byte => false,
-        PrimitiveTypeType::Char => false,
-        PrimitiveTypeType::Double => false,
-        PrimitiveTypeType::Float => false,
-        PrimitiveTypeType::Long => false,
-        PrimitiveTypeType::Short => false,
+        PrimitiveTypeType::Int => make_java_lang_class_type("Integer", context),
+        PrimitiveTypeType::Boolean => make_java_lang_class_type("Boolean", context),
+        PrimitiveTypeType::Byte => make_java_lang_class_type("Byte", context),
+        PrimitiveTypeType::Char => make_java_lang_class_type("Character", context),
+        PrimitiveTypeType::Double => make_java_lang_class_type("Double", context),
+        PrimitiveTypeType::Float => make_java_lang_class_type("Float", context),
+        PrimitiveTypeType::Long => make_java_lang_class_type("Long", context),
+        PrimitiveTypeType::Short => make_java_lang_class_type("Short", context),
+    }
+}
+
+fn make_java_lang_class_type<'def>(name: &str, context: &Context<'def, '_, '_>) -> ClassType<'def> {
+    ClassType {
+        prefix_opt: None,
+        name: name.to_owned(),
+        span_opt: None,
+        type_args_opt: None,
+        def_opt: context
+            .scope
+            .root
+            .find_package("java")
+            .and_then(|p| p.find_package("lang"))
+            .and_then(|p| p.find_class(name))
+            .map(|c| c as *const analyze::definition::Class<'def>),
     }
 }
 

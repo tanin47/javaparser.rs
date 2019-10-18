@@ -16,6 +16,7 @@ pub fn apply<'def, 'def_ref, 'overlay_ref>(
         ResolvedName::Class(c) => Definition::Class(c),
         ResolvedName::Variable(v) => Definition::VariableDeclarator(v),
         ResolvedName::TypeParam(t) => Definition::TypeParam(t),
+        ResolvedName::Param(p) => Definition::Param(p),
     };
 
     overlay.usages.push(Usage {

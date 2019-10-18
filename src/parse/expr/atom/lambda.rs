@@ -78,6 +78,9 @@ pub fn parse<'def, 'r>(
     Ok((
         input,
         Expr::Lambda(Lambda {
+            inferred_method_opt: None,
+            inferred_params: vec![],
+            inferred_return_type: Type::UnknownType,
             params,
             expr_opt,
             block_opt,

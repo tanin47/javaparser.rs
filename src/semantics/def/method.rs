@@ -3,10 +3,7 @@ use semantics::def::type_param;
 use semantics::{block, Context};
 use {analyze, parse};
 
-pub fn apply<'def, 'def_ref>(
-    method: &'def_ref mut parse::tree::Method<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
-) {
+pub fn apply<'def>(method: &mut parse::tree::Method<'def>, context: &mut Context<'def, '_, '_>) {
     method.def_opt.replace(Some(
         context
             .id_hash
@@ -20,7 +17,7 @@ pub fn apply<'def, 'def_ref>(
         type_param::apply(t, context);
     }
 
-    if let Some(blk) = &method.block_opt {
+    if let Some(blk) = &mut method.block_opt {
         block::apply(blk, context);
     }
 

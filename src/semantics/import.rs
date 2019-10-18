@@ -3,27 +3,24 @@ use parse::tree::{ImportDef, ImportPrefix, ImportPrefixDef};
 use semantics::Context;
 use {analyze, parse};
 
-pub fn apply<'def, 'def_ref>(
-    import: &parse::tree::Import<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
-) {
-    match &import.prefix_opt {
+pub fn apply<'def>(import: &mut parse::tree::Import<'def>, context: &mut Context<'def, '_, '_>) {
+    match &mut import.prefix_opt {
         Some(prefix) => apply_prefix(prefix, context),
         None => (),
     };
 
     import.def_opt.replace(get_def(
-        &import.prefix_opt,
+        &mut import.prefix_opt,
         import.name.fragment,
         &mut context.scope,
     ));
 }
 
-pub fn apply_prefix<'def, 'def_ref>(
-    import: &parse::tree::ImportPrefix<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+pub fn apply_prefix<'def>(
+    import: &mut parse::tree::ImportPrefix<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) {
-    match &import.prefix_opt {
+    match &mut import.prefix_opt {
         Some(prefix) => apply_prefix(prefix, context),
         None => (),
     };
@@ -35,10 +32,10 @@ pub fn apply_prefix<'def, 'def_ref>(
     ));
 }
 
-fn get_def<'def, 'def_ref>(
-    prefix_opt: &Option<Box<ImportPrefix<'def>>>,
+fn get_def<'def>(
+    prefix_opt: &mut Option<Box<ImportPrefix<'def>>>,
     name: &'def str,
-    scope: &mut Scope<'def, 'def_ref>,
+    scope: &mut Scope<'def, '_>,
 ) -> Option<ImportDef<'def>> {
     let result_opt = get_enclosing_type_def(prefix_opt, name, scope);
 
@@ -49,10 +46,10 @@ fn get_def<'def, 'def_ref>(
     }
 }
 
-fn get_prefix_def<'def, 'def_ref>(
+fn get_prefix_def<'def>(
     prefix_opt: &Option<Box<ImportPrefix<'def>>>,
     name: &'def str,
-    scope: &mut Scope<'def, 'def_ref>,
+    scope: &mut Scope<'def, '_>,
 ) -> Option<ImportPrefixDef<'def>> {
     let result_opt = get_enclosing_type_def(prefix_opt, name, scope);
 
@@ -63,10 +60,10 @@ fn get_prefix_def<'def, 'def_ref>(
     }
 }
 
-fn get_enclosing_type_def<'def, 'def_ref>(
+fn get_enclosing_type_def<'def>(
     prefix_opt: &Option<Box<ImportPrefix<'def>>>,
     name: &'def str,
-    scope: &mut Scope<'def, 'def_ref>,
+    scope: &mut Scope<'def, '_>,
 ) -> Option<EnclosingTypeDef<'def>> {
     match prefix_opt {
         Some(prefix) => match prefix.def_opt.borrow().as_ref() {

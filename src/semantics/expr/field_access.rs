@@ -1,26 +1,20 @@
 use analyze::resolve::scope::Scope;
 use parse::tree::{
     EnclosingType, Expr, FieldAccess, FieldAccessPrefix, InvocationContext, PackagePrefix,
-    ParameterizedType, ResolvedName, StaticClass, StaticType,
+    ParameterizedType, ResolvedName, StaticClass, StaticType, Type,
 };
 use semantics::{expr, Context};
 use std::ops::Deref;
 
-pub fn apply<'def, 'def_ref>(
-    field_access: &'def_ref FieldAccess<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
-) {
+pub fn apply<'def>(field_access: &mut FieldAccess<'def>, context: &mut Context<'def, '_, '_>) {
     apply_field_access(field_access, context);
 }
 
-pub fn apply_field_access<'def, 'def_ref>(
-    field_access: &'def_ref FieldAccess<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+pub fn apply_field_access<'def>(
+    field_access: &mut FieldAccess<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) -> Option<FieldAccessPrefix<'def>> {
-    let new_prefix_opt = apply_prefix(
-        unsafe { field_access.prefix.try_borrow_unguarded() }.unwrap(),
-        context,
-    );
+    let new_prefix_opt = apply_prefix(field_access.prefix.borrow_mut().as_mut(), context);
 
     if let Some(new_prefix) = new_prefix_opt {
         field_access.prefix.replace(Box::new(new_prefix));
@@ -85,9 +79,9 @@ pub fn apply_field_access<'def, 'def_ref>(
     None
 }
 
-fn apply_prefix<'def, 'def_ref>(
-    prefix: &'def_ref FieldAccessPrefix<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+fn apply_prefix<'def>(
+    prefix: &mut FieldAccessPrefix<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) -> Option<FieldAccessPrefix<'def>> {
     let ex = match prefix {
         FieldAccessPrefix::Expr(e) => e,
@@ -134,7 +128,7 @@ fn apply_prefix<'def, 'def_ref>(
                 };
             }
         }
-        other => expr::apply(other, context),
+        other => expr::apply(other, &Type::UnknownType, context),
     };
 
     None
