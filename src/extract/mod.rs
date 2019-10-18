@@ -27,6 +27,7 @@ pub enum Definition<'a> {
     Method(*const analyze::definition::MethodDef<'a>),
     Field(*const analyze::definition::FieldDef<'a>),
     TypeParam(*const analyze::definition::TypeParam<'a>),
+    Param(*const analyze::definition::Param<'a>),
     VariableDeclarator(*const VariableDeclarator<'a>),
 }
 
@@ -39,6 +40,7 @@ impl<'a> Definition<'a> {
             Definition::VariableDeclarator(v) => *v as usize,
             Definition::Field(f) => *f as usize,
             Definition::TypeParam(t) => *t as usize,
+            Definition::Param(p) => *p as usize,
         }
     }
     pub fn span(&self) -> Option<&Span<'a>> {
@@ -52,6 +54,7 @@ impl<'a> Definition<'a> {
                 Some(&v.name)
             }
             Definition::TypeParam(t) => unsafe { &**t }.span_opt.as_ref(),
+            Definition::Param(p) => Some(&unsafe { &**p }.name),
         }
     }
 }

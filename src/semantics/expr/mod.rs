@@ -3,13 +3,14 @@ use parse::tree::{Expr, Type};
 use semantics::Context;
 
 pub mod field_access;
+pub mod lambda;
 pub mod method_call;
 pub mod name;
 
-pub fn apply<'def, 'def_ref, 'scope_ref>(
-    expr: &'def_ref Expr<'def>,
-    //    target_type: &Type<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+pub fn apply<'def>(
+    expr: &mut Expr<'def>,
+    target_type: &Type<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) {
     match expr {
         Expr::FieldAccess(f) => field_access::apply(f, context),
@@ -26,7 +27,7 @@ pub fn apply<'def, 'def_ref, 'scope_ref>(
         Expr::Hex(_) => {}
         Expr::InstanceOf(_) => {}
         Expr::Int(_) => {}
-        Expr::Lambda(_) => {}
+        Expr::Lambda(l) => lambda::apply(l, target_type, context),
         Expr::Long(_) => {}
         Expr::MethodCall(m) => method_call::apply(m, context),
         Expr::MethodReference(_) => {}

@@ -2,19 +2,20 @@ use analyze::resolve;
 use analyze::resolve::scope::Scope;
 use parse::tree::{VariableDeclarator, VariableDeclarators};
 use semantics::{expr, Context};
+use std::ops::Deref;
 
-pub fn apply<'def, 'def_ref, 'scope_ref>(
-    declarator: &'def_ref VariableDeclarators<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+pub fn apply<'def>(
+    declarator: &mut VariableDeclarators<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) {
-    for decl in &declarator.declarators {
+    for decl in &mut declarator.declarators {
         let resolved = resolve::apply_type(&decl.tpe.borrow(), &mut context.scope);
         decl.tpe.replace(resolved);
 
         context.scope.add_variable(decl);
 
-        if let Some(ex) = &decl.expr_opt {
-            expr::apply(ex, context);
+        if let Some(ex) = &mut decl.expr_opt {
+            expr::apply(ex, decl.tpe.borrow().deref(), context);
         }
     }
 }

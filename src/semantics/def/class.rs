@@ -5,10 +5,7 @@ use semantics::Context;
 use std::borrow::Borrow;
 use {analyze, parse};
 
-pub fn apply<'def, 'def_ref>(
-    class: &'def_ref mut parse::tree::Class<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
-) {
+pub fn apply<'def>(class: &mut parse::tree::Class<'def>, context: &mut Context<'def, '_, '_>) {
     class.def_opt.replace(Some(
         context
             .id_hash
@@ -34,9 +31,9 @@ pub fn apply<'def, 'def_ref>(
     context.scope.leave();
 }
 
-fn apply_class_body<'def, 'def_ref, 'scope_ref>(
-    body: &'def_ref mut parse::tree::ClassBody<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+fn apply_class_body<'def>(
+    body: &mut parse::tree::ClassBody<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) {
     for item in &mut body.items {
         match item {

@@ -2,18 +2,18 @@ use analyze::resolve::scope::Scope;
 use semantics::{block, Context};
 use {analyze, parse};
 
-pub fn apply<'def, 'def_ref>(
-    field_declarators: &'def_ref parse::tree::FieldDeclarators<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+pub fn apply<'def>(
+    field_declarators: &mut parse::tree::FieldDeclarators<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) {
-    for decl in &field_declarators.declarators {
+    for decl in &mut field_declarators.declarators {
         apply_decl(decl, context);
     }
 }
 
-pub fn apply_decl<'def, 'def_ref>(
-    decl: &'def_ref parse::tree::FieldDeclarator<'def>,
-    context: &mut Context<'def, 'def_ref, '_>,
+pub fn apply_decl<'def>(
+    decl: &mut parse::tree::FieldDeclarator<'def>,
+    context: &mut Context<'def, '_, '_>,
 ) {
     decl.def_opt.replace(Some(
         context

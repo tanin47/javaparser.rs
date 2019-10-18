@@ -1,4 +1,4 @@
-use analyze::definition::{Class, Decl, Method, MethodDef, Package, Root, TypeParam};
+use analyze::definition::{Class, Decl, Method, MethodDef, Package, Param, Root, TypeParam};
 use parse::tree::{
     ClassType, EnclosingType, ImportPrefix, InvocationContext, PackagePrefix, ParameterizedType,
     ResolvedName, VariableDeclarator, NATIVE_ARRAY_CLASS_NAME,
@@ -44,6 +44,7 @@ unsafe impl<'def> Send for Level<'def> {}
 pub enum Name<'def> {
     TypeParam(*const TypeParam<'def>),
     Variable(*const VariableDeclarator<'def>),
+    Param(*const Param<'def>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -154,6 +155,13 @@ impl<'def, 'r> Scope<'def, 'r> {
         );
     }
 
+    pub fn add_param<'s>(&mut self, param: &'s Param<'def>) {
+        self.add_name(
+            param.name.fragment,
+            Name::Param(param as *const Param<'def>),
+        );
+    }
+
     pub fn add_variable<'s>(&mut self, variable: &'s VariableDeclarator<'def>) {
         self.add_name(
             variable.name.fragment,
@@ -222,6 +230,9 @@ impl<'def, 'r> Scope<'def, 'r> {
                         }
                         Name::Variable(v) => {
                             return Some(ResolvedName::Variable(*v));
+                        }
+                        Name::Param(p) => {
+                            return Some(ResolvedName::Param(*p));
                         }
                     }
                 }
@@ -355,7 +366,7 @@ impl<'def, 'r> Scope<'def, 'r> {
                 let class = unsafe { &(**class) };
                 for decl in &class.decls {
                     if let Decl::Class(subclass) = decl {
-                        if subclass.name == name {
+                        if &subclass.name == name {
                             return Some(EnclosingTypeDef::Class(subclass.deref()));
                         }
                     }
