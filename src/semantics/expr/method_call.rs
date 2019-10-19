@@ -6,6 +6,7 @@ use parse::tree::{
     PrimitiveType, PrimitiveTypeType, Type, TypeArg, TypeParamExtend,
 };
 use semantics::{expr, Context};
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::cmp::Ordering::{Equal, Greater, Less};
@@ -166,12 +167,8 @@ fn compute<'def>(
     for (param, arg) in method.params.iter().zip(call.args.iter_mut()) {
         param_scores.push(compute_param_score(param, arg, &inferred, context));
 
-        if let Type::Parameterized(t) = param.tpe.borrow().deref() {
-            if let Some(tpe) = arg.tpe_opt() {
-                if should_replace(inferred.get(&t.name)) {
-                    inferred.insert(t.name.to_owned(), tpe);
-                }
-            }
+        if let Some(tpe) = arg.tpe_opt() {
+            add_inference(&mut inferred, param.tpe.borrow().deref(), &tpe, context);
         }
     }
 
@@ -182,19 +179,97 @@ fn compute<'def>(
     )
 }
 
-fn should_replace(current_type_opt: Option<&Type>) -> bool {
-    let current_type = if let Some(current_type) = current_type_opt {
-        current_type
-    } else {
-        return true;
+fn add_inference<'def>(
+    inferred: &mut HashMap<String, Type<'def>>,
+    param: &Type<'def>,
+    arg: &Type<'def>,
+    context: &Context<'def, '_, '_>,
+) {
+    match param {
+        Type::Class(param_type) => add_inference_class(inferred, param_type, arg, context),
+        Type::Parameterized(param_type) => {
+            add_inference_parameterized(inferred, param_type, arg, context)
+        }
+        Type::Primitive(_) => (),
+        Type::Array(_) => (),
+        Type::Void(_) => (),
+        Type::Wildcard(_) => (),
+        Type::Lambda(_) => (),
+        Type::UnknownType => (),
     };
+}
 
-    match current_type {
-        Type::Parameterized(_) => true,
-        Type::Wildcard(_) => true,
-        Type::UnknownType => true,
-        _ => false,
-    }
+fn add_inference_class<'def>(
+    inferred: &mut HashMap<String, Type<'def>>,
+    param: &ClassType<'def>,
+    arg: &Type<'def>,
+    context: &Context<'def, '_, '_>,
+) {
+    match arg {
+        Type::Class(arg) => {
+            if arg.inherits(param) {
+                for (param_type_arg, arg_type_arg) in param
+                    .type_args_opt
+                    .as_ref()
+                    .unwrap_or(&vec![])
+                    .iter()
+                    .zip(arg.type_args_opt.as_ref().unwrap_or(&vec![]).iter())
+                {
+                    add_inference(
+                        inferred,
+                        &param_type_arg.to_type(),
+                        &arg_type_arg.to_type(),
+                        context,
+                    );
+                }
+            }
+        }
+        Type::Lambda(arg) => {
+            for (param_type_arg, arg_type_arg) in param
+                .type_args_opt
+                .as_ref()
+                .unwrap_or(&vec![])
+                .iter()
+                .zip(arg.type_args_opt.as_ref().unwrap_or(&vec![]).iter())
+            {
+                add_inference(
+                    inferred,
+                    &param_type_arg.to_type(),
+                    &arg_type_arg.to_type(),
+                    context,
+                );
+            }
+        }
+        Type::Primitive(_) => (),
+        Type::Array(_) => {}
+        Type::Parameterized(_) => {}
+        Type::Void(_) => {}
+        Type::Wildcard(_) => {}
+        Type::UnknownType => {}
+    };
+}
+
+fn add_inference_parameterized<'def>(
+    inferred: &mut HashMap<String, Type<'def>>,
+    param: &ParameterizedType<'def>,
+    arg: &Type<'def>,
+    context: &Context<'def, '_, '_>,
+) {
+    match arg {
+        Type::Class(arg) => inferred.insert(param.name.to_owned(), Type::Class(arg.clone())),
+        Type::Primitive(arg) => inferred.insert(
+            param.name.to_owned(),
+            Type::Class(coerce_from_primitive_to_class(arg, context)),
+        ),
+        Type::Parameterized(arg) => {
+            inferred.insert(param.name.to_owned(), Type::Parameterized(arg.clone()))
+        }
+        Type::Array(_) => panic!(),
+        Type::Void(_) => panic!(),
+        Type::Wildcard(_) => panic!(),
+        Type::UnknownType => panic!(),
+        Type::Lambda(_) => panic!(),
+    };
 }
 
 fn realize_method_with_type_args<'def>(
@@ -256,6 +331,7 @@ fn compute_param_score<'def>(
         Type::UnknownType => ParamScore::UnknownTypeMatched,
         Type::Void(_) => panic!(),
         Type::Wildcard(_) => panic!(),
+        Type::Lambda(_) => panic!(),
     }
 }
 
@@ -313,6 +389,13 @@ fn compute_class_param_score<'def>(
         Type::Primitive(p) => {
             if can_coerce_from_prim_to_class(p, class, context) {
                 return ParamScore::Coerced;
+            }
+        }
+        Type::Lambda(l) => {
+            if class.type_args_opt.as_ref().unwrap_or(&vec![]).len()
+                == l.type_args_opt.as_ref().unwrap_or(&vec![]).len()
+            {
+                return ParamScore::Matched;
             }
         }
         Type::Array(a) => (),

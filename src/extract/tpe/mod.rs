@@ -16,6 +16,7 @@ pub fn apply<'def, 'def_ref, 'overlay_ref>(
         Type::Wildcard(_) => {}
         Type::Parameterized(p) => parameterized::apply(p, overlay),
         Type::Void(_) => {}
+        Type::Lambda(_) => {}
         Type::UnknownType => {}
     }
 }

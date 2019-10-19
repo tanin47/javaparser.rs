@@ -12,21 +12,26 @@ pub fn apply<'def>(
     target_type: &Type<'def>,
     context: &mut Context<'def, '_, '_>,
 ) {
-    lambda.inferred_method_opt = get_lambda_method(target_type);
+    lambda.inferred_class_type_opt = if let Type::Class(c) = target_type {
+        Some(c.clone())
+    } else {
+        None
+    };
+    lambda.inferred_method_opt = lambda
+        .inferred_class_type_opt
+        .as_ref()
+        .and_then(|c| c.lambda_method());
 
     context.scope.enter();
 
     if let Some(method) = &mut lambda.inferred_method_opt {
-        for (param, target_param) in lambda.params.iter().zip(method.params.iter()) {
-            lambda.inferred_params.push(Param {
-                tpe: RefCell::new(infer(
-                    &param.tpe,
-                    target_param.tpe.borrow().deref(),
-                    context,
-                )),
-                name: param.name.clone(),
-                is_varargs: param.is_varargs,
-            });
+        for (param, target_param) in lambda.params.iter().zip(method.params.iter_mut()) {
+            target_param.tpe.replace(infer(
+                &param.tpe,
+                target_param.tpe.borrow().deref(),
+                context,
+            ));
+            context.scope.add_param(target_param);
         }
     }
 
@@ -37,7 +42,9 @@ pub fn apply<'def>(
     if let Some(e) = &mut lambda.expr_opt {
         expr::apply(e, &Type::UnknownType, context);
 
-        lambda.inferred_return_type = e.tpe_opt().unwrap_or(Type::UnknownType);
+        if let Some(method) = &mut lambda.inferred_method_opt {
+            method.return_type = e.tpe_opt().unwrap_or(Type::UnknownType);
+        }
     } else if let Some(b) = &mut lambda.block_opt {
         block::apply(b, context);
 
@@ -48,6 +55,8 @@ pub fn apply<'def>(
         lambda.inferred_return_type =
             infer(&lambda.inferred_return_type, &method.return_type, context);
     }
+
+    // TODO: we need to set the ClassType correctly here.
 
     context.scope.leave();
 }
@@ -65,6 +74,7 @@ fn infer<'def>(
         Type::Wildcard(_) => (),
         Type::UnknownType => return target.clone(),
         Type::Void(_) => panic!(),
+        Type::Lambda(_) => panic!(),
     }
 
     declared.clone()
@@ -108,16 +118,6 @@ fn infer_class<'def>(declared: &ClassType<'def>, target: &Type<'def>) -> ClassTy
     }
 
     declared.clone()
-}
-
-fn get_lambda_method<'def>(target_type: &Type<'def>) -> Option<analyze::definition::Method<'def>> {
-    let target_type = if let Type::Class(t) = target_type {
-        t
-    } else {
-        return None;
-    };
-
-    target_type.lambda_method()
 }
 
 #[cfg(test)]
@@ -183,5 +183,57 @@ abstract class Function {
                 tpe: PrimitiveTypeType::Int
             })
         )
+    }
+
+    #[test]
+    fn test_infer_from_return_statement() {
+        let (files, root) = apply_semantics!(
+            r#"
+package dev;
+
+class Test {
+  void method() {
+    method(() -> { return 3; });
+  }
+  
+  <T> T method(Function<T> fn) {}
+}
+        "#,
+            r#"
+package dev;
+
+abstract class Function<T> {
+  T main();
+}
+        "#
+        );
+
+        let class = unwrap!(
+            CompilationUnitItem::Class,
+            &files.first().unwrap().unit.items.get(0).unwrap()
+        );
+        let method = unwrap!(ClassBodyItem::Method, &class.body.items.get(0).unwrap());
+        let expr_stmt = unwrap!(
+            Statement::Expr,
+            &method.block_opt.as_ref().unwrap().stmts.get(0).unwrap()
+        );
+        let method_call = unwrap!(Expr::MethodCall, &expr_stmt);
+
+        assert_eq!(
+            &method_call
+                .def_opt
+                .borrow()
+                .deref()
+                .as_ref()
+                .unwrap()
+                .return_type,
+            &Type::Class(ClassType {
+                prefix_opt: None,
+                name: "Integer".to_string(),
+                span_opt: None,
+                type_args_opt: None,
+                def_opt: None
+            })
+        );
     }
 }

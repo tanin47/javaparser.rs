@@ -229,7 +229,13 @@ pub enum Type<'a> {
     Parameterized(ParameterizedType<'a>),
     Void(Void<'a>),
     Wildcard(WildcardType<'a>),
+    Lambda(LambdaClassType<'a>),
     UnknownType,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct LambdaClassType<'a> {
+    pub type_args_opt: Option<Vec<TypeArg<'a>>>,
 }
 
 impl<'a> Type<'a> {
@@ -241,6 +247,7 @@ impl<'a> Type<'a> {
             Type::Wildcard(w) => w.span_opt.as_ref(),
             Type::Void(v) => v.span_opt.as_ref(),
             Type::Primitive(p) => p.span_opt.as_ref(),
+            Type::Lambda(_) => panic!(),
             Type::UnknownType => panic!(),
         }
     }
@@ -253,6 +260,7 @@ impl<'a> Type<'a> {
             Type::Wildcard(w) => TypeArg::Wildcard(w),
             Type::Void(_) => panic!(),
             Type::Primitive(p) => TypeArg::Primitive(p),
+            Type::Lambda(_) => panic!(),
             Type::UnknownType => panic!(),
         }
     }
@@ -265,6 +273,7 @@ impl<'a> Type<'a> {
             Type::Array(arr) => panic!(),
             Type::Void(_) => panic!(),
             Type::Primitive(_) => panic!(),
+            Type::Lambda(_) => panic!(),
             Type::UnknownType => panic!(),
         }
     }
@@ -277,6 +286,7 @@ impl<'a> Type<'a> {
             Type::Wildcard(w) => panic!(),
             Type::Void(_) => panic!(),
             Type::Primitive(_) => panic!(),
+            Type::Lambda(_) => panic!(),
             Type::UnknownType => panic!(),
         }
     }
@@ -484,6 +494,20 @@ pub struct ClassType<'a> {
 impl<'a> ClassType<'a> {
     pub fn set_span_opt(&mut self, span_opt: Option<&Span<'a>>) {
         self.span_opt = span_opt.map(|s| s.clone());
+    }
+
+    pub fn inherits(&self, maybe_super: &ClassType<'a>) -> bool {
+        if self.def_opt.is_some() && self.def_opt == maybe_super.def_opt {
+            return true;
+        }
+
+        if let Some(extend) = self.get_extend_opt() {
+            if extend.inherits(maybe_super) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn lambda_method(&self) -> Option<analyze::definition::Method<'a>> {
@@ -808,6 +832,7 @@ impl<'a> ClassType<'a> {
             Type::Primitive(_) => tpe.clone(),
             Type::Void(_) => tpe.clone(),
             Type::UnknownType => Type::UnknownType,
+            Type::Lambda(_) => panic!(),
         }
     }
 }
@@ -1169,6 +1194,11 @@ impl<'a> Expr<'a> {
                 span_opt: None,
                 tpe: PrimitiveTypeType::Int,
             })),
+            Expr::Lambda(l) => l.inferred_class_type_opt.as_ref().map(|class_type| {
+                Type::Lambda(LambdaClassType {
+                    type_args_opt: class_type.type_args_opt.clone(),
+                })
+            }),
             _ => None,
         }
     }
@@ -1284,6 +1314,7 @@ pub struct MethodCall<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Lambda<'a> {
+    pub inferred_class_type_opt: Option<ClassType<'a>>,
     pub inferred_method_opt: Option<analyze::definition::Method<'a>>,
     pub inferred_params: Vec<analyze::definition::Param<'a>>,
     pub inferred_return_type: Type<'a>,
