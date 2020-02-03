@@ -14,6 +14,8 @@ We've chosen Rust because:
 2. Memory overhead on an object is low.
 3. It's a modern language, so it's more pleasant to use.
 
+The disadvantage we've seen so far is that Rust can't model a complex tree where nodes can refer to some other nodes. We use unsafe pointers everywhere :S
+
 Status
 -------
 
