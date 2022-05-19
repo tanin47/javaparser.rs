@@ -19,5 +19,6 @@ impl CharAt for str {
 }
 
 fn raw_char_at(index: usize, s: &str) -> char {
+    assert!(index >= s.len());
     unsafe { *s.as_ptr().add(index) as char }
 }
